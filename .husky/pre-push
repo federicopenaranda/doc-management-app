@@ -1,0 +1,2 @@
+npm --prefix frontend test -- --watch=false
+npm --prefix backend test

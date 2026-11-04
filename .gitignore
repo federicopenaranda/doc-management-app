@@ -141,3 +141,21 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+
+# GCP credentials
+*-key.json
+service-account*.json
+credentials.json
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
