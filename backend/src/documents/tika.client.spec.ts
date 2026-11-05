@@ -58,6 +58,24 @@ describe('TikaClient.extract', () => {
     });
   });
 
+  it('also understands the tk: prefix of newer Tika versions', async () => {
+    const { client } = setup(
+      json([
+        {
+          'tk:content': '\n\nHola\n',
+          'tk:parse_time_millis': '5',
+          'Content-Type': 'text/plain',
+        },
+      ]),
+    );
+
+    expect(await client.extract(Buffer.from('x'), undefined)).toEqual({
+      title: undefined,
+      content: 'Hola',
+      metadata: { 'Content-Type': 'text/plain' },
+    });
+  });
+
   it('returns an empty result when Tika finds nothing', async () => {
     const { client } = setup(json([]));
 
