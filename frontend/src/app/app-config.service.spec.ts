@@ -59,6 +59,29 @@ describe('AppConfigService', () => {
     await expect(loading).rejects.toThrow('config.json');
   });
 
+  it.each([
+    [{ apiUrl: 'http://localhost:3000' }, false],
+    [{ apiUrl: 'http://localhost:3000', uploadsEnabled: false }, false],
+    [{ apiUrl: 'http://localhost:3000', uploadsEnabled: true }, true],
+  ])('reads the uploads flag from %j as %s (off when absent)', async (body, expected) => {
+    const { service, http } = setup();
+
+    const loading = service.load();
+    http.expectOne('config.json').flush(body);
+    await loading;
+
+    expect(service.uploadsEnabled).toBe(expected);
+  });
+
+  it('rejects an uploadsEnabled that is not a boolean, naming config.json', async () => {
+    const { service, http } = setup();
+
+    const loading = service.load();
+    http.expectOne('config.json').flush({ apiUrl: 'http://localhost:3000', uploadsEnabled: 'yes' });
+
+    await expect(loading).rejects.toThrow('config.json');
+  });
+
   it('throws when apiUrl is read before the config is loaded', () => {
     const { service } = setup();
 

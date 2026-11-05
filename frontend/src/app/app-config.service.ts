@@ -4,6 +4,8 @@ import { firstValueFrom } from 'rxjs';
 
 interface AppConfig {
   apiUrl: string;
+  /** Feature flag for multi-file upload: remove it two weeks after it is on in use. */
+  uploadsEnabled: boolean;
 }
 
 function isHttpUrl(value: string): boolean {
@@ -16,14 +18,19 @@ function isHttpUrl(value: string): boolean {
 }
 
 function parseConfig(raw: unknown): AppConfig {
-  const apiUrl =
+  const object =
     typeof raw === 'object' && raw !== null && !Array.isArray(raw)
-      ? (raw as Record<string, unknown>)['apiUrl']
-      : undefined;
+      ? (raw as Record<string, unknown>)
+      : {};
+  const apiUrl = object['apiUrl'];
   if (typeof apiUrl !== 'string' || !isHttpUrl(apiUrl)) {
     throw new Error('config.json: "apiUrl" must be an absolute http(s) URL');
   }
-  return { apiUrl: apiUrl.replace(/\/+$/, '') };
+  const uploadsEnabled = object['uploadsEnabled'] ?? false;
+  if (typeof uploadsEnabled !== 'boolean') {
+    throw new Error('config.json: "uploadsEnabled" must be true or false');
+  }
+  return { apiUrl: apiUrl.replace(/\/+$/, ''), uploadsEnabled };
 }
 
 /** Runtime configuration: one build serves every environment, config.json says where the API is. */
@@ -35,6 +42,11 @@ export class AppConfigService {
   get apiUrl(): string {
     if (!this.config) throw new Error('config.json has not been loaded');
     return this.config.apiUrl;
+  }
+
+  get uploadsEnabled(): boolean {
+    if (!this.config) throw new Error('config.json has not been loaded');
+    return this.config.uploadsEnabled;
   }
 
   /** Relative URL, so the app also works when served from a sub-path. */

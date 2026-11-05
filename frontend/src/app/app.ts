@@ -1,16 +1,19 @@
 import { Component, inject, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
-import { RouterOutlet } from '@angular/router';
+import { RouterLink, RouterOutlet } from '@angular/router';
+import { AppConfigService } from './app-config.service';
 import { HelloService } from './hello/hello.service';
 
 @Component({
-  imports: [MatButton, RouterOutlet],
+  imports: [MatButton, RouterLink, RouterOutlet],
   selector: 'dms-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
 })
 export class App {
   private readonly hello = inject(HelloService);
+
+  protected readonly uploadsEnabled = inject(AppConfigService).uploadsEnabled;
 
   protected readonly title = signal('doc-management');
   protected readonly message = signal('');
