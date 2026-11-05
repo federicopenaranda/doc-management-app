@@ -19,3 +19,9 @@ variable "local_secret_readers" {
     error_message = "local_secret_readers must contain at least one Google account."
   }
 }
+
+variable "adopt_existing_secrets" {
+  type        = bool
+  default     = false
+  description = "Import the four secrets instead of creating them. Needed while they already exist in GCP (created by hand with their values)."
+}

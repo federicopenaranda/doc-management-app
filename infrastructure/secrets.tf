@@ -18,8 +18,9 @@ locals {
   }
 }
 
-# Terraform creates the secrets and their access rules; the owner adds the real values by hand,
-# so no secret value ever lands in the Terraform state.
+# Terraform owns the secrets and their access rules, never their values (so none lands in the state):
+# the owner adds versions by hand. Writing a version here would also make it "latest" and hide the owner's
+# values. Every secret needs at least one version before the Cloud Run service that mounts it can start.
 resource "google_secret_manager_secret" "config" {
   for_each = local.secret_ids
 
@@ -30,19 +31,6 @@ resource "google_secret_manager_secret" "config" {
   }
 
   depends_on = [google_project_service.apis]
-}
-
-# A Cloud Run revision that mounts a secret with no versions fails to start, so each secret gets a
-# first version holding "{}" (not a secret). Versions the owner adds later become "latest".
-resource "google_secret_manager_secret_version" "placeholder" {
-  for_each = google_secret_manager_secret.config
-
-  secret      = each.value.id
-  secret_data = "{}"
-
-  lifecycle {
-    ignore_changes = [secret_data]
-  }
 }
 
 resource "google_secret_manager_secret_iam_member" "runtime" {

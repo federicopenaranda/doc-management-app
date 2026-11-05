@@ -89,9 +89,11 @@ and wants secrets out of the repo, out of Terraform state, and out of chat.
 - The two services refer to each other's URL, which would be a dependency cycle in Terraform. Break it by computing the URLs from names
   with Cloud Run's deterministic format (`https://<service>-<project-number>.<region>.run.app`, to be verified when building) instead of
   reading the other resource's attributes.
-- A Cloud Run revision that mounts a secret with no versions fails to start. Terraform therefore creates each secret with a first
-  version containing `{}` (not a secret) and ignores later changes to it; the owner's own versions then become `latest`.
-  Until the owner adds real values, the placeholder image does not need them.
+- **Changed after the first apply failed (409 "already exists"):** the owner created the four secrets by hand, with values, before
+  the apply. Terraform therefore adopts them with `import` blocks (switched on by `TF_VAR_adopt_existing_secrets` in the workflow;
+  offline tests leave it off because mocked providers cannot import) and never writes a secret version at all: a placeholder `{}`
+  version would have become `latest` and hidden the owner's values. A Cloud Run revision that mounts a secret with no versions
+  fails to start, so a brand-new environment needs versions added between its first apply and the next.
 - The documents bucket name is chosen by Terraform (suggested `doc-management-sandbox-documents`) and printed as an output so the owner
   can put the same name in `GCS_BUCKET` inside the backend secrets.
 - Plans on pull requests run with the same `github-deployer` identity that applies. Acceptable now (one owner, same repository);

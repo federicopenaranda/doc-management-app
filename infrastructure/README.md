@@ -38,7 +38,10 @@ terraform test
 
 ## Secrets
 
-Terraform creates the secrets with a first version `{}` and never writes any other value, so no secret ends up in the Terraform state.
+Terraform owns the secrets (and who may read them) but **never writes a version**, so no secret value ends up in the Terraform state and
+none of your values is hidden behind a newer one. The four sandbox secrets were created by hand, so Terraform adopts them
+(`imports.tf`, switched on by `TF_VAR_adopt_existing_secrets` in the workflow). Each secret needs at least one version before the Cloud
+Run service that mounts it can start; for a brand-new environment add the versions between its first apply and the next.
 You add the real values yourself; the newest version is always the one used (`latest`):
 
 ```bash

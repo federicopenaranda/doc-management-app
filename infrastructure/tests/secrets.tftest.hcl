@@ -22,15 +22,6 @@ run "four_secrets_only" {
   }
 }
 
-run "placeholder_is_empty_json" {
-  command = plan
-
-  assert {
-    condition     = alltrue([for version in google_secret_manager_secret_version.placeholder : nonsensitive(version.secret_data) == "{}"])
-    error_message = "the only value Terraform writes into a secret is {}"
-  }
-}
-
 # Service account emails are only known after apply; the provider is mocked, so nothing leaves this machine.
 run "runtime_access_is_per_app" {
   command = apply
