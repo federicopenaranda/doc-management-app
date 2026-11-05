@@ -33,9 +33,18 @@ describe('UploadPage', () => {
   it('shows a heading, the drop area and a button to choose files', async () => {
     await setup();
 
-    expect(screen.getByRole('heading', { level: 1 })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /upload documents/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /choose files/i })).toBeTruthy();
     expect(screen.queryByRole('list')).toBeNull();
+  });
+
+  it('is a labelled region, not a second main landmark or page title (the app shell owns those)', async () => {
+    await setup();
+
+    expect(screen.queryByRole('main')).toBeNull();
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    const region = screen.getByRole('region', { name: /upload documents/i });
+    expect(within(region).getByRole('heading', { level: 2 })).toBeTruthy();
   });
 
   it('marks the drop area while files are dragged over it', async () => {
