@@ -25,6 +25,7 @@
   - **GitHub Actions:** Pipelines para compilación, tests TDD, análisis con `knip`, escaneo de vulnerabilidades y despliegue.
     - Un PR que toque `infrastructure/**` ejecuta `terraform fmt -check`, `validate` y `plan` para ver qué cambiaría; al hacer merge a `main` se ejecuta `terraform apply`.
     - Autenticación sin llaves guardadas: Workload Identity Federation hacia la cuenta de servicio `github-deployer`, limitada a este repositorio.
+- **Configuración y secretos:** la configuración de cada app vive en secretos JSON de Secret Manager, uno por app y entorno: `<app>-<local|sandbox|prod>` (por ejemplo `backend-local`, `frontend-sandbox`). Terraform crea los secretos y sus permisos; los valores los agrega el dueño a mano, nunca van al *state* ni al repositorio. En desarrollo local se descargan con `npm run env:pull` (backend, genera `.env`) y `npm run config:pull` (frontend, genera `public/config.json`, que solo puede contener valores públicos). Sandbox y prod son proyectos de GCP separados; por ahora solo existe sandbox. Detalles en `infrastructure/README.md`.
 
 ---
 
