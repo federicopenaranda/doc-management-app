@@ -17,3 +17,20 @@ test('the hello button shows the text returned by the API', async ({ page }) => 
 
   await expect(page.getByText('Hello World!')).toBeVisible();
 });
+
+test('the API URL comes from config.json, not from the build', async ({ page }) => {
+  await page.route('**/config.json', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: '{ "apiUrl": "http://localhost:4999" }',
+    }),
+  );
+  await page.route('http://localhost:4999/', (route) =>
+    route.fulfill({ contentType: 'text/plain', body: 'Hello from config' }),
+  );
+  await page.goto('/');
+
+  await page.getByRole('button', { name: /say hello/i }).click();
+
+  await expect(page.getByText('Hello from config')).toBeVisible();
+});
