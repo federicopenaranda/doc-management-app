@@ -118,6 +118,13 @@ describe('backend image', () => {
     assert.equal(fromFile.headers.get('access-control-allow-origin'), null);
   });
 
+  it('does not serve Swagger UI or the OpenAPI document outside local development', async () => {
+    const { url } = await start();
+
+    assert.equal((await fetch(`${url}/api`)).status, 404);
+    assert.equal((await fetch(`${url}/api-json`)).status, 404);
+  });
+
   it('sets security headers', async () => {
     const { url } = await start();
 
