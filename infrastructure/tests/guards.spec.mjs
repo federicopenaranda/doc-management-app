@@ -89,3 +89,52 @@ describe('secrets', () => {
     }
   });
 });
+
+describe('our workflows', () => {
+  const dir = join(infraDir, '..', '.github', 'workflows');
+  // claude.yml comes from the Claude Code GitHub app installer and is left as generated.
+  const files = ['infrastructure.yml', 'frontend.yml'];
+
+  it('pin every third-party action to a full commit SHA', () => {
+    for (const name of files) {
+      for (const [, action] of readText(dir, name).matchAll(/^\s*-?\s*uses:\s*(\S+)/gm)) {
+        if (action.startsWith('./')) continue;
+        assert.match(action, /@[0-9a-f]{40}$/, `${name}: ${action}`);
+      }
+    }
+  });
+});
+
+describe('frontend workflow', () => {
+  const frontend = readText(infraDir, '..', '.github', 'workflows', 'frontend.yml');
+  const job = (name) => {
+    const match = frontend.match(new RegExp(String.raw`^  ${name}:\n([\s\S]*?)(?=^  [a-z-]+:\n|(?![\s\S]))`, 'm'));
+    assert.ok(match, `job ${name} not found`);
+    return match[1];
+  };
+
+  it('runs for frontend changes on pull requests and on main', () => {
+    assert.match(frontend, /pull_request:\n\s+paths:\n\s+- "frontend\/\*\*"/);
+    assert.match(frontend, /push:\n\s+branches: \[main\]\n\s+paths:\n\s+- "frontend\/\*\*"/);
+  });
+
+  it('verifies without secrets or an environment, so any pull request (forks too) can run it', () => {
+    const verify = job('verify');
+    assert.doesNotMatch(verify, /environment:/);
+    assert.doesNotMatch(verify, /id-token/);
+    assert.match(verify, /npm run test:image/);
+  });
+
+  it('deploys only on push, after verify, through the sandbox environment', () => {
+    const deploy = job('deploy');
+    assert.match(deploy, /needs: verify/);
+    assert.match(deploy, /if: github\.event_name == 'push'/);
+    assert.match(deploy, /environment: sandbox/);
+  });
+
+  it('tags the image with the commit and never with "latest"', () => {
+    const deploy = job('deploy');
+    assert.match(deploy, /\/apps\/frontend:\$\{\{ github\.sha \}\}/);
+    assert.doesNotMatch(frontend, /:latest/);
+  });
+});

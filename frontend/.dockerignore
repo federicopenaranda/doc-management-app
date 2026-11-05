@@ -1,0 +1,10 @@
+node_modules
+dist
+.angular
+e2e
+scripts
+test-results
+playwright-report
+coverage
+.git
+*.md

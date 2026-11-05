@@ -10,7 +10,8 @@
     "lint": "ng lint",
     "e2e": "playwright test",
     "test:scripts": "node --test \"scripts/**/*.spec.mjs\"",
-    "config:pull": "node scripts/pull-config.mjs"
+    "config:pull": "node scripts/pull-config.mjs",
+    "test:image": "node --test docker/image.spec.mjs"
   },
   "private": true,
   "packageManager": "npm@11.19.1",

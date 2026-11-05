@@ -1,0 +1,87 @@
+name: Frontend
+
+# Pull requests build and test the frontend image; a push to main also publishes it and deploys it to Cloud Run.
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # No secrets and no environment: any pull request, including forks, can run this.
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npx prettier --check .
+      - run: npx ng lint
+      - run: npx ng test --watch=false
+      - run: npm run test:scripts
+
+      # Builds the image and runs real containers against it (config.json handling, caching, non-root).
+      - name: Image tests
+        run: npm run test:image
+
+  deploy:
+    needs: verify
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: sandbox
+    # Never cancel a deploy that is running.
+    concurrency:
+      group: frontend-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      REGISTRY: ${{ vars.GCP_REGION }}-docker.pkg.dev
+      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/apps/frontend:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - name: Build and push the image
+        run: |
+          gcloud auth configure-docker "$REGISTRY" --quiet
+          docker build -t "$IMAGE" frontend
+          docker push "$IMAGE"
+
+      # Only the image changes: env vars, the mounted secret and scaling come from Terraform, which ignores the image.
+      - name: Deploy
+        run: gcloud run services update frontend --region "${{ vars.GCP_REGION }}" --project "${{ vars.GCP_PROJECT_ID }}" --image "$IMAGE" --quiet
+
+      - name: Smoke test the deployed service
+        run: |
+          url=$(gcloud run services describe frontend --region "${{ vars.GCP_REGION }}" --project "${{ vars.GCP_PROJECT_ID }}" --format='value(status.url)')
+          curl -fsS "$url/" | grep -q '<dms-root'
+          curl -fsS "$url/config.json" | jq -e '.apiUrl | startswith("https://backend-")'
