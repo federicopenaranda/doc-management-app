@@ -15,6 +15,7 @@ describe('validateEnv', () => {
       NODE_ENV: 'development',
       LOG_LEVEL: 'info',
       PORT: 3000,
+      DOCUMENT_PROCESSING_ENABLED: false,
     });
   });
 
@@ -60,5 +61,51 @@ describe('validateEnv', () => {
     expect(() =>
       validateEnv({ ...valid, JWT_SECRET: 'short-secret' }),
     ).not.toThrow(/short-secret/);
+  });
+
+  describe('document worker settings', () => {
+    const worker = {
+      TIKA_URL: 'https://tika.example.com',
+      PROCESSED_BUCKET: 'dms-documents-processed',
+      BACKEND_URL: 'https://backend.example.com',
+      PUBSUB_PUSH_SA_EMAIL: 'pubsub-push@project.iam.gserviceaccount.com',
+    };
+
+    it('is off by default and needs none of the settings', () => {
+      expect(validateEnv(valid).DOCUMENT_PROCESSING_ENABLED).toBe(false);
+    });
+
+    it.each([
+      ['true', true],
+      ['false', false],
+    ])('reads the flag string "%s" as %s', (raw, expected) => {
+      const env = validateEnv({
+        ...valid,
+        ...worker,
+        DOCUMENT_PROCESSING_ENABLED: raw,
+      });
+
+      expect(env.DOCUMENT_PROCESSING_ENABLED).toBe(expected);
+    });
+
+    it.each(Object.keys(worker))(
+      'throws naming %s when the flag is on and it is missing',
+      (name) => {
+        const env: Record<string, string> = {
+          ...valid,
+          ...worker,
+          DOCUMENT_PROCESSING_ENABLED: 'true',
+        };
+        delete env[name];
+
+        expect(() => validateEnv(env)).toThrow(name);
+      },
+    );
+
+    it('rejects a TIKA_URL that is not a URL', () => {
+      expect(() =>
+        validateEnv({ ...valid, ...worker, TIKA_URL: 'tika' }),
+      ).toThrow('TIKA_URL');
+    });
   });
 });
