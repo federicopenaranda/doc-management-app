@@ -6,4 +6,5 @@ locals {
   run_url_suffix = "${data.google_project.this.number}.${var.region}.run.app"
   frontend_url   = "https://frontend-${local.run_url_suffix}"
   backend_url    = "https://backend-${local.run_url_suffix}"
+  tika_url       = "https://tika-${local.run_url_suffix}"
 }
