@@ -1,6 +1,7 @@
 // Guards for things `terraform test` cannot see: the CI workflow and first-apply ordering.
 // Run with: node --test infrastructure/tests/guards.spec.mjs
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -136,5 +137,14 @@ describe('frontend workflow', () => {
     const deploy = job('deploy');
     assert.match(deploy, /\/apps\/frontend:\$\{\{ github\.sha \}\}/);
     assert.doesNotMatch(frontend, /:latest/);
+  });
+});
+
+describe('frontend image files', () => {
+  it('are always checked out with LF: a CRLF shell script fails inside the Linux image', () => {
+    for (const file of ['frontend/Dockerfile', 'frontend/docker/40-app-config.sh', 'frontend/docker/nginx.conf']) {
+      const out = execFileSync('git', ['check-attr', 'eol', file], { cwd: join(infraDir, '..'), encoding: 'utf8' });
+      assert.match(out, /eol: lf/, file);
+    }
   });
 });
