@@ -26,7 +26,9 @@ function parseConfig(raw: unknown): AppConfig {
   if (typeof apiUrl !== 'string' || !isHttpUrl(apiUrl)) {
     throw new Error('config.json: "apiUrl" must be an absolute http(s) URL');
   }
-  const uploadsEnabled = object['uploadsEnabled'] ?? false;
+  // The secret is edited by hand, so "true" / "false" as strings are accepted too.
+  const flag = object['uploadsEnabled'] ?? false;
+  const uploadsEnabled = flag === 'true' ? true : flag === 'false' ? false : flag;
   if (typeof uploadsEnabled !== 'boolean') {
     throw new Error('config.json: "uploadsEnabled" must be true or false');
   }

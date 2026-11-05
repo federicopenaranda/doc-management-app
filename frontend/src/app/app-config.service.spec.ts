@@ -63,6 +63,9 @@ describe('AppConfigService', () => {
     [{ apiUrl: 'http://localhost:3000' }, false],
     [{ apiUrl: 'http://localhost:3000', uploadsEnabled: false }, false],
     [{ apiUrl: 'http://localhost:3000', uploadsEnabled: true }, true],
+    // Secrets are edited by hand: a quoted value is a common slip and must not stop the app.
+    [{ apiUrl: 'http://localhost:3000', uploadsEnabled: 'true' }, true],
+    [{ apiUrl: 'http://localhost:3000', uploadsEnabled: 'false' }, false],
   ])('reads the uploads flag from %j as %s (off when absent)', async (body, expected) => {
     const { service, http } = setup();
 
