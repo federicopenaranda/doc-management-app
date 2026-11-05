@@ -6,6 +6,8 @@ variables {
   project_id           = "doc-management-sandbox"
   region               = "us-west1"
   local_secret_readers = "a@example.com, b@example.com"
+  # Pinned off: the CI job sets it to true, and mocked providers cannot import.
+  adopt_existing_secrets = false
 }
 
 run "four_secrets_only" {
