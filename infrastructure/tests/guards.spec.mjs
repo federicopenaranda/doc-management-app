@@ -94,7 +94,7 @@ describe('secrets', () => {
 describe('our workflows', () => {
   const dir = join(infraDir, '..', '.github', 'workflows');
   // claude.yml comes from the Claude Code GitHub app installer and is left as generated.
-  const files = ['infrastructure.yml', 'frontend.yml'];
+  const files = ['infrastructure.yml', 'frontend.yml', 'backend.yml'];
 
   it('pin every third-party action to a full commit SHA', () => {
     for (const name of files) {
@@ -106,43 +106,44 @@ describe('our workflows', () => {
   });
 });
 
-describe('frontend workflow', () => {
-  const frontend = readText(infraDir, '..', '.github', 'workflows', 'frontend.yml');
-  const job = (name) => {
-    const match = frontend.match(new RegExp(String.raw`^  ${name}:\n([\s\S]*?)(?=^  [a-z-]+:\n|(?![\s\S]))`, 'm'));
-    assert.ok(match, `job ${name} not found`);
-    return match[1];
-  };
+for (const app of ['frontend', 'backend']) {
+  describe(`${app} workflow`, () => {
+    const workflowText = readText(infraDir, '..', '.github', 'workflows', `${app}.yml`);
+    const job = (name) => {
+      const match = workflowText.match(new RegExp(String.raw`^  ${name}:\n([\s\S]*?)(?=^  [a-z-]+:\n|(?![\s\S]))`, 'm'));
+      assert.ok(match, `job ${name} not found`);
+      return match[1];
+    };
 
-  it('runs for frontend changes on pull requests and on main', () => {
-    assert.match(frontend, /pull_request:\n\s+paths:\n\s+- "frontend\/\*\*"/);
-    assert.match(frontend, /push:\n\s+branches: \[main\]\n\s+paths:\n\s+- "frontend\/\*\*"/);
+    it(`runs for ${app} changes on pull requests and on main`, () => {
+      assert.match(workflowText, new RegExp(String.raw`pull_request:\n\s+paths:\n\s+- "${app}/\*\*"`));
+      assert.match(workflowText, new RegExp(String.raw`push:\n\s+branches: \[main\]\n\s+paths:\n\s+- "${app}/\*\*"`));
+    });
+
+    it('verifies without secrets or an environment, so any pull request (forks too) can run it', () => {
+      const verify = job('verify');
+      assert.doesNotMatch(verify, /environment:/);
+      assert.doesNotMatch(verify, /id-token/);
+      assert.match(verify, /npm run test:image/);
+    });
+
+    it('deploys only on push, after verify, through the sandbox environment', () => {
+      const deploy = job('deploy');
+      assert.match(deploy, /needs: verify/);
+      assert.match(deploy, /if: github\.event_name == 'push'/);
+      assert.match(deploy, /environment: sandbox/);
+    });
+
+    it('tags the image with the commit and never with "latest"', () => {
+      assert.match(job('deploy'), new RegExp(String.raw`/apps/${app}:\$\{\{ github\.sha \}\}`));
+      assert.doesNotMatch(workflowText, /:latest/);
+    });
   });
+}
 
-  it('verifies without secrets or an environment, so any pull request (forks too) can run it', () => {
-    const verify = job('verify');
-    assert.doesNotMatch(verify, /environment:/);
-    assert.doesNotMatch(verify, /id-token/);
-    assert.match(verify, /npm run test:image/);
-  });
-
-  it('deploys only on push, after verify, through the sandbox environment', () => {
-    const deploy = job('deploy');
-    assert.match(deploy, /needs: verify/);
-    assert.match(deploy, /if: github\.event_name == 'push'/);
-    assert.match(deploy, /environment: sandbox/);
-  });
-
-  it('tags the image with the commit and never with "latest"', () => {
-    const deploy = job('deploy');
-    assert.match(deploy, /\/apps\/frontend:\$\{\{ github\.sha \}\}/);
-    assert.doesNotMatch(frontend, /:latest/);
-  });
-});
-
-describe('frontend image files', () => {
+describe('image files', () => {
   it('are always checked out with LF: a CRLF shell script fails inside the Linux image', () => {
-    for (const file of ['frontend/Dockerfile', 'frontend/docker/40-app-config.sh', 'frontend/docker/nginx.conf']) {
+    for (const file of ['frontend/Dockerfile', 'frontend/docker/40-app-config.sh', 'frontend/docker/nginx.conf', 'backend/Dockerfile']) {
       const out = execFileSync('git', ['check-attr', 'eol', file], { cwd: join(infraDir, '..'), encoding: 'utf8' });
       assert.match(out, /eol: lf/, file);
     }
