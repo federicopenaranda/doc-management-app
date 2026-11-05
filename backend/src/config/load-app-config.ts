@@ -26,8 +26,14 @@ export function loadAppConfig(
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
-  } catch {
-    throw new Error(`APP_CONFIG_FILE ${path} is not valid JSON`);
+  } catch (error) {
+    // Only the position is forwarded: the rest of JSON.parse's message can quote the input.
+    const at = /\(line (\d+) column (\d+)\)/.exec(
+      error instanceof Error ? error.message : '',
+    );
+    throw new Error(
+      `APP_CONFIG_FILE ${path} is not valid JSON${at ? ` (line ${at[1]}, column ${at[2]})` : ''}`,
+    );
   }
 
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {

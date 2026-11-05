@@ -57,6 +57,20 @@ describe('loadAppConfig', () => {
     ).toThrow(FILE);
   });
 
+  it('points at the line and column of a JSON syntax error, never at its content', () => {
+    const env: NodeJS.ProcessEnv = { APP_CONFIG_FILE: FILE };
+    // missing comma after the first value
+    const content = `{
+  "JWT_SECRET": "${SECRET}"
+  "GCS_BUCKET": "docs"
+}`;
+    const act = () => loadAppConfig(env, () => content);
+
+    expect(act).toThrow(FILE);
+    expect(act).toThrow('line 3');
+    expect(act).not.toThrow(SECRET);
+  });
+
   it.each([
     ['a lowercase key', 'log_level'],
     ['a key with a trailing space', 'LOG_LEVEL '],
