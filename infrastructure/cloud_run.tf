@@ -86,6 +86,24 @@ resource "google_cloud_run_v2_service" "backend" {
         value = local.tika_url
       }
       env {
+        name  = "PROCESSED_BUCKET"
+        value = google_storage_bucket.processed.name
+      }
+      # The audience of the Pub/Sub push token; computed from names, so no dependency cycle.
+      env {
+        name  = "BACKEND_URL"
+        value = local.backend_url
+      }
+      env {
+        name  = "PUBSUB_PUSH_SA_EMAIL"
+        value = google_service_account.pubsub_push.email
+      }
+      # Feature flag: remove two weeks after it is on in use.
+      env {
+        name  = "DOCUMENT_PROCESSING_ENABLED"
+        value = "true"
+      }
+      env {
         name  = "APP_CONFIG_FILE"
         value = local.config_path
       }

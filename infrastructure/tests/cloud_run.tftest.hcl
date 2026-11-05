@@ -106,3 +106,27 @@ run "tika_runs_from_dockerhub_remote_repo" {
     error_message = "Tika listens on 9998"
   }
 }
+
+run "backend_env_has_worker_settings" {
+  command = apply
+
+  assert {
+    condition     = one([for env in google_cloud_run_v2_service.backend.template[0].containers[0].env : env.value if env.name == "PROCESSED_BUCKET"]) == "doc-management-sandbox-documents-processed"
+    error_message = "the backend must know the processed bucket"
+  }
+
+  assert {
+    condition     = one([for env in google_cloud_run_v2_service.backend.template[0].containers[0].env : env.value if env.name == "BACKEND_URL"]) == "https://backend-193663799936.us-west1.run.app"
+    error_message = "the backend needs its own URL as the Pub/Sub token audience"
+  }
+
+  assert {
+    condition     = one([for env in google_cloud_run_v2_service.backend.template[0].containers[0].env : env.value if env.name == "PUBSUB_PUSH_SA_EMAIL"]) == google_service_account.pubsub_push.email
+    error_message = "the backend only accepts pushes signed by the pubsub-push identity"
+  }
+
+  assert {
+    condition     = one([for env in google_cloud_run_v2_service.backend.template[0].containers[0].env : env.value if env.name == "DOCUMENT_PROCESSING_ENABLED"]) == "true"
+    error_message = "the document processing flag is on"
+  }
+}
