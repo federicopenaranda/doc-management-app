@@ -1,9 +1,5 @@
 mock_provider "google" {
-  mock_data "google_project" {
-    defaults = {
-      number = "193663799936"
-    }
-  }
+  source = "./tests/mocks"
 }
 
 variables {
