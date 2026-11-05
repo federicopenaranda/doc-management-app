@@ -1,13 +1,14 @@
 // Guards for things `terraform test` cannot see: the CI workflow and first-apply ordering.
 // Run with: node --test infrastructure/tests/guards.spec.mjs
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const infraDir = join(dirname(fileURLToPath(import.meta.url)), '..');
-const workflow = readFileSync(join(infraDir, '..', '.github', 'workflows', 'infrastructure.yml'), 'utf8');
+const readText = (...parts) => readFileSync(join(...parts), 'utf8').replaceAll('\r\n', '\n');
+const workflow = readText(infraDir, '..', '.github', 'workflows', 'infrastructure.yml');
 
 /** Text of one top-level job (from "  <name>:" up to the next job or the end). */
 function jobBlock(name) {
@@ -23,6 +24,11 @@ function concurrencyOf(block) {
 }
 
 describe('infrastructure workflow', () => {
+  it('switches on secret adoption in both jobs (the secrets already exist in GCP)', () => {
+    const uses = workflow.match(/TF_VAR_adopt_existing_secrets: "true"/g) ?? [];
+    assert.equal(uses.length, 2, 'both the plan and the apply job');
+  });
+
   it('reads the reader list from a secret, so GitHub masks it in the logs of this public repository', () => {
     assert.doesNotMatch(workflow, /vars\.LOCAL_SECRET_READERS/);
     const uses = workflow.match(/TF_VAR_local_secret_readers: \$\{\{ secrets\.LOCAL_SECRET_READERS \}\}/g) ?? [];
@@ -46,7 +52,7 @@ describe('infrastructure workflow', () => {
 
 /** Source text of one resource block, found by brace matching. */
 function resourceBlock(file, type, name) {
-  const source = readFileSync(join(infraDir, file), 'utf8');
+  const source = readText(infraDir, file);
   const open = source.indexOf(`resource "${type}" "${name}" {`);
   assert.ok(open >= 0, `${type}.${name} not found in ${file}`);
   let depth = 0;
@@ -63,5 +69,23 @@ describe('first-apply ordering', () => {
     const block = resourceBlock('pubsub.tf', 'google_service_account_iam_member', 'pubsub_token_creator');
 
     assert.match(block, /depends_on\s*=\s*\[[^\]]*google_project_service\.apis/);
+  });
+});
+
+describe('secrets', () => {
+  const tfFiles = readdirSync(infraDir).filter((name) => name.endsWith('.tf'));
+
+  it('adopts secrets that already exist instead of failing with 409 on create', () => {
+    const imports = readText(infraDir, 'imports.tf');
+
+    assert.match(imports, /import\s*\{[^}]*to\s*=\s*google_secret_manager_secret\.config\[each\.key\]/s);
+    assert.match(imports, /id\s*=\s*"projects\/\$\{var\.project_id\}\/secrets\/\$\{each\.key\}"/);
+  });
+
+  it('never writes a secret version: a new version becomes "latest" and would hide the values you added by hand', () => {
+    for (const name of tfFiles) {
+      const source = readText(infraDir, name);
+      assert.doesNotMatch(source, /resource\s+"google_secret_manager_secret_version"/, name);
+    }
   });
 });
