@@ -8,10 +8,13 @@ locals {
     "frontend-sandbox" = google_service_account.frontend.email
   }
 
-  # People read only the local secrets: one binding per (secret, account).
+  # People read only the local secrets: one binding per (secret, reader). Keys use the reader's position,
+  # not the address, because keys appear in plans (and for_each keys cannot be sensitive). Only the number
+  # of readers is revealed.
+  reader_count = nonsensitive(length(local.local_readers))
   reader_bindings = {
-    for pair in setproduct(local.local_secret_ids, local.local_readers) :
-    "${pair[0]}|${pair[1]}" => { secret = pair[0], email = pair[1] }
+    for pair in setproduct(local.local_secret_ids, range(local.reader_count)) :
+    "${pair[0]}|${pair[1]}" => { secret = pair[0], index = pair[1] }
   }
 }
 
@@ -55,5 +58,5 @@ resource "google_secret_manager_secret_iam_member" "local_readers" {
 
   secret_id = google_secret_manager_secret.config[each.value.secret].secret_id
   role      = "roles/secretmanager.secretAccessor"
-  member    = "user:${each.value.email}"
+  member    = "user:${local.local_readers[each.value.index]}"
 }

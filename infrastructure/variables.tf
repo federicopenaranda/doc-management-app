@@ -11,6 +11,8 @@ variable "region" {
 variable "local_secret_readers" {
   type        = string
   description = "Comma-separated Google accounts allowed to read the local secrets."
+  # The repository is public: plans, logs and resource addresses must not show these addresses.
+  sensitive = true
 
   validation {
     condition     = length([for entry in split(",", var.local_secret_readers) : entry if trimspace(entry) != ""]) > 0

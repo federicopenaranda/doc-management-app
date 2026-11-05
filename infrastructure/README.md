@@ -21,7 +21,9 @@ Only the pipeline applies changes (`.github/workflows/infrastructure.yml`):
 - A pull request touching `infrastructure/**` runs `fmt`, `validate`, the offline tests and a `plan`, and comments the plan on the pull request.
 - A merge to `main` runs `apply`.
 - It signs in with Workload Identity Federation as `github-deployer`. Inputs come from the GitHub environment `sandbox`
-  (`GCP_PROJECT_ID`, `GCP_REGION`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`, `LOCAL_SECRET_READERS`).
+  (variables `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`; secret `LOCAL_SECRET_READERS`).
+  `LOCAL_SECRET_READERS` is a GitHub **secret** (not a variable) so Actions masks the addresses in this public repository's logs; Terraform
+  also marks it sensitive, so plans show `(sensitive value)`.
   `*.tfvars` is gitignored, so values never live in the repository.
 
 Local checks (no GCP access needed, the Google provider is mocked):

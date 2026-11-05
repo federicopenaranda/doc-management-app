@@ -56,17 +56,39 @@ run "local_readers_only_on_local_secrets" {
 
   assert {
     condition = toset(keys(google_secret_manager_secret_iam_member.local_readers)) == toset([
-      "backend-local|a@example.com",
-      "backend-local|b@example.com",
-      "frontend-local|a@example.com",
-      "frontend-local|b@example.com",
+      "backend-local|0",
+      "backend-local|1",
+      "frontend-local|0",
+      "frontend-local|1",
     ])
-    error_message = "readers get access to the two local secrets only"
+    error_message = "readers get access to the two local secrets only, one binding per reader"
   }
 
   assert {
-    condition     = alltrue([for binding in google_secret_manager_secret_iam_member.local_readers : startswith(binding.member, "user:")])
-    error_message = "readers are people, so members must be user:"
+    condition = alltrue([
+      nonsensitive(google_secret_manager_secret_iam_member.local_readers["backend-local|0"].member) == "user:a@example.com",
+      nonsensitive(google_secret_manager_secret_iam_member.local_readers["frontend-local|1"].member) == "user:b@example.com",
+    ])
+    error_message = "readers are people (user:) and keep their order"
+  }
+}
+
+# The repository is public: reader addresses must never show up in plan output or resource addresses.
+run "reader_emails_stay_out_of_resource_addresses" {
+  command = plan
+
+  assert {
+    condition     = alltrue([for key in keys(google_secret_manager_secret_iam_member.local_readers) : !strcontains(key, "@")])
+    error_message = "binding keys appear in plans; they must not contain an email address"
+  }
+}
+
+run "reader_members_are_sensitive" {
+  command = plan
+
+  assert {
+    condition     = alltrue([for binding in google_secret_manager_secret_iam_member.local_readers : issensitive(binding.member)])
+    error_message = "plan output must show (sensitive value) instead of the reader's address"
   }
 }
 

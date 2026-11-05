@@ -23,6 +23,12 @@ function concurrencyOf(block) {
 }
 
 describe('infrastructure workflow', () => {
+  it('reads the reader list from a secret, so GitHub masks it in the logs of this public repository', () => {
+    assert.doesNotMatch(workflow, /vars\.LOCAL_SECRET_READERS/);
+    const uses = workflow.match(/TF_VAR_local_secret_readers: \$\{\{ secrets\.LOCAL_SECRET_READERS \}\}/g) ?? [];
+    assert.equal(uses.length, 2, 'both the plan and the apply job');
+  });
+
   it('has no workflow-level concurrency group shared by plan and apply', () => {
     assert.doesNotMatch(workflow, /^concurrency:/m);
   });

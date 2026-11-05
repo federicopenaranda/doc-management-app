@@ -107,7 +107,7 @@ and wants secrets out of the repo, out of Terraform state, and out of chat.
 - `*.tfvars` files are gitignored on purpose, so per-environment inputs reach Terraform as `TF_VAR_*` values taken from the GitHub
   environment's variables. Prod will have its own GitHub environment (own variables, required reviewers) and its own state bucket.
 - Read access (secret accessor) on the `local` secrets goes to the Google accounts listed in a GitHub environment variable
-  `LOCAL_SECRET_READERS` (comma-separated). The owner's account is not written into the repository. The owner must add this variable
+  `LOCAL_SECRET_READERS` (comma-separated). The owner's account is not written into the repository. The owner must add this value as an environment **secret** (not a variable, so Actions masks it in the logs of the public repository; Terraform also marks it sensitive and keys the bindings by position)
   to the `sandbox` environment before the first apply.
 
 ## Left to the builder
@@ -118,5 +118,5 @@ plan is shown on pull requests, how the pull scripts are tested.
 
 ## Open items for the owner
 
-- Add the GitHub environment variable `LOCAL_SECRET_READERS` to `sandbox` (value: the Google account that may read the `local` secrets)
+- Add the GitHub environment secret `LOCAL_SECRET_READERS` to `sandbox` (value: the Google account that may read the `local` secrets)
   before the first apply.
