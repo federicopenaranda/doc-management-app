@@ -13,15 +13,19 @@
 ## ☁️ Infraestructura y Despliegue en GCP
 - **Entorno Core:** 100% Google Cloud Platform (GCP).
 - **Cómputo:** 
-  - **Cloud Run:** Despliegue del API backend (NestJS) y servicio Apache Tika en contenedores Docker livianos.
+  - **Cloud Run:** Los tres servicios corren como contenedores Docker livianos: **frontend** (Angular compilado, servido por nginx), **backend** (API NestJS) y **Apache Tika**.
+  - **App Engine no se usa:** se descartó (una sola app por proyecto, región inmutable, no puede correr Tika y sus servicios no encajan en Terraform).
 - **Almacenamiento y Mensajería:**
   - **Google Cloud Storage (GCS):** Bucket principal de recepción de documentos origen y almacenamiento de archivos `.md` procesados.
   - **GCP Pub/Sub:** Arquitectura orientada a eventos. GCS emite notificaciones a un tópico de Pub/Sub que despacha mensajes en modo *Push* hacia los workers de NestJS.
 - **Base de Datos y Datos Vectoriales:**
   - **Cloud SQL (PostgreSQL):** Base de datos relacional con extensión `pgvector` activada para metadatos, estructuración RiC-CM y búsquedas semánticas.
 - **Automatización y CI/CD:**
-  - **Terraform:** Provisionamiento como código (IaC) de la infraestructura en GCP.
+  - **Terraform:** Provisionamiento como código (IaC) de la infraestructura en GCP, en `/infrastructure`. El *state* es remoto, en el bucket GCS `<project-id>-tfstate` (con versionado), creado a mano una sola vez junto con la identidad de despliegue.
   - **GitHub Actions:** Pipelines para compilación, tests TDD, análisis con `knip`, escaneo de vulnerabilidades y despliegue.
+    - Un PR que toque `infrastructure/**` ejecuta `terraform fmt -check`, `validate` y `plan` para ver qué cambiaría; al hacer merge a `main` se ejecuta `terraform apply`.
+    - Autenticación sin llaves guardadas: Workload Identity Federation hacia la cuenta de servicio `github-deployer`, limitada a este repositorio.
+- **Configuración y secretos:** la configuración de cada app vive en secretos JSON de Secret Manager, uno por app y entorno: `<app>-<local|sandbox|prod>` (por ejemplo `backend-local`, `frontend-sandbox`). Terraform crea los secretos y sus permisos; los valores los agrega el dueño a mano, nunca van al *state* ni al repositorio. En desarrollo local se descargan con `npm run env:pull` (backend, genera `.env`) y `npm run config:pull` (frontend, genera `public/config.json`, que solo puede contener valores públicos). Sandbox y prod son proyectos de GCP separados; por ahora solo existe sandbox. Detalles en `infrastructure/README.md`.
 
 ---
 

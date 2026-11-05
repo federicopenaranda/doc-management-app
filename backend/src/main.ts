@@ -1,3 +1,4 @@
+import './config/bootstrap-env.js'; // must stay first: loads the mounted secret before AppModule validates env
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { ConfigService } from '@nestjs/config';

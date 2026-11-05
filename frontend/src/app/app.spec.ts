@@ -3,11 +3,17 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { fireEvent, render, screen } from '@testing-library/angular';
+import { API_URL } from './api-url';
 import { App } from './app';
 
 async function setup() {
   await render(App, {
-    providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    providers: [
+      provideHttpClient(),
+      provideHttpClientTesting(),
+      provideRouter([]),
+      { provide: API_URL, useValue: 'http://localhost:3000' },
+    ],
   });
   return {
     http: TestBed.inject(HttpTestingController),

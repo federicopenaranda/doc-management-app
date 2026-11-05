@@ -1,6 +1,6 @@
-import { InjectionToken } from '@angular/core';
+import { inject, InjectionToken } from '@angular/core';
+import { AppConfigService } from './app-config.service';
 
-// shortcut: hardcoded local backend URL, replace with build-time configuration before the first deploy.
 export const API_URL = new InjectionToken<string>('API_URL', {
-  factory: () => 'http://localhost:3000',
+  factory: () => inject(AppConfigService).apiUrl,
 });

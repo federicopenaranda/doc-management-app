@@ -1,2 +1,3 @@
 npm --prefix frontend test -- --watch=false
+npm --prefix frontend run test:scripts
 npm --prefix backend test
