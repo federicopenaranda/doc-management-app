@@ -25,6 +25,11 @@ function concurrencyOf(block) {
 }
 
 describe('infrastructure workflow', () => {
+  it('redacts personal addresses from the plan before posting it as a comment (public repository)', () => {
+    assert.match(workflow, /require\('\.\/\.github\/scripts\/redact-plan\.cjs'\)/);
+    assert.match(workflow, /const plan = redact\(/);
+  });
+
   it('reads the alert address from a secret, so GitHub masks it in the logs of this public repository', () => {
     assert.doesNotMatch(workflow, /vars\.ALERT_EMAIL/);
     const uses = workflow.match(/TF_VAR_alert_email: \$\{\{ secrets\.ALERT_EMAIL \}\}/g) ?? [];
