@@ -10,7 +10,7 @@ Terraform for the **sandbox** GCP project (`doc-management-sandbox`, region `us-
 | Cloud Run | `frontend` and `backend` (public), `tika` (private: only the backend identity may call it) |
 | Identities | `frontend-run`, `backend-run`, `tika-run`, `pubsub-push` service accounts |
 | Secrets | `backend-local`, `backend-sandbox`, `frontend-local`, `frontend-sandbox` (JSON, see below) |
-| Storage | `<project>-documents` bucket (private, versioned), objectAdmin for the backend |
+| Storage | `<project>-documents` bucket (private, versioned) and `<project>-documents-processed` (output of the worker: one folder per file with `document.md`), objectAdmin on both for the backend |
 | Pub/Sub | `document-uploaded` topic fed by bucket uploads, push subscription to `<backend>/pubsub/documents`, dead-letter topic after 5 attempts |
 | Registries | `apps` (our images) and `dockerhub` (pull-through cache, used for the pinned Tika image) |
 
@@ -93,7 +93,7 @@ Both scripts validate the secret before writing anything and never print values.
 Until real images exist, the services run Google's sample "hello" image; Terraform ignores later image changes, so CI can deploy new revisions without Terraform reverting them.
 
 - **Both services** get the sandbox secret mounted as the file `/secrets/config.json`, and the env var `APP_CONFIG_FILE=/secrets/config.json`.
-- **Backend** also gets `FRONTEND_URLS` (the frontend's Cloud Run URL) and `TIKA_URL`. At startup it loads the mounted file into its environment (variables already set win), then validates as usual.
+- **Backend** also gets `FRONTEND_URLS` (the frontend's Cloud Run URL) `TIKA_URL`, `PROCESSED_BUCKET`, `BACKEND_URL` (audience of the Pub/Sub token), `PUBSUB_PUSH_SA_EMAIL` and the flag `DOCUMENT_PROCESSING_ENABLED`. At startup it loads the mounted file into its environment (variables already set win), then validates as usual.
   **Done:** `backend/Dockerfile` (Node build, then a production-only image running as `node` on 8080) and `.github/workflows/backend.yml`, shaped like the frontend one: pull requests lint, test and run `npm run test:image` (real containers: boot from the mounted secret, `FRONTEND_URLS` from the environment beating the file, JSON logs without secret values, failing loudly on bad configuration); a push to `main` pushes `apps/backend:<commit sha>`, runs `gcloud run services update backend --image ...` and smoke-tests `/` and `/health`. Swagger UI (`/api`) and the OpenAPI document (`/api-json`) exist only in local development (`NODE_ENV=development`); the deployed backend serves neither.
 - **Frontend** also gets `API_URL` (the backend's Cloud Run URL). Its container must write `config.json` for the browser from the mounted file, with `API_URL` overriding `apiUrl`, and serve it with `Cache-Control: no-store`.
   **Done:** `frontend/Dockerfile` (Node build, then non-root nginx on 8080), `frontend/docker/40-app-config.sh` (writes `config.json`, refuses to start on invalid JSON or without configuration) and `.github/workflows/frontend.yml`. A pull request builds the image and runs `npm run test:image` (real containers); a push to `main` pushes `apps/frontend:<commit sha>` and runs `gcloud run services update frontend --image ...`, then smoke-tests the deployed URL. Try it locally with `docker build -t dms-frontend frontend && docker run -p 8080:8080 -e API_URL=http://localhost:3000 dms-frontend`.
@@ -121,7 +121,7 @@ After fixing the cause, replay each message to the main topic and remove it from
 
 ```bash
 gcloud pubsub subscriptions pull document-uploaded-dlq-pull --project $P --limit 10 --format=json | jq -c '.[]' | while read -r m; do
-  data=$(echo "$m" | jq -r '.message.data' | base64 -d)
+  data=$(echo "$m" | jq -r '.message.data | @base64d')
   attrs=$(echo "$m" | jq -r '.message.attributes | to_entries | map("\(.key)=\(.value)") | join(",")')
   ack=$(echo "$m" | jq -r '.ackId')
   gcloud pubsub topics publish document-uploaded --project $P --message "$data" --attribute "$attrs" \

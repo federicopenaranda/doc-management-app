@@ -114,3 +114,26 @@ run "backend_can_use_bucket" {
     error_message = "objectAdmin on the documents bucket"
   }
 }
+
+run "processed_bucket_is_private_and_named" {
+  command = plan
+
+  assert {
+    condition     = google_storage_bucket.processed.name == "doc-management-sandbox-documents-processed"
+    error_message = "the processed bucket is named <project>-documents-processed"
+  }
+
+  assert {
+    condition     = google_storage_bucket.processed.public_access_prevention == "enforced" && google_storage_bucket.processed.uniform_bucket_level_access && google_storage_bucket.processed.versioning[0].enabled && !google_storage_bucket.processed.force_destroy
+    error_message = "the processed bucket must be private, versioned and never force-destroyed"
+  }
+}
+
+run "backend_writes_processed_bucket" {
+  command = apply
+
+  assert {
+    condition     = google_storage_bucket_iam_member.backend_processed.role == "roles/storage.objectAdmin" && google_storage_bucket_iam_member.backend_processed.member == "serviceAccount:${google_service_account.backend.email}"
+    error_message = "the backend identity manages objects in the processed bucket"
+  }
+}
