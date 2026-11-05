@@ -83,3 +83,16 @@ resource "google_pubsub_subscription_iam_member" "dead_letter_subscriber" {
   role         = "roles/pubsub.subscriber"
   member       = local.pubsub_service_agent
 }
+
+# Without a subscription a topic drops every message it receives, so failed events would be lost.
+# This pull subscription keeps them (7 days at most) for inspection and replay.
+resource "google_pubsub_subscription" "dead_letter_pull" {
+  name                       = "document-uploaded-dlq-pull"
+  topic                      = google_pubsub_topic.dead_letter.id
+  message_retention_duration = "604800s"
+
+  # An empty ttl: the subscription never expires (the default deletes it after 31 idle days).
+  expiration_policy {
+    ttl = ""
+  }
+}

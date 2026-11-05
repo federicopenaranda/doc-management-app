@@ -39,6 +39,7 @@ jobs:
       TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
       TF_VAR_region: ${{ vars.GCP_REGION }}
       TF_VAR_local_secret_readers: ${{ secrets.LOCAL_SECRET_READERS }}
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
       # The secrets were created by hand before the first apply; Terraform adopts them (see imports.tf).
       TF_VAR_adopt_existing_secrets: "true"
     steps:
@@ -109,6 +110,7 @@ jobs:
       TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
       TF_VAR_region: ${{ vars.GCP_REGION }}
       TF_VAR_local_secret_readers: ${{ secrets.LOCAL_SECRET_READERS }}
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
       # The secrets were created by hand before the first apply; Terraform adopts them (see imports.tf).
       TF_VAR_adopt_existing_secrets: "true"
     steps:

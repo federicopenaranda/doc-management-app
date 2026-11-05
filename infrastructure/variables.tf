@@ -25,3 +25,15 @@ variable "adopt_existing_secrets" {
   default     = false
   description = "Import the four secrets instead of creating them. Needed while they already exist in GCP (created by hand with their values)."
 }
+
+variable "alert_email" {
+  type        = string
+  description = "Address that receives the dead-letter alert."
+  # The repository is public: plans, logs and resource addresses must not show it.
+  sensitive = true
+
+  validation {
+    condition     = can(regex("^[^@ ]+@[^@ ]+[.][^@ ]+$", var.alert_email))
+    error_message = "alert_email must be an email address."
+  }
+}

@@ -21,8 +21,8 @@ Only the pipeline applies changes (`.github/workflows/infrastructure.yml`):
 - A pull request touching `infrastructure/**` runs `fmt`, `validate`, the offline tests and a `plan`, and comments the plan on the pull request.
 - A merge to `main` runs `apply`.
 - It signs in with Workload Identity Federation as `github-deployer`. Inputs come from the GitHub environment `sandbox`
-  (variables `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`; secret `LOCAL_SECRET_READERS`).
-  `LOCAL_SECRET_READERS` is a GitHub **secret** (not a variable) so Actions masks the addresses in this public repository's logs; Terraform
+  (variables `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`; secrets `LOCAL_SECRET_READERS` and `ALERT_EMAIL`).
+  Both secrets are GitHub **secrets** (not variables) so Actions masks the addresses in this public repository's logs; Terraform
   also marks it sensitive, so plans show `(sensitive value)`.
   `*.tfvars` is gitignored, so values never live in the repository.
 
@@ -99,6 +99,38 @@ Until real images exist, the services run Google's sample "hello" image; Terrafo
   **Done:** `frontend/Dockerfile` (Node build, then non-root nginx on 8080), `frontend/docker/40-app-config.sh` (writes `config.json`, refuses to start on invalid JSON or without configuration) and `.github/workflows/frontend.yml`. A pull request builds the image and runs `npm run test:image` (real containers); a push to `main` pushes `apps/frontend:<commit sha>` and runs `gcloud run services update frontend --image ...`, then smoke-tests the deployed URL. Try it locally with `docker build -t dms-frontend frontend && docker run -p 8080:8080 -e API_URL=http://localhost:3000 dms-frontend`.
 - **Pub/Sub** pushes to `POST /pubsub/documents` on the backend with an OIDC token whose audience is the backend URL. That endpoint does not exist yet and must verify the token; until it does, messages are retried and then dead-lettered.
 - **Tika** is private: the backend must call it with a Google ID token (audience = the Tika URL). Its image tag is pinned in `cloud_run.tf`.
+
+## Dead-lettered messages
+
+An upload event that the backend fails to process 5 times is moved to the topic `document-uploaded-dlq`. The pull subscription
+`document-uploaded-dlq-pull` keeps those messages for **7 days at most** (it never expires), and an alert emails the address in the
+`ALERT_EMAIL` secret as soon as one is waiting. Without a subscription Pub/Sub would drop them. Until the backend's `/pubsub/documents`
+endpoint exists, every upload ends up here and triggers the alert.
+
+The alert needs, besides the secret, two roles on the project for `github-deployer`: `roles/monitoring.alertPolicyEditor` and
+`roles/monitoring.notificationChannelEditor` (granted by hand, like the other deploy roles).
+
+Look at what failed (this does not remove anything):
+
+```bash
+P=doc-management-sandbox
+gcloud pubsub subscriptions pull document-uploaded-dlq-pull --project $P --limit 10 --format=json
+```
+
+After fixing the cause, replay each message to the main topic and remove it from the dead-letter subscription only if the republish worked:
+
+```bash
+gcloud pubsub subscriptions pull document-uploaded-dlq-pull --project $P --limit 10 --format=json | jq -c '.[]' | while read -r m; do
+  data=$(echo "$m" | jq -r '.message.data' | base64 -d)
+  attrs=$(echo "$m" | jq -r '.message.attributes | to_entries | map("\(.key)=\(.value)") | join(",")')
+  ack=$(echo "$m" | jq -r '.ackId')
+  gcloud pubsub topics publish document-uploaded --project $P --message "$data" --attribute "$attrs" \
+    && gcloud pubsub subscriptions ack document-uploaded-dlq-pull --project $P --ack-ids "$ack"
+done
+```
+
+Limits: `--attribute` cannot carry values that contain commas, so a file name with a comma needs a manual publish. Messages older than
+7 days are gone. The `jq` part was checked on a sample message; the whole loop has not been run against real dead letters yet.
 
 ## Things to know
 
