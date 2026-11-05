@@ -25,7 +25,7 @@ describe('TikaClient.extract', () => {
     const [url, init] = fetchFn.mock.calls[0] ?? [];
     expect(url).toBe('https://tika.example.com/rmeta/text');
     expect(init?.method).toBe('PUT');
-    expect(init?.body).toBe(bytes);
+    expect(init?.body).toEqual(new Uint8Array(bytes));
     expect(new Headers(init?.headers).get('authorization')).toBe(
       'Bearer id-token',
     );

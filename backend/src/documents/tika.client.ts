@@ -24,7 +24,7 @@ export class TikaClient {
         Authorization: `Bearer ${token}`,
         'Content-Type': contentType ?? 'application/octet-stream',
       },
-      body: bytes,
+      body: new Uint8Array(bytes),
     });
     if (!response.ok) {
       throw new Error(`Tika answered ${response.status}`);
