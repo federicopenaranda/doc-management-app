@@ -37,6 +37,10 @@ resource "google_service_account_iam_member" "pubsub_token_creator" {
   service_account_id = google_service_account.pubsub_push.name
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = local.pubsub_service_agent
+
+  # The Pub/Sub API is enabled in this same apply and creates the service agent (the member above);
+  # without this the first apply can try the binding before the agent exists.
+  depends_on = [google_project_service.apis]
 }
 
 # The backend endpoint /pubsub/documents does not exist yet: until it does, messages are retried

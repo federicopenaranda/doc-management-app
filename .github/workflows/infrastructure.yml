@@ -12,11 +12,6 @@ on:
       - "infrastructure/**"
       - ".github/workflows/infrastructure.yml"
 
-# One Terraform run at a time: the state is locked anyway, this avoids queued failures.
-concurrency:
-  group: terraform-sandbox
-  cancel-in-progress: false
-
 permissions:
   contents: read
 
@@ -31,6 +26,10 @@ jobs:
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     environment: sandbox
+    # A newer push to the same pull request replaces its older plan.
+    concurrency:
+      group: terraform-plan-${{ github.event.number }}
+      cancel-in-progress: true
     permissions:
       contents: read
       id-token: write
@@ -95,6 +94,11 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: sandbox
+    # Its own group, and never cancelled: a plan queued later must not replace a pending apply.
+    # The Terraform state lock already serialises plans and applies.
+    concurrency:
+      group: terraform-sandbox-apply
+      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write
