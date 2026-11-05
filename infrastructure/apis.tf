@@ -5,6 +5,7 @@ locals {
     "secretmanager.googleapis.com",
     "pubsub.googleapis.com",
     "storage.googleapis.com",
+    "monitoring.googleapis.com",
   ])
 }
 

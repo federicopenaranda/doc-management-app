@@ -6,6 +6,7 @@ variables {
   project_id           = "doc-management-sandbox"
   region               = "us-west1"
   local_secret_readers = "owner@example.com"
+  alert_email          = "alerts@example.com"
   # Pinned off: the CI job sets it to true, and mocked providers cannot import.
   adopt_existing_secrets = false
 }
@@ -44,7 +45,8 @@ run "required_apis_enabled" {
       "secretmanager.googleapis.com",
       "pubsub.googleapis.com",
       "storage.googleapis.com",
+      "monitoring.googleapis.com",
     ])
-    error_message = "exactly the five required APIs must be enabled"
+    error_message = "exactly the six required APIs must be enabled"
   }
 }

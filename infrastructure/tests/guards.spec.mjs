@@ -25,6 +25,17 @@ function concurrencyOf(block) {
 }
 
 describe('infrastructure workflow', () => {
+  it('redacts personal addresses from the plan before posting it as a comment (public repository)', () => {
+    assert.match(workflow, /require\('\.\/\.github\/scripts\/redact-plan\.cjs'\)/);
+    assert.match(workflow, /const plan = redact\(/);
+  });
+
+  it('reads the alert address from a secret, so GitHub masks it in the logs of this public repository', () => {
+    assert.doesNotMatch(workflow, /vars\.ALERT_EMAIL/);
+    const uses = workflow.match(/TF_VAR_alert_email: \$\{\{ secrets\.ALERT_EMAIL \}\}/g) ?? [];
+    assert.equal(uses.length, 2, 'both the plan and the apply job');
+  });
+
   it('switches on secret adoption in both jobs (the secrets already exist in GCP)', () => {
     const uses = workflow.match(/TF_VAR_adopt_existing_secrets: "true"/g) ?? [];
     assert.equal(uses.length, 2, 'both the plan and the apply job');

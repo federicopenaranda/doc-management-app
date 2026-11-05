@@ -39,6 +39,7 @@ jobs:
       TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
       TF_VAR_region: ${{ vars.GCP_REGION }}
       TF_VAR_local_secret_readers: ${{ secrets.LOCAL_SECRET_READERS }}
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
       # The secrets were created by hand before the first apply; Terraform adopts them (see imports.tf).
       TF_VAR_adopt_existing_secrets: "true"
     steps:
@@ -78,7 +79,9 @@ jobs:
           script: |
             const fs = require('fs');
             const file = 'infrastructure/plan.txt';
-            const plan = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : 'No plan output: an earlier step failed.';
+            // Resource ids can contain a person's address; GitHub masks secrets in logs, not in comments.
+            const redact = require('./.github/scripts/redact-plan.cjs');
+            const plan = redact(fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : 'No plan output: an earlier step failed.');
             const marker = '<!-- terraform-plan -->';
             // GitHub comments are limited to 65536 characters; keep the end, where the summary is.
             const body = `${marker}\n### Terraform plan (sandbox)\n\`\`\`\n${plan.slice(-60000)}\n\`\`\``;
@@ -109,6 +112,7 @@ jobs:
       TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
       TF_VAR_region: ${{ vars.GCP_REGION }}
       TF_VAR_local_secret_readers: ${{ secrets.LOCAL_SECRET_READERS }}
+      TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
       # The secrets were created by hand before the first apply; Terraform adopts them (see imports.tf).
       TF_VAR_adopt_existing_secrets: "true"
     steps:

@@ -6,6 +6,7 @@ variables {
   project_id             = "doc-management-sandbox"
   region                 = "us-west1"
   local_secret_readers   = "owner@example.com"
+  alert_email            = "alerts@example.com"
   adopt_existing_secrets = true
 }
 
