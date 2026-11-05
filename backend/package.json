@@ -20,7 +20,8 @@
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
-    "env:pull": "node scripts/pull-env.mjs"
+    "env:pull": "node scripts/pull-env.mjs",
+    "test:image": "node --test docker/image.spec.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
