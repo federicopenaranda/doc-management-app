@@ -103,6 +103,11 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "DOCUMENT_PROCESSING_ENABLED"
         value = "true"
       }
+      # Feature flag for signed upload URLs: remove two weeks after it is on in use.
+      env {
+        name  = "UPLOADS_ENABLED"
+        value = "true"
+      }
       env {
         name  = "APP_CONFIG_FILE"
         value = local.config_path
