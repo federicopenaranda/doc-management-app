@@ -24,7 +24,8 @@ Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live:
 2. **Frontend:** security headers in `frontend/docker/nginx.conf` (CSP, frame options, referrer policy); Playwright e2e tests in CI (`frontend.yml` does not run them).
 3. **Blueprint** (`blueprint/`) is out of date: add the pull scripts, config loader, Docker images, deploy workflows, Swagger-local-only wiring, dead-letter setup.
 4. Tiny docs fix: in the README replay loop use `jq -r '.message.data | @base64d'` instead of `base64 -d` (silences a harmless warning).
-5. Deferred review minors: repeating an account in `LOCAL_SECRET_READERS` makes `plan` fail ("Duplicate object key"); the frontend shows one message for an unreachable and an invalid `config.json`; `config:pull` overwrites the tracked `frontend/public/config.json`.
+5. **Duplicate file names (owner's rule, 2026-11-05):** uploading a file whose name already exists must notify the user and be prevented. No upload path exists yet (files go straight into the bucket); build it into the future upload API / signed URL: GCS `ifGenerationMatch=0` rejects the write if the object exists, and the UI shows the notice.
+6. Deferred review minors: repeating an account in `LOCAL_SECRET_READERS` makes `plan` fail ("Duplicate object key"); the frontend shows one message for an unreachable and an invalid `config.json`; `config:pull` overwrites the tracked `frontend/public/config.json`.
 
 ## Waiting on the owner
 
