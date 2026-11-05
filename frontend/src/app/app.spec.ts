@@ -4,15 +4,17 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { fireEvent, render, screen } from '@testing-library/angular';
 import { API_URL } from './api-url';
+import { AppConfigService } from './app-config.service';
 import { App } from './app';
 
-async function setup() {
+async function setup(uploadsEnabled = false) {
   await render(App, {
     providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
       provideRouter([]),
       { provide: API_URL, useValue: 'http://localhost:3000' },
+      { provide: AppConfigService, useValue: { uploadsEnabled } },
     ],
   });
   return {
@@ -56,5 +58,17 @@ describe('App', () => {
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('Could not reach the API');
     expect((button as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('links to the upload page only when the feature flag is on', async () => {
+    await setup(true);
+    expect(screen.getByRole('link', { name: /upload documents/i }).getAttribute('href')).toBe(
+      '/upload',
+    );
+  });
+
+  it('shows no upload link while the feature flag is off', async () => {
+    await setup(false);
+    expect(screen.queryByRole('link', { name: /upload documents/i })).toBeNull();
   });
 });

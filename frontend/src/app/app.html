@@ -5,6 +5,10 @@
     Say hello to the API
   </button>
 
+  @if (uploadsEnabled) {
+    <a matButton="outlined" routerLink="/upload">Upload documents</a>
+  }
+
   <p role="status" class="min-h-6 text-lg">{{ message() }}</p>
   @if (error()) {
     <p role="alert" class="text-red-700">{{ error() }}</p>
