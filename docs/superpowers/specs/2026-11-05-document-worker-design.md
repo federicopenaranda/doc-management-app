@@ -17,7 +17,7 @@ Every file uploaded to the landing bucket is turned into an OKF (Open Knowledge 
 
 Folder key: `<slug of original file name>-<short hash of bucket + object + generation>`. Deterministic: a Pub/Sub redelivery overwrites the same file instead of duplicating. Later, `summary.md` goes in the same folder.
 
-`document.md` (OKF v0.1: only `type` is required; `title`, `description`, `resource`, `tags` are reserved and optional):
+`document.md` (OKF v0.1: only `type` is required; `title`, `description`, `resource`, `tags` and the creation timestamp are reserved and optional):
 
 ```
 ---
@@ -25,12 +25,13 @@ type: Document
 title: <Tika title, else original file name>
 resource: gs://doc-management-sandbox-documents/<object>
 tags: []
+created: <ISO 8601 time the .md file was generated>
 tika_<field>: <value>   # Tika metadata, flat, prefixed
 ---
 <Tika extracted text>
 ```
 
-Source: https://www.gitbook.com/blog/what-is-okf-open-knowledge-format. Not confirmed there: whether extra frontmatter keys are allowed (the `tika_` prefix is a safe guess) and the sixth reserved field.
+Source: https://www.gitbook.com/blog/what-is-okf-open-knowledge-format. Confirmed by the owner: extra frontmatter keys are allowed (needed later for RiC and ISO 15489/30301), and the sixth reserved field is the file's creation timestamp. The article does not give its key name; `created` is my call, rename if the spec says otherwise. Tika metadata keys keep the `tika_` prefix to avoid clashing with future RiC keys.
 
 ## Failure handling
 
