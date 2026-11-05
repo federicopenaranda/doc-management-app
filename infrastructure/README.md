@@ -10,7 +10,7 @@ Terraform for the **sandbox** GCP project (`doc-management-sandbox`, region `us-
 | Cloud Run | `frontend` and `backend` (public), `tika` (private: only the backend identity may call it) |
 | Identities | `frontend-run`, `backend-run`, `tika-run`, `pubsub-push` service accounts |
 | Secrets | `backend-local`, `backend-sandbox`, `frontend-local`, `frontend-sandbox` (JSON, see below) |
-| Storage | `<project>-documents` bucket (private, versioned) and `<project>-documents-processed` (output of the worker: one folder per file with `document.md`), objectAdmin on both for the backend |
+| Storage | `<project>-documents` bucket (private, versioned) and `<project>-documents-processed` (output of the worker: one folder per file with `document.md`), objectAdmin on both for the backend. The landing bucket has CORS (`PUT` from the frontend origin only) for browser uploads through signed URLs; the backend identity may sign as itself (`serviceAccountTokenCreator` on itself), and the flag `UPLOADS_ENABLED` turns the signing endpoint on |
 | Pub/Sub | `document-uploaded` topic fed by bucket uploads, push subscription to `<backend>/pubsub/documents`, dead-letter topic after 5 attempts |
 | Registries | `apps` (our images) and `dockerhub` (pull-through cache, used for the pinned Tika image) |
 
