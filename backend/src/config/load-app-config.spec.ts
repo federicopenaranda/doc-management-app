@@ -58,6 +58,25 @@ describe('loadAppConfig', () => {
   });
 
   it.each([
+    ['a lowercase key', 'log_level'],
+    ['a key with a trailing space', 'LOG_LEVEL '],
+    ['a key containing =', 'A=B'],
+    ['an empty key', ''],
+  ])(
+    'rejects %s, naming the file and the key but never the value',
+    (_label, key) => {
+      const env: NodeJS.ProcessEnv = { APP_CONFIG_FILE: FILE };
+      const act = () =>
+        loadAppConfig(env, () => JSON.stringify({ [key]: SECRET }));
+
+      expect(act).toThrow(FILE);
+      expect(act).toThrow(JSON.stringify(key));
+      expect(act).not.toThrow(SECRET);
+      expect(env).toEqual({ APP_CONFIG_FILE: FILE });
+    },
+  );
+
+  it.each([
     ['invalid JSON', `{"JWT_SECRET": "${SECRET}", oops`],
     ['an array', `["${SECRET}"]`],
     ['null', 'null'],

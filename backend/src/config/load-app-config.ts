@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 
+const ENV_NAME = /^[A-Z_][A-Z0-9_]*$/; // same rule as scripts/pull-env.mjs
+
 /**
  * Loads the app configuration from the JSON file named by APP_CONFIG_FILE (a Secret Manager secret
  * mounted by Cloud Run) into `env`. Variables that are already set win, so values Terraform sets as
@@ -34,6 +36,12 @@ export function loadAppConfig(
 
   const entries = Object.entries(parsed as Record<string, unknown>);
   for (const [key, value] of entries) {
+    // A typo such as "log_level" or "NODE_ENV " would otherwise be ignored and the default used silently.
+    if (!ENV_NAME.test(key)) {
+      throw new Error(
+        `APP_CONFIG_FILE ${path}: invalid variable name ${JSON.stringify(key)} (use UPPER_SNAKE_CASE)`,
+      );
+    }
     if (!['string', 'number', 'boolean'].includes(typeof value)) {
       throw new Error(
         `APP_CONFIG_FILE ${path}: "${key}" must be a string, number or boolean`,
