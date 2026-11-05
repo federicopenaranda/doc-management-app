@@ -36,7 +36,8 @@ export class TikaClient {
 
     const metadata: Record<string, string | string[]> = {};
     for (const [key, value] of Object.entries(entry)) {
-      if (key.startsWith('X-TIKA:')) continue;
+      // Tika's own bookkeeping fields: `X-TIKA:` before Tika 4, `tk:` since.
+      if (key.startsWith('X-TIKA:') || key.startsWith('tk:')) continue;
       if (typeof value === 'string') metadata[key] = value;
       else if (
         Array.isArray(value) &&
@@ -44,7 +45,7 @@ export class TikaClient {
       )
         metadata[key] = value as string[];
     }
-    const content = entry['X-TIKA:content'];
+    const content = entry['tk:content'] ?? entry['X-TIKA:content'];
     const title = metadata['dc:title'] ?? metadata['title'];
     return {
       title: typeof title === 'string' ? title : undefined,
