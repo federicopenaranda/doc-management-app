@@ -11,19 +11,18 @@ Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live:
 - **Frontend** (https://frontend-193663799936.us-west1.run.app): image from `frontend/Dockerfile`, deployed by `.github/workflows/frontend.yml` on pushes to `main` touching `frontend/**`.
 - **Backend** (https://backend-193663799936.us-west1.run.app): image from `backend/Dockerfile`, deployed by `.github/workflows/backend.yml`. Swagger exists only with `NODE_ENV=development` (local). The "Say hello" button works end to end.
 - **Secrets** (Secret Manager, JSON, values added by the owner by hand): `backend-local`, `backend-sandbox`, `frontend-local`, `frontend-sandbox`. Pull scripts for local dev: `npm run env:pull` (backend), `npm run config:pull` (frontend).
-- **Pub/Sub:** bucket uploads -> `document-uploaded` -> push to `POST /pubsub/documents` (**does not exist yet**) -> after 5 failures `document-uploaded-dlq` -> pull subscription `document-uploaded-dlq-pull` (7 days, never expires) -> email alert (`ALERT_EMAIL` secret). Verified with a real test message; replay loop in `infrastructure/README.md` tested.
+- **Pub/Sub:** bucket uploads -> `document-uploaded` -> push to `POST /pubsub/documents` (live) -> after 5 failures `document-uploaded-dlq` -> pull subscription `document-uploaded-dlq-pull` (7 days, never expires) -> email alert (`ALERT_EMAIL` secret). Verified with a real test message; replay loop in `infrastructure/README.md` tested.
 - Docs: `infrastructure/README.md` (what exists, secrets, replay, contract for the images), `docs/superpowers/specs|plans/` (design and plan of the infra work).
 
 ## Next up (in this order)
 
-1. **Backend worker endpoint `POST /pubsub/documents`** (until it exists, every upload is dead-lettered and triggers the alert).
-   - Verify the Pub/Sub OIDC token (service account `pubsub-push`, audience = the backend URL).
-   - Process the GCS event; call Tika with a Google ID token (audience = `TIKA_URL`). Terraform already sets `TIKA_URL` on the backend, but the backend's env schema does not read it yet.
-   - Decide about the feature flag: root `CLAUDE.md` asks for one on every new feature (skipped so far for the demo button).
-   - No database yet (`DATABASE_URL` is only validated).
+1. **Worker follow-ups** (the endpoint is live, done 2026-11-05: PRs #10, #11, #12; real uploads produce `<slug>-<hash>/document.md` in `doc-management-sandbox-documents-processed`).
+   - Remove the flag `DOCUMENT_PROCESSING_ENABLED` two weeks after it is in use (about 2026-11-19): Terraform env, `env.validation.ts`, controller check, tests.
+   - Not done: the AI summary (`summary.md`, via a GCP model) and Postgres writes (no database yet).
+   - Metadata keys are `tika_*`; RiC / ISO 15489 / 30301 fields will change the format later.
+   - Backend `ID token` for Tika and the OIDC guard are only covered by unit tests plus the real upload; replay any old dead-lettered messages if wanted (README replay loop).
 2. **Frontend:** security headers in `frontend/docker/nginx.conf` (CSP, frame options, referrer policy); Playwright e2e tests in CI (`frontend.yml` does not run them).
 3. **Blueprint** (`blueprint/`) is out of date: add the pull scripts, config loader, Docker images, deploy workflows, Swagger-local-only wiring, dead-letter setup.
-4. Tiny docs fix: in the README replay loop use `jq -r '.message.data | @base64d'` instead of `base64 -d` (silences a harmless warning).
 5. **Duplicate file names (owner's rule, 2026-11-05):** uploading a file whose name already exists must notify the user and be prevented. No upload path exists yet (files go straight into the bucket); build it into the future upload API / signed URL: GCS `ifGenerationMatch=0` rejects the write if the object exists, and the UI shows the notice.
 6. Deferred review minors: repeating an account in `LOCAL_SECRET_READERS` makes `plan` fail ("Duplicate object key"); the frontend shows one message for an unreachable and an invalid `config.json`; `config:pull` overwrites the tracked `frontend/public/config.json`.
 
