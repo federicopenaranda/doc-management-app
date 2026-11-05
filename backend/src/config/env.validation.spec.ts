@@ -16,6 +16,7 @@ describe('validateEnv', () => {
       LOG_LEVEL: 'info',
       PORT: 3000,
       DOCUMENT_PROCESSING_ENABLED: false,
+      UPLOADS_ENABLED: false,
     });
   });
 
@@ -106,6 +107,18 @@ describe('validateEnv', () => {
       expect(() =>
         validateEnv({ ...valid, ...worker, TIKA_URL: 'tika' }),
       ).toThrow('TIKA_URL');
+    });
+  });
+
+  describe('uploads flag', () => {
+    it.each([
+      [undefined, false],
+      ['true', true],
+      ['false', false],
+    ])('reads UPLOADS_ENABLED=%s as %s', (raw, expected) => {
+      const env = validateEnv({ ...valid, UPLOADS_ENABLED: raw });
+
+      expect(env.UPLOADS_ENABLED).toBe(expected);
     });
   });
 });

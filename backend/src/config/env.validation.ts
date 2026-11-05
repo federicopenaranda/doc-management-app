@@ -30,6 +30,8 @@ const envSchema = z.object({
   // Document worker. Feature flag: remove it two weeks after it is on in use.
   // z.stringbool, not z.coerce.boolean: the latter turns the string "false" into true.
   DOCUMENT_PROCESSING_ENABLED: z.stringbool().default(false),
+  // Feature flag for signed upload URLs: remove it two weeks after it is on in use.
+  UPLOADS_ENABLED: z.stringbool().default(false),
   TIKA_URL: z.url({ protocol: /^https?$/ }).optional(),
   PROCESSED_BUCKET: z.string().min(1).optional(),
   // Audience of the Pub/Sub push token (the backend's own URL).
