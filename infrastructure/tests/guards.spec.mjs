@@ -1,6 +1,7 @@
 // Guards for things `terraform test` cannot see: the CI workflow and first-apply ordering.
 // Run with: node --test infrastructure/tests/guards.spec.mjs
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -86,6 +87,64 @@ describe('secrets', () => {
     for (const name of tfFiles) {
       const source = readText(infraDir, name);
       assert.doesNotMatch(source, /resource\s+"google_secret_manager_secret_version"/, name);
+    }
+  });
+});
+
+describe('our workflows', () => {
+  const dir = join(infraDir, '..', '.github', 'workflows');
+  // claude.yml comes from the Claude Code GitHub app installer and is left as generated.
+  const files = ['infrastructure.yml', 'frontend.yml'];
+
+  it('pin every third-party action to a full commit SHA', () => {
+    for (const name of files) {
+      for (const [, action] of readText(dir, name).matchAll(/^\s*-?\s*uses:\s*(\S+)/gm)) {
+        if (action.startsWith('./')) continue;
+        assert.match(action, /@[0-9a-f]{40}$/, `${name}: ${action}`);
+      }
+    }
+  });
+});
+
+describe('frontend workflow', () => {
+  const frontend = readText(infraDir, '..', '.github', 'workflows', 'frontend.yml');
+  const job = (name) => {
+    const match = frontend.match(new RegExp(String.raw`^  ${name}:\n([\s\S]*?)(?=^  [a-z-]+:\n|(?![\s\S]))`, 'm'));
+    assert.ok(match, `job ${name} not found`);
+    return match[1];
+  };
+
+  it('runs for frontend changes on pull requests and on main', () => {
+    assert.match(frontend, /pull_request:\n\s+paths:\n\s+- "frontend\/\*\*"/);
+    assert.match(frontend, /push:\n\s+branches: \[main\]\n\s+paths:\n\s+- "frontend\/\*\*"/);
+  });
+
+  it('verifies without secrets or an environment, so any pull request (forks too) can run it', () => {
+    const verify = job('verify');
+    assert.doesNotMatch(verify, /environment:/);
+    assert.doesNotMatch(verify, /id-token/);
+    assert.match(verify, /npm run test:image/);
+  });
+
+  it('deploys only on push, after verify, through the sandbox environment', () => {
+    const deploy = job('deploy');
+    assert.match(deploy, /needs: verify/);
+    assert.match(deploy, /if: github\.event_name == 'push'/);
+    assert.match(deploy, /environment: sandbox/);
+  });
+
+  it('tags the image with the commit and never with "latest"', () => {
+    const deploy = job('deploy');
+    assert.match(deploy, /\/apps\/frontend:\$\{\{ github\.sha \}\}/);
+    assert.doesNotMatch(frontend, /:latest/);
+  });
+});
+
+describe('frontend image files', () => {
+  it('are always checked out with LF: a CRLF shell script fails inside the Linux image', () => {
+    for (const file of ['frontend/Dockerfile', 'frontend/docker/40-app-config.sh', 'frontend/docker/nginx.conf']) {
+      const out = execFileSync('git', ['check-attr', 'eol', file], { cwd: join(infraDir, '..'), encoding: 'utf8' });
+      assert.match(out, /eol: lf/, file);
     }
   });
 });

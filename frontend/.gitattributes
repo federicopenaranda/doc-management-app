@@ -1,0 +1,3 @@
+# Files copied into the Linux image must keep LF endings, even when checked out on Windows.
+Dockerfile text eol=lf
+docker/* text eol=lf
