@@ -7,6 +7,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { DocumentsModule } from './documents/documents.module.js';
+import { UploadsModule } from './uploads/uploads.module.js';
 import { HealthModule } from './health/health.module.js';
 import { validateEnv, type Env } from './config/env.validation.js';
 import { buildPinoHttpOptions } from './logging/logger.config.js';
@@ -26,6 +27,7 @@ import { buildPinoHttpOptions } from './logging/logger.config.js';
     // Global limit: 100 requests per minute per IP. Override per route with @Throttle().
     HealthModule,
     DocumentsModule,
+    UploadsModule,
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
   ],
   controllers: [AppController],
