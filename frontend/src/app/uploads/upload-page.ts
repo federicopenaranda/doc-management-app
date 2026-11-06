@@ -8,8 +8,8 @@ import { UploadStore } from './upload-store';
   selector: 'dms-upload-page',
   imports: [MatButton, MatIcon, MatProgressBar],
   template: `
-    <main class="mx-auto flex max-w-3xl flex-col gap-6 p-8">
-      <h1 class="text-2xl font-medium" i18n>Upload documents</h1>
+    <section aria-labelledby="upload-title" class="mx-auto flex max-w-3xl flex-col gap-6 p-8">
+      <h2 id="upload-title" class="text-2xl font-medium" i18n>Upload documents</h2>
 
       <div
         data-testid="drop-zone"
@@ -108,7 +108,7 @@ import { UploadStore } from './upload-store';
           }
         </ul>
       }
-    </main>
+    </section>
   `,
 })
 export class UploadPage {
