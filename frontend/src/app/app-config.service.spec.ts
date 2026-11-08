@@ -85,6 +85,30 @@ describe('AppConfigService', () => {
     await expect(loading).rejects.toThrow('config.json');
   });
 
+  it.each([
+    [{ apiUrl: 'http://localhost:3000' }, false],
+    [{ apiUrl: 'http://localhost:3000', shellEnabled: true }, true],
+    [{ apiUrl: 'http://localhost:3000', shellEnabled: 'true' }, true],
+    [{ apiUrl: 'http://localhost:3000', shellEnabled: 'false' }, false],
+  ])('reads the shell flag from %j as %s (off when absent)', async (body, expected) => {
+    const { service, http } = setup();
+
+    const loading = service.load();
+    http.expectOne('config.json').flush(body);
+    await loading;
+
+    expect(service.shellEnabled).toBe(expected);
+  });
+
+  it('rejects a shellEnabled that is not a boolean, naming the key', async () => {
+    const { service, http } = setup();
+
+    const loading = service.load();
+    http.expectOne('config.json').flush({ apiUrl: 'http://localhost:3000', shellEnabled: 'yes' });
+
+    await expect(loading).rejects.toThrow('"shellEnabled" must be true or false');
+  });
+
   it('throws when apiUrl is read before the config is loaded', () => {
     const { service } = setup();
 

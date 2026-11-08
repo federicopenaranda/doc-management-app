@@ -159,3 +159,4 @@ credentials.json
 .DS_Store
 Thumbs.db
 .idea/
+.superpowers/
