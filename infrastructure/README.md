@@ -116,8 +116,27 @@ gcloud sql instances patch dms-postgres --activation-policy=NEVER  --project doc
 gcloud sql instances patch dms-postgres --activation-policy=ALWAYS --project doc-management-sandbox   # start
 ```
 
-`github-deployer` needs `roles/cloudsql.admin` on the project (granted by hand, like the other deploy roles). Not done yet: the extension
-`pgvector`, tables, and the backend's database module (they need a one-time admin login; see the SCRUM-15 follow-up).
+`github-deployer` needs `roles/cloudsql.admin` on the project (granted by hand, like the other deploy roles).
+
+The backend service gets `DATABASE_ENABLED` (feature flag), `CLOUD_SQL_INSTANCE`, `DB_NAME` and `DB_USER`, and exposes `GET /health/database`
+(a read of the `prueba` table; 503 while the instance is stopped, 404 while the flag is off). `GET /health` is not affected.
+
+### One-time database setup
+
+The built-in `postgres` admin has no usable password, and creating the table and the `vector` extension needs it. Set a random one,
+run the bootstrap (safe to repeat), then set another random one and forget it. Nobody keeps an admin password; reset it the same
+way whenever you need admin access again.
+
+```bash
+P=doc-management-sandbox
+PW=$(openssl rand -base64 24)
+gcloud sql users set-password postgres --instance dms-postgres --project $P --password "$PW"
+cd backend
+DB_ADMIN_PASSWORD="$PW" npm run db:bootstrap -- --instance $P:us-west1:dms-postgres --iam-user backend-run@$P.iam
+gcloud sql users set-password postgres --instance dms-postgres --project $P --password "$(openssl rand -base64 24)"
+```
+
+It needs `gcloud auth application-default login` with an account that has `roles/cloudsql.client`, and the instance must be running.
 
 ## Dead-lettered messages
 

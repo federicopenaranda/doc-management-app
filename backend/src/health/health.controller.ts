@@ -1,11 +1,15 @@
-import { Controller, Get } from '@nestjs/common';
-// import { HealthCheck, HealthCheckService, HealthIndicatorService } from '@nestjs/terminus';
-import { HealthCheck, HealthCheckService } from '@nestjs/terminus';
+import { Controller, Get, Inject, NotFoundException } from '@nestjs/common';
+import {
+  HealthCheck,
+  HealthCheckService,
+  HealthIndicatorService,
+} from '@nestjs/terminus';
 import { SkipThrottle } from '@nestjs/throttler';
+import { DatabaseService } from '../database/database.service.js';
 
-// TODO: enable the checks below once PostgreSQL, the GCS bucket and Apache Tika exist.
-// Steps: 1) npm i pg @google-cloud/storage  2) add TIKA_URL to env.validation.ts and .env.example
-//        3) uncomment the imports/constructor param/checks and inject the clients (pool, storage).
+// TODO: enable the checks below once the GCS bucket and Apache Tika exist.
+// Steps: 1) npm i @google-cloud/storage  2) add TIKA_URL to env.validation.ts and .env.example
+//        3) uncomment the imports/constructor param/checks and inject the clients (storage).
 
 @Controller('health')
 // Probes (Cloud Run / App Engine) hit this often; they must never get a 429.
@@ -13,24 +17,39 @@ import { SkipThrottle } from '@nestjs/throttler';
 export class HealthController {
   constructor(
     private readonly health: HealthCheckService,
-    // private readonly indicator: HealthIndicatorService,
-    // private readonly pool: Pool, // from 'pg'
+    private readonly indicator: HealthIndicatorService,
+    // null while the DATABASE_ENABLED feature flag is off.
+    @Inject(DatabaseService) private readonly database: DatabaseService | null,
     // private readonly storage: Storage, // from '@google-cloud/storage'
     // private readonly config: ConfigService<Env, true>,
   ) {}
+
+  /**
+   * PostgreSQL on its own route: the owner stops the database between uses to save money, and that
+   * must not turn the main health check red.
+   */
+  @Get('database')
+  @HealthCheck()
+  checkDatabase() {
+    const database = this.database;
+    // A disabled feature does not exist as far as clients can tell.
+    if (!database) throw new NotFoundException();
+    return this.health.check([
+      // Reading prueba proves the connection, the IAM login and the table grants.
+      () =>
+        this.indicator
+          .check('database')
+          .attempt(async () => {
+            await database.pool.query('SELECT id FROM prueba LIMIT 1');
+          })
+          .withTimeout(5000),
+    ]);
+  }
 
   @Get()
   @HealthCheck()
   check() {
     return this.health.check([
-      // PostgreSQL: a trivial query proves the connection and credentials work.
-      // () =>
-      //   this.indicator
-      //     .check('database')
-      //     .attempt(async () => {
-      //       await this.pool.query('SELECT 1');
-      //     })
-      //     .withTimeout(3000),
       // GCS: the bucket must exist and be reachable with the service account.
       // () =>
       //   this.indicator

@@ -6,6 +6,12 @@
 #   gcloud sql instances patch dms-postgres --activation-policy=NEVER   # stop
 #   gcloud sql instances patch dms-postgres --activation-policy=ALWAYS  # start
 # Terraform ignores activation_policy (below) so a later apply never starts it again.
+locals {
+  # Same value as the instance's connection_name, computed from names so the backend service can use it
+  # without waiting for the instance (and so tests can check it).
+  cloud_sql_instance = "${var.project_id}:${var.region}:${google_sql_database_instance.main.name}"
+}
+
 resource "google_sql_database_instance" "main" {
   name                = "dms-postgres"
   region              = var.region

@@ -99,6 +99,39 @@ run "database_and_backend_login" {
   }
 }
 
+run "backend_gets_the_database_settings" {
+  command = plan
+
+  assert {
+    condition = anytrue([
+      for env in google_cloud_run_v2_service.backend.template[0].containers[0].env :
+      env.name == "DATABASE_ENABLED" && env.value == "true"
+    ])
+    error_message = "the database feature flag is on for the backend"
+  }
+
+  assert {
+    condition = anytrue([
+      for env in google_cloud_run_v2_service.backend.template[0].containers[0].env :
+      env.name == "CLOUD_SQL_INSTANCE" && env.value == "doc-management-sandbox:us-west1:dms-postgres"
+    ])
+    error_message = "the backend gets the instance connection name"
+  }
+
+  assert {
+    condition = anytrue([
+      for env in google_cloud_run_v2_service.backend.template[0].containers[0].env :
+      env.name == "DB_NAME" && env.value == "dms"
+    ])
+    error_message = "the backend gets the database name"
+  }
+
+  assert {
+    condition     = anytrue([for env in google_cloud_run_v2_service.backend.template[0].containers[0].env : env.name == "DB_USER"])
+    error_message = "the backend gets its IAM database user"
+  }
+}
+
 # The connection name only exists after an apply; the mocked provider applies offline.
 run "connection_name_is_exposed" {
   command = apply
