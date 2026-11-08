@@ -6,6 +6,11 @@ function follows(first: HTMLElement, second: HTMLElement): boolean {
 }
 
 describe('Toolbar', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    document.documentElement.style.colorScheme = '';
+  });
+
   it('is the page banner landmark', async () => {
     await render(Toolbar);
 
@@ -89,5 +94,29 @@ describe('Toolbar', () => {
     expect(screen.getByRole('searchbox', { name: /search/i }).className).toContain(
       'placeholder:text-(--mat-sys-on-surface-variant)',
     );
+  });
+
+  describe('theme toggle in the user menu', () => {
+    const openUserMenu = () => fireEvent.click(screen.getByRole('button', { name: /user menu/i }));
+
+    it('offers to switch to dark while the app is light', async () => {
+      await render(Toolbar);
+
+      await openUserMenu();
+
+      expect(await screen.findByRole('menuitem', { name: /switch to dark theme/i })).toBeTruthy();
+    });
+
+    it('switches the theme and flips the label when clicked', async () => {
+      await render(Toolbar);
+      await openUserMenu();
+
+      await fireEvent.click(await screen.findByRole('menuitem', { name: /switch to dark theme/i }));
+
+      expect(document.documentElement.style.colorScheme).toBe('dark');
+      expect(localStorage.getItem('dms-theme')).toBe('dark');
+      await openUserMenu();
+      expect(await screen.findByRole('menuitem', { name: /switch to light theme/i })).toBeTruthy();
+    });
   });
 });

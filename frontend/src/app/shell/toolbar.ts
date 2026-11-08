@@ -1,6 +1,7 @@
-import { Component, ElementRef, input, output, viewChild } from '@angular/core';
+import { Component, ElementRef, inject, input, output, viewChild } from '@angular/core';
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
+import { ThemeService } from '../theme/theme.service';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 
 @Component({
@@ -73,6 +74,15 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
         <mat-icon fontIcon="account_circle" />
       </button>
       <mat-menu #userMenu="matMenu">
+        <button mat-menu-item type="button" (click)="theme.toggle()">
+          @if (theme.scheme() === 'dark') {
+            <mat-icon fontIcon="light_mode" />
+            <span i18n>Switch to light theme</span>
+          } @else {
+            <mat-icon fontIcon="dark_mode" />
+            <span i18n>Switch to dark theme</span>
+          }
+        </button>
         <button mat-menu-item type="button" i18n>Profile</button>
         <button mat-menu-item type="button" i18n>Documents</button>
         <button mat-menu-item type="button" i18n>Settings</button>
@@ -81,6 +91,8 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
   `,
 })
 export class Toolbar {
+  protected readonly theme = inject(ThemeService);
+
   readonly menuOpen = input(false);
   readonly menuToggle = output<void>();
 

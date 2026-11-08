@@ -16,6 +16,13 @@
       href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined"
       rel="stylesheet"
     />
+    <script>
+      // Apply the saved light/dark choice before first paint (same key as ThemeService).
+      try {
+        var t = localStorage.getItem('dms-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.style.colorScheme = t;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <dms-root></dms-root>
