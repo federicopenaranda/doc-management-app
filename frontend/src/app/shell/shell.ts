@@ -12,7 +12,7 @@ import { Toolbar } from './toolbar';
   template: `
     @if (shellEnabled) {
       <dms-toolbar [menuOpen]="menuOpen()" (menuToggle)="menuOpen.update((open) => !open)" />
-      <dms-side-menu [open]="menuOpen()" (closed)="menuOpen.set(false)" />
+      <dms-side-menu [open]="menuOpen()" (closed)="closeMenu()" />
     }
     <main><router-outlet /></main>
   `,
@@ -24,10 +24,17 @@ export class Shell {
 
   private readonly toolbar = viewChild(Toolbar);
 
+  /** Closing removes the focused menu from the page, so focus goes back to the hamburger. */
+  protected closeMenu(): void {
+    this.menuOpen.set(false);
+    this.toolbar()?.focusMenuButton();
+  }
+
   protected onKeydown(event: KeyboardEvent): void {
+    // A widget that already handled the key (e.g. a Material dropdown closing on Escape) owns it.
+    if (event.defaultPrevented) return;
     if (event.key === 'Escape' && this.menuOpen()) {
-      this.menuOpen.set(false);
-      this.toolbar()?.focusMenuButton();
+      this.closeMenu();
       return;
     }
     if (

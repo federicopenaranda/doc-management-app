@@ -60,4 +60,12 @@ describe('Toolbar', () => {
     expect(input.parentElement?.querySelector('mat-icon')).toBeNull();
     expect(input.parentElement?.textContent).toContain('/');
   });
+
+  it('colors the placeholder with the muted text color so it stays readable', async () => {
+    await render(Toolbar);
+
+    expect(screen.getByRole('searchbox', { name: /search/i }).className).toContain(
+      'placeholder:text-(--mat-sys-on-surface-variant)',
+    );
+  });
 });

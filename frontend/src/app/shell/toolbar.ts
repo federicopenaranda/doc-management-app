@@ -31,7 +31,7 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
         <input
           #search
           type="search"
-          class="h-7 w-full rounded-md border border-(--mat-sys-outline-variant) bg-(--mat-sys-surface) px-2 pr-7 text-sm"
+          class="h-7 w-full rounded-md border border-(--mat-sys-outline-variant) bg-(--mat-sys-surface) px-2 pr-7 text-sm placeholder:text-(--mat-sys-on-surface-variant)"
           i18n-aria-label
           aria-label="Search"
           i18n-placeholder

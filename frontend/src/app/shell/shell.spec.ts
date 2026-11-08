@@ -1,3 +1,5 @@
+import { ApplicationRef } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { fireEvent, render, screen } from '@testing-library/angular';
 import { AppConfigService } from '../app-config.service';
@@ -56,6 +58,48 @@ describe('Shell', () => {
       expect(document.activeElement).toBe(screen.getByRole('button', { name: /open menu/i }));
     });
 
+    it('moves focus into the menu when it opens', async () => {
+      await setup(true);
+
+      await openMenu();
+
+      expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Home' }));
+    });
+
+    it('puts focus back on the hamburger when an entry closes the menu', async () => {
+      await setup(true);
+      await openMenu();
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Documents' }));
+
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: /open menu/i }));
+    });
+
+    it('puts focus back on the hamburger when the scrim closes the menu', async () => {
+      await setup(true);
+      await openMenu();
+
+      await fireEvent.click(screen.getByTestId('scrim'));
+
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: /open menu/i }));
+    });
+
+    it('leaves Escape alone when another widget already handled it', async () => {
+      await setup(true);
+      await openMenu();
+      const handled = new KeyboardEvent('keydown', {
+        key: 'Escape',
+        cancelable: true,
+        bubbles: true,
+      });
+      handled.preventDefault();
+
+      document.body.dispatchEvent(handled);
+      TestBed.inject(ApplicationRef).tick();
+
+      expect(screen.getByRole('navigation', { name: /main menu/i })).toBeTruthy();
+    });
+
     it('closes when a menu entry is clicked', async () => {
       await setup(true);
       await openMenu();
@@ -95,6 +139,16 @@ describe('Shell', () => {
       await setup(true);
 
       await fireEvent.keyDown(document.body, { key: '/', [modifier]: true });
+
+      expect(document.activeElement).not.toBe(screen.getByRole('searchbox'));
+    });
+
+    it('leaves / alone when another widget already handled it', async () => {
+      await setup(true);
+      const handled = new KeyboardEvent('keydown', { key: '/', cancelable: true, bubbles: true });
+      handled.preventDefault();
+
+      document.body.dispatchEvent(handled);
 
       expect(document.activeElement).not.toBe(screen.getByRole('searchbox'));
     });
