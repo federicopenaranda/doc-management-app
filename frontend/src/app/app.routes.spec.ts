@@ -7,13 +7,13 @@ import { AppConfigService } from './app-config.service';
 import { routes } from './app.routes';
 import { UploadApi } from './uploads/upload-api';
 
-function setup(uploadsEnabled: boolean) {
+function setup(uploadsEnabled: boolean, shellEnabled = false) {
   TestBed.configureTestingModule({
     providers: [
       provideRouter(routes),
       provideHttpClient(),
       { provide: API_URL, useValue: 'http://localhost:3000' },
-      { provide: AppConfigService, useValue: { uploadsEnabled } },
+      { provide: AppConfigService, useValue: { uploadsEnabled, shellEnabled } },
       { provide: UploadApi, useValue: { sign: vi.fn() } },
     ],
   });
@@ -37,6 +37,16 @@ describe('routes', () => {
     expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain(
       'Hello, doc-management',
     );
+  });
+
+  it('renders pages inside the shell main landmark', async () => {
+    const harness = await setup(true);
+
+    await harness.navigateByUrl('/upload');
+
+    expect(
+      harness.routeNativeElement?.querySelector('main [data-testid="drop-zone"]'),
+    ).not.toBeNull();
   });
 
   it('has no upload route while the feature flag is off', async () => {
