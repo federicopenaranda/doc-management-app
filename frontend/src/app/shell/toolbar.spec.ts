@@ -6,6 +6,11 @@ function follows(first: HTMLElement, second: HTMLElement): boolean {
 }
 
 describe('Toolbar', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    document.documentElement.style.colorScheme = '';
+  });
+
   it('is the page banner landmark', async () => {
     await render(Toolbar);
 
@@ -89,5 +94,40 @@ describe('Toolbar', () => {
     expect(screen.getByRole('searchbox', { name: /search/i }).className).toContain(
       'placeholder:text-(--mat-sys-on-surface-variant)',
     );
+  });
+
+  describe('theme switch in the user menu', () => {
+    const openUserMenu = () => fireEvent.click(screen.getByRole('button', { name: /user menu/i }));
+
+    it('shows a short "Dark theme" row that is off while the app is light', async () => {
+      await render(Toolbar);
+
+      await openUserMenu();
+
+      const row = await screen.findByRole('menuitemcheckbox', { name: /^dark theme$/i });
+      expect(row.getAttribute('aria-checked')).toBe('false');
+    });
+
+    it('switches the theme when clicked, turns the row on and keeps the menu open', async () => {
+      await render(Toolbar);
+      await openUserMenu();
+
+      await fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /dark theme/i }));
+
+      expect(document.documentElement.style.colorScheme).toBe('dark');
+      expect(localStorage.getItem('dms-theme')).toBe('dark');
+      const row = screen.getByRole('menuitemcheckbox', { name: /dark theme/i });
+      expect(row.getAttribute('aria-checked')).toBe('true');
+    });
+
+    it('starts on when a dark choice was saved', async () => {
+      localStorage.setItem('dms-theme', 'dark');
+      await render(Toolbar);
+
+      await openUserMenu();
+
+      const row = await screen.findByRole('menuitemcheckbox', { name: /dark theme/i });
+      expect(row.getAttribute('aria-checked')).toBe('true');
+    });
   });
 });
