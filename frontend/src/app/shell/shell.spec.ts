@@ -23,6 +23,49 @@ describe('Shell', () => {
     expect(screen.getAllByRole('main')).toHaveLength(1);
   });
 
+  describe('left menu', () => {
+    const openMenu = () => fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
+
+    it('opens from the hamburger and marks it expanded', async () => {
+      await setup(true);
+
+      await openMenu();
+
+      expect(screen.getByRole('navigation', { name: /main menu/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /open menu/i }).getAttribute('aria-expanded')).toBe(
+        'true',
+      );
+    });
+
+    it('closes when the scrim is clicked', async () => {
+      await setup(true);
+      await openMenu();
+
+      await fireEvent.click(screen.getByTestId('scrim'));
+
+      expect(screen.queryByRole('navigation', { name: /main menu/i })).toBeNull();
+    });
+
+    it('closes on Escape and puts focus back on the hamburger', async () => {
+      await setup(true);
+      await openMenu();
+
+      await fireEvent.keyDown(document.body, { key: 'Escape' });
+
+      expect(screen.queryByRole('navigation', { name: /main menu/i })).toBeNull();
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: /open menu/i }));
+    });
+
+    it('closes when a menu entry is clicked', async () => {
+      await setup(true);
+      await openMenu();
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Documents' }));
+
+      expect(screen.queryByRole('navigation', { name: /main menu/i })).toBeNull();
+    });
+  });
+
   describe('slash shortcut', () => {
     it('focuses the search input when / is pressed on the page', async () => {
       await setup(true);

@@ -79,7 +79,9 @@ export class Toolbar {
   readonly menuToggle = output<void>();
 
   private readonly search = viewChild.required<ElementRef<HTMLInputElement>>('search');
-  private readonly menuButton = viewChild.required<ElementRef<HTMLButtonElement>>('menuButton');
+  private readonly menuButton = viewChild.required('menuButton', {
+    read: ElementRef<HTMLButtonElement>,
+  });
 
   focusSearch(): void {
     this.search().nativeElement.focus();
