@@ -108,6 +108,24 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "UPLOADS_ENABLED"
         value = "true"
       }
+      # Feature flag for the database connection: remove two weeks after it is on in use.
+      env {
+        name  = "DATABASE_ENABLED"
+        value = "true"
+      }
+      # The backend reaches Cloud SQL through the connector, logged in as its own service account.
+      env {
+        name  = "CLOUD_SQL_INSTANCE"
+        value = local.cloud_sql_instance
+      }
+      env {
+        name  = "DB_NAME"
+        value = google_sql_database.dms.name
+      }
+      env {
+        name  = "DB_USER"
+        value = google_sql_user.backend.name
+      }
       env {
         name  = "APP_CONFIG_FILE"
         value = local.config_path

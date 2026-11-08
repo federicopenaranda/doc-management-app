@@ -37,6 +37,19 @@ const envSchema = z.object({
   // Audience of the Pub/Sub push token (the backend's own URL).
   BACKEND_URL: z.url({ protocol: /^https?$/ }).optional(),
   PUBSUB_PUSH_SA_EMAIL: z.email().optional(),
+  // Feature flag for the database connection: remove it two weeks after it is on in use.
+  DATABASE_ENABLED: z.stringbool().default(false),
+  // Cloud SQL connection name (project:region:instance). When set, the backend connects through the
+  // Cloud SQL connector with IAM login; otherwise it uses DATABASE_URL.
+  CLOUD_SQL_INSTANCE: z
+    .string()
+    .regex(
+      /^[^:\s]+:[^:\s]+:[^:\s]+$/,
+      'must look like project:region:instance',
+    )
+    .optional(),
+  DB_NAME: z.string().min(1).optional(),
+  DB_USER: z.string().min(1).optional(),
 });
 
 const WORKER_SETTINGS = [
@@ -47,6 +60,17 @@ const WORKER_SETTINGS = [
 ] as const;
 
 const envWithWorkerRules = envSchema.superRefine((env, ctx) => {
+  if (env.CLOUD_SQL_INSTANCE !== undefined) {
+    for (const name of ['DB_NAME', 'DB_USER'] as const) {
+      if (env[name] === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [name],
+          message: 'is required when CLOUD_SQL_INSTANCE is set',
+        });
+      }
+    }
+  }
   if (!env.DOCUMENT_PROCESSING_ENABLED) return;
   for (const name of WORKER_SETTINGS) {
     if (env[name] === undefined) {
