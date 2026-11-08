@@ -1,10 +1,10 @@
 import { Component, ElementRef, input, output, viewChild } from '@angular/core';
-import { MatIconButton, MatButton } from '@angular/material/button';
+import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 
 @Component({
-  imports: [MatButton, MatIconButton, MatIcon, MatMenu, MatMenuItem, MatMenuTrigger],
+  imports: [MatIconButton, MatIcon, MatMenu, MatMenuItem, MatMenuTrigger],
   selector: 'dms-toolbar',
   template: `
     <header
@@ -28,29 +28,35 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
       <div class="flex-1"></div>
 
       <div class="relative w-full max-w-xs min-w-0 shrink">
+        <kbd
+          aria-hidden="true"
+          class="pointer-events-none absolute top-1/2 left-1.5 -translate-y-1/2 rounded border border-(--mat-sys-outline-variant) px-1 text-xs"
+          >/</kbd
+        >
         <input
           #search
           type="search"
-          class="h-7 w-full rounded-md border border-(--mat-sys-outline-variant) bg-(--mat-sys-surface) px-2 pr-7 text-sm placeholder:text-(--mat-sys-on-surface-variant)"
+          class="h-7 w-full rounded-md border border-(--mat-sys-outline-variant) bg-(--mat-sys-surface) pr-2 pl-7 text-sm placeholder:text-(--mat-sys-on-surface-variant)"
           i18n-aria-label
           aria-label="Search"
           i18n-placeholder
           placeholder="Search"
         />
-        <kbd
-          aria-hidden="true"
-          class="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 rounded border border-(--mat-sys-outline-variant) px-1 text-xs"
-          >/</kbd
-        >
       </div>
 
-      <button matButton="outlined" type="button" [matMenuTriggerFor]="createMenu" i18n>
-        Create
+      <button
+        matIconButton
+        type="button"
+        i18n-aria-label
+        aria-label="Create"
+        [matMenuTriggerFor]="createMenu"
+      >
+        <mat-icon fontIcon="add" />
       </button>
       <mat-menu #createMenu="matMenu">
-        <button mat-menu-item type="button" i18n>Test document 1</button>
-        <button mat-menu-item type="button" i18n>Test document 2</button>
-        <button mat-menu-item type="button" i18n>Test document 3</button>
+        <button mat-menu-item type="button" i18n>Document</button>
+        <button mat-menu-item type="button" i18n>Folder</button>
+        <button mat-menu-item type="button" i18n>Record</button>
       </mat-menu>
 
       <button matIconButton type="button" i18n-aria-label aria-label="Notifications">

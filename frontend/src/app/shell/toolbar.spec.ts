@@ -44,12 +44,34 @@ describe('Toolbar', () => {
     );
   });
 
-  it('lists three test documents in the create menu', async () => {
+  it('shows the create button as a plus icon only, with no visible text', async () => {
+    await render(Toolbar);
+
+    const create = screen.getByRole('button', { name: /create/i });
+
+    expect(create.querySelector('mat-icon')?.getAttribute('fonticon')).toBe('add');
+    expect(create.textContent?.replace(/\s/g, '').replace('add', '')).toBe('');
+  });
+
+  it('lets the user pick which type of entity to create', async () => {
     await render(Toolbar);
 
     await fireEvent.click(screen.getByRole('button', { name: /create/i }));
 
-    expect(await screen.findAllByRole('menuitem', { name: /test document/i })).toHaveLength(3);
+    const items = await screen.findAllByRole('menuitem');
+    expect(items.map((item) => item.textContent?.trim())).toEqual(['Document', 'Folder', 'Record']);
+  });
+
+  it('puts the slash hint at the left of the search input', async () => {
+    await render(Toolbar);
+
+    const input = screen.getByRole('searchbox', { name: /search/i });
+    const hint = input.parentElement?.querySelector('kbd');
+
+    expect(hint?.textContent).toBe('/');
+    expect(follows(hint as HTMLElement, input)).toBe(true);
+    expect(hint?.className).toContain('left-1.5');
+    expect(hint?.className).not.toContain('right-1.5');
   });
 
   it('has no icon inside the search input and shows the slash hint', async () => {
