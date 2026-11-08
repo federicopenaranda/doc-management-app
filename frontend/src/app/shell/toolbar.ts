@@ -2,10 +2,11 @@ import { Component, ElementRef, inject, input, output, viewChild } from '@angula
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { ThemeService } from '../theme/theme.service';
+import { MatSlideToggle } from '@angular/material/slide-toggle';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 
 @Component({
-  imports: [MatIconButton, MatIcon, MatMenu, MatMenuItem, MatMenuTrigger],
+  imports: [MatIconButton, MatIcon, MatMenu, MatMenuItem, MatMenuTrigger, MatSlideToggle],
   selector: 'dms-toolbar',
   template: `
     <header
@@ -74,14 +75,22 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
         <mat-icon fontIcon="account_circle" />
       </button>
       <mat-menu #userMenu="matMenu">
-        <button mat-menu-item type="button" (click)="theme.toggle()">
-          @if (theme.scheme() === 'dark') {
-            <mat-icon fontIcon="light_mode" />
-            <span i18n>Switch to light theme</span>
-          } @else {
-            <mat-icon fontIcon="dark_mode" />
-            <span i18n>Switch to dark theme</span>
-          }
+        <!-- The whole row is the control; the switch is only its picture, so it stays out of the tab order. -->
+        <button
+          mat-menu-item
+          type="button"
+          role="menuitemcheckbox"
+          [attr.aria-checked]="theme.scheme() === 'dark'"
+          (click)="$event.stopPropagation(); theme.toggle()"
+        >
+          <mat-icon fontIcon="dark_mode" />
+          <span i18n>Dark theme</span>
+          <mat-slide-toggle
+            class="pointer-events-none ml-4"
+            aria-hidden="true"
+            tabIndex="-1"
+            [checked]="theme.scheme() === 'dark'"
+          />
         </button>
         <button mat-menu-item type="button" i18n>Profile</button>
         <button mat-menu-item type="button" i18n>Documents</button>
