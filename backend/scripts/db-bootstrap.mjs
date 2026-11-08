@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // One-time (and safe to repeat) database setup, run by the owner as the built-in `postgres` admin:
-// creates the pgvector extension and the `prueba` test table, and lets the backend's IAM user
-// read and write it.
+// creates the pgvector extension, the `prueba` test table and the `users` table, and gives the
+// backend's IAM user the access it needs (read and write prueba, read users).
 //
 //   DB_ADMIN_PASSWORD=... npm run db:bootstrap -- \
 //     --instance <project>:<region>:<instance> --iam-user <service-account-email-without-.gserviceaccount.com>
@@ -11,6 +11,7 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { withAdminClient } from './admin-connection.mjs';
 
 /** @param {string} name */
 export function quoteIdent(name) {
@@ -35,6 +36,17 @@ export function bootstrapStatements(iamUser) {
   created_at timestamptz NOT NULL DEFAULT now()
 )`,
     `GRANT SELECT, INSERT ON prueba TO ${quoteIdent(iamUser)}`,
+    // App users. Passwords are stored only as scrypt hashes (see src/auth/password.ts).
+    `CREATE TABLE IF NOT EXISTS users (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email text NOT NULL,
+  password_hash text NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+)`,
+    'CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_key ON users (lower(email))',
+    // Login only reads users; creating and changing them comes with the user-management tickets.
+    `GRANT SELECT ON users TO ${quoteIdent(iamUser)}`,
     `INSERT INTO prueba (mensaje) SELECT 'hola desde db:bootstrap' WHERE NOT EXISTS (SELECT 1 FROM prueba)`,
   ];
 }
@@ -55,34 +67,13 @@ async function main() {
   }
   const statements = bootstrapStatements(values['iam-user']);
 
-  // Loaded here so the tests of the pure functions above do not need the database packages.
-  const { AuthTypes, Connector } =
-    await import('@google-cloud/cloud-sql-connector');
-  const { default: pg } = await import('pg');
-  const connector = new Connector();
-  const options = await connector.getOptions({
-    instanceConnectionName: values.instance,
-    authType: AuthTypes.PASSWORD,
-  });
-  const client = new pg.Client({
-    ...options,
-    user: 'postgres',
-    password,
-    database: values.database,
-  });
-  try {
-    await client.connect();
-    await client.query('BEGIN');
-    for (const statement of statements) await client.query(statement);
-    await client.query('COMMIT');
-    console.log(`db:bootstrap ok: ${statements.length} statements ran`);
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    await client.end().catch(() => undefined);
-    connector.close();
-  }
+  await withAdminClient(
+    { instance: values.instance, database: values.database, password },
+    async (client) => {
+      for (const statement of statements) await client.query(statement);
+    },
+  );
+  console.log(`db:bootstrap ok: ${statements.length} statements ran`);
 }
 
 if (

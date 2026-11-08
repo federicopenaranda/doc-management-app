@@ -18,6 +18,7 @@ describe('validateEnv', () => {
       DOCUMENT_PROCESSING_ENABLED: false,
       UPLOADS_ENABLED: false,
       DATABASE_ENABLED: false,
+      AUTH_ENABLED: false,
     });
   });
 
@@ -166,4 +167,26 @@ describe('validateEnv: database', () => {
       );
     },
   );
+});
+
+describe('validateEnv: auth', () => {
+  it('is off by default', () => {
+    expect(validateEnv(valid).AUTH_ENABLED).toBe(false);
+  });
+
+  it('needs the database feature, because users live in the database', () => {
+    expect(() => validateEnv({ ...valid, AUTH_ENABLED: 'true' })).toThrow(
+      'AUTH_ENABLED',
+    );
+  });
+
+  it('is accepted together with the database feature', () => {
+    const env = validateEnv({
+      ...valid,
+      AUTH_ENABLED: 'true',
+      DATABASE_ENABLED: 'true',
+    });
+
+    expect(env.AUTH_ENABLED).toBe(true);
+  });
 });

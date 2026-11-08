@@ -10,7 +10,10 @@ describe('quoteIdent', () => {
 describe('bootstrapStatements', () => {
   const iamUser = 'backend-run@doc-management-sandbox.iam';
   const sql = bootstrapStatements(iamUser);
-  const table = sql.find((s) => s.includes('CREATE TABLE'));
+  const table = sql.find((s) =>
+    s.includes('CREATE TABLE IF NOT EXISTS prueba'),
+  );
+  const users = sql.find((s) => s.includes('CREATE TABLE IF NOT EXISTS users'));
 
   it('creates the vector extension and the prueba table only when missing (safe to run twice)', () => {
     expect(sql).toContain('CREATE EXTENSION IF NOT EXISTS vector');
@@ -24,9 +27,33 @@ describe('bootstrapStatements', () => {
   });
 
   it('lets only the backend identity read and write prueba, with the name quoted', () => {
-    const grant = sql.find((s) => s.startsWith('GRANT'));
+    const grant = sql.find(
+      (s) => s.startsWith('GRANT') && s.includes('ON prueba'),
+    );
 
     expect(grant).toBe(`GRANT SELECT, INSERT ON prueba TO "${iamUser}"`);
+  });
+
+  it('creates the users table: uuid id, required email and password hash, active flag, creation time', () => {
+    expect(users).toMatch(/id uuid PRIMARY KEY DEFAULT gen_random_uuid\(\)/);
+    expect(users).toMatch(/email text NOT NULL/);
+    expect(users).toMatch(/password_hash text NOT NULL/);
+    expect(users).toMatch(/is_active boolean NOT NULL DEFAULT true/);
+    expect(users).toMatch(/created_at timestamptz NOT NULL DEFAULT now\(\)/);
+  });
+
+  it('makes the email unique whatever its letter case', () => {
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_key ON users (lower(email))',
+    );
+  });
+
+  it('lets the backend identity only read users (login reads; creating users is for later tickets)', () => {
+    const grant = sql.find(
+      (s) => s.startsWith('GRANT') && s.includes('ON users'),
+    );
+
+    expect(grant).toBe(`GRANT SELECT ON users TO "${iamUser}"`);
   });
 
   it('inserts one starter row only when the table is empty', () => {
