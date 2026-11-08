@@ -22,7 +22,8 @@ import {
 } from './jwt-auth.guard.js';
 
 const loginSchema = z.object({
-  email: z.email(),
+  // Trimmed first: an email pasted from a mail client often carries a space.
+  email: z.string().trim().pipe(z.email()),
   // The upper bound keeps a huge body from turning into a huge hashing job.
   password: z.string().min(1).max(200),
 });

@@ -43,6 +43,8 @@ export class JwtAuthGuard implements CanActivate {
     if (typeof payload.sub !== 'string' || typeof payload.email !== 'string') {
       throw new UnauthorizedException();
     }
+    // shortcut: is_active is checked at login only, so a deactivated user's token works until it expires
+    // (1 h). When users can be deactivated (SCRUM-18), load the user by `sub` here.
     request.user = { id: payload.sub, email: payload.email };
     return true;
   }

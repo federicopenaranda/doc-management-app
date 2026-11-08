@@ -144,6 +144,15 @@ run "auth_flag_is_on_for_the_backend" {
   }
 }
 
+run "backend_has_room_for_password_hashing" {
+  command = plan
+
+  assert {
+    condition     = google_cloud_run_v2_service.backend.template[0].containers[0].resources[0].limits["memory"] == "1Gi"
+    error_message = "each login hashes with 64 MiB and four can run at once; 512 MiB is too tight"
+  }
+}
+
 # The connection name only exists after an apply; the mocked provider applies offline.
 run "connection_name_is_exposed" {
   command = apply

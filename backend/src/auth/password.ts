@@ -25,10 +25,16 @@ export const SCRYPT_PARAMS: ScryptParams = { N: 2 ** 16, r: 8, p: 1 };
 
 const KEY_LENGTH = 32;
 const SALT_LENGTH = 16;
-// Stored values come from our own database, but a corrupted row must not be able to ask for gigabytes.
-const MAX_N = 2 ** 18;
-const MAX_R = 16;
+// Stored values come from our own database, but a corrupted row must not be able to ask for much memory:
+// 128 * N * r bytes, so at most 128 MiB per check (the default setting uses 64 MiB).
+const MAX_N = 2 ** 17;
+const MAX_R = 8;
 const MAX_P = 4;
+
+/** The same password typed as one composed character or as letter plus accent must hash alike. */
+function normalize(password: string): string {
+  return password.normalize('NFKC');
+}
 
 function options({ N, r, p }: ScryptParams): ScryptOptions {
   // Node's default memory cap (32 MiB) is below what N = 2^16 needs.
@@ -41,7 +47,12 @@ export async function hashPassword(
   params: ScryptParams = SCRYPT_PARAMS,
 ): Promise<string> {
   const salt = randomBytes(SALT_LENGTH);
-  const hash = await scrypt(password, salt, KEY_LENGTH, options(params));
+  const hash = await scrypt(
+    normalize(password),
+    salt,
+    KEY_LENGTH,
+    options(params),
+  );
   return [
     'scrypt',
     params.N,
@@ -68,7 +79,7 @@ export async function verifyPassword(
   if (expected.length === 0) return false;
   try {
     const actual = await scrypt(
-      password,
+      normalize(password),
       Buffer.from(salt, 'base64'),
       expected.length,
       options(params),

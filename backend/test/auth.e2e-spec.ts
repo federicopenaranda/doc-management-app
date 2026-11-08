@@ -85,6 +85,13 @@ describe('auth (e2e)', () => {
       await app.close();
     });
 
+    it('accepts an email pasted with surrounding spaces', async () => {
+      const app = await createApp(true);
+
+      await login(app, '  ana@example.com  ', PASSWORD).expect(200);
+      await app.close();
+    });
+
     it.each([
       ['a wrong password', 'ana@example.com', 'wrong password!!'],
       ['an unknown email', 'nobody@example.com', PASSWORD],

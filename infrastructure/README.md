@@ -148,7 +148,8 @@ identity may only read it. Passwords are stored as scrypt hashes, never in clear
 (between the two `set-password` commands above), with a password of 12 to 200 characters:
 
 ```bash
-DB_ADMIN_PASSWORD="$PW" USER_PASSWORD='<12+ characters>' npm run users:create -- --instance $P:us-west1:dms-postgres --email you@example.com
+read -rs -p "Password for the new user (12+ characters): " USER_PASSWORD; export USER_PASSWORD   # typed hidden, not kept in shell history
+DB_ADMIN_PASSWORD="$PW" npm run users:create -- --instance $P:us-west1:dms-postgres --email you@example.com
 ```
 
 It leaves an existing email untouched. Then `POST /auth/login` with `{ "email", "password" }` returns `{ accessToken, expiresIn: 3600 }`, and

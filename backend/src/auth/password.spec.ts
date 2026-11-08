@@ -53,6 +53,8 @@ describe('verifyPassword', () => {
     ['unknown scheme', 'md5$1$8$1$c2FsdA==$aGFzaA=='],
     ['missing parts', 'scrypt$1024$8$1$c2FsdA=='],
     ['bad parameters', 'scrypt$abc$8$1$c2FsdA==$aGFzaA=='],
+    ['empty hash', 'scrypt$1024$8$1$c2FsdA==$'],
+    ['N that is not a power of two', 'scrypt$1000$8$1$c2FsdA==$aGFzaA=='],
     ['absurd cost', `scrypt$${2 ** 30}$8$1$c2FsdA==$aGFzaA==`],
   ])(
     'is false, not an error, for a malformed stored value (%s)',
@@ -60,4 +62,25 @@ describe('verifyPassword', () => {
       expect(await verifyPassword('anything', stored)).toBe(false);
     },
   );
+});
+
+describe('password handling details', () => {
+  it('treats composed and decomposed Unicode as the same password (macOS vs Windows input)', async () => {
+    const composed = 'café au lait 2026';
+    const decomposed = 'café au lait 2026';
+    const stored = await hashPassword(composed, FAST);
+
+    expect(await verifyPassword(decomposed, stored)).toBe(true);
+  });
+
+  it('refuses a stored hash that would need more than 128 MiB per check', async () => {
+    // 2^18 * 8 * 128 bytes = 256 MiB: the hash itself is valid, but verifying it is not allowed.
+    const stored = await hashPassword('costly password!', {
+      N: 2 ** 18,
+      r: 8,
+      p: 1,
+    });
+
+    expect(await verifyPassword('costly password!', stored)).toBe(false);
+  }, 20_000);
 });
