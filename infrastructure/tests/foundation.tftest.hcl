@@ -46,7 +46,8 @@ run "required_apis_enabled" {
       "pubsub.googleapis.com",
       "storage.googleapis.com",
       "monitoring.googleapis.com",
+      "sqladmin.googleapis.com",
     ])
-    error_message = "exactly the six required APIs must be enabled"
+    error_message = "exactly the seven required APIs must be enabled"
   }
 }

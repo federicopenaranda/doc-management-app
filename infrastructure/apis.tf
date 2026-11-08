@@ -6,6 +6,7 @@ locals {
     "pubsub.googleapis.com",
     "storage.googleapis.com",
     "monitoring.googleapis.com",
+    "sqladmin.googleapis.com",
   ])
 }
 

@@ -12,6 +12,7 @@ Terraform for the **sandbox** GCP project (`doc-management-sandbox`, region `us-
 | Secrets | `backend-local`, `backend-sandbox`, `frontend-local`, `frontend-sandbox` (JSON, see below) |
 | Storage | `<project>-documents` bucket (private, versioned) and `<project>-documents-processed` (output of the worker: one folder per file with `document.md`), objectAdmin on both for the backend. The landing bucket has CORS (`PUT` from the frontend origin only) for browser uploads through signed URLs; the backend identity may sign as itself (`serviceAccountTokenCreator` on itself), and the flag `UPLOADS_ENABLED` turns the signing endpoint on |
 | Pub/Sub | `document-uploaded` topic fed by bucket uploads, push subscription to `<backend>/pubsub/documents`, dead-letter topic after 5 attempts |
+| Database | Cloud SQL `dms-postgres` (PostgreSQL 16, `db-f1-micro`, one zone, 10 GB HDD, no backups) with the database `dms`; the backend identity logs in with IAM (no password). See *Cloud SQL* below |
 | Registries | `apps` (our images) and `dockerhub` (pull-through cache, used for the pinned Tika image) |
 
 ## How changes reach GCP
@@ -99,6 +100,24 @@ Until real images exist, the services run Google's sample "hello" image; Terrafo
   **Done:** `frontend/Dockerfile` (Node build, then non-root nginx on 8080), `frontend/docker/40-app-config.sh` (writes `config.json`, refuses to start on invalid JSON or without configuration) and `.github/workflows/frontend.yml`. A pull request builds the image and runs `npm run test:image` (real containers); a push to `main` pushes `apps/frontend:<commit sha>` and runs `gcloud run services update frontend --image ...`, then smoke-tests the deployed URL. Try it locally with `docker build -t dms-frontend frontend && docker run -p 8080:8080 -e API_URL=http://localhost:3000 dms-frontend`.
 - **Pub/Sub** pushes to `POST /pubsub/documents` on the backend with an OIDC token whose audience is the backend URL. That endpoint does not exist yet and must verify the token; until it does, messages are retried and then dead-lettered.
 - **Tika** is private: the backend must call it with a Google ID token (audience = the Tika URL). Its image tag is pinned in `cloud_run.tf`.
+
+## Cloud SQL
+
+`sql.tf` creates the cheapest PostgreSQL Cloud SQL offers (shared-core `db-f1-micro`, one zone, a 10 GB HDD that cannot grow by itself, no
+paid backups, deletion protection on). Roughly under 10 USD a month while it runs; stopped, only the disk is billed (check Google's
+pricing page for current numbers). It has a public address but allows **no** networks: the backend reaches it through the Cloud SQL
+connector with its own service account (`roles/cloudsql.client` + `roles/cloudsql.instanceUser`, IAM database login), so there is no
+password in Terraform, its state or the secrets. The output `cloud_sql_instance` is the connection name (`project:region:name`).
+
+Stop it when you do not use it, start it when you do. Terraform ignores this setting, so an apply never starts it again:
+
+```bash
+gcloud sql instances patch dms-postgres --activation-policy=NEVER  --project doc-management-sandbox   # stop
+gcloud sql instances patch dms-postgres --activation-policy=ALWAYS --project doc-management-sandbox   # start
+```
+
+`github-deployer` needs `roles/cloudsql.admin` on the project (granted by hand, like the other deploy roles). Not done yet: the extension
+`pgvector`, tables, and the backend's database module (they need a one-time admin login; see the SCRUM-15 follow-up).
 
 ## Dead-lettered messages
 

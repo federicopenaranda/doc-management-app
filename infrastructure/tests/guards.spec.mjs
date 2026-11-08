@@ -160,3 +160,11 @@ describe('image files', () => {
     }
   });
 });
+
+describe('cloud sql instance', () => {
+  const sql = readText(infraDir, 'sql.tf');
+
+  it('ignores activation_policy, so the owner can stop it and later applies do not start it again', () => {
+    assert.match(sql, /ignore_changes\s*=\s*\[[^\]]*settings\[0\]\.activation_policy/);
+  });
+});
