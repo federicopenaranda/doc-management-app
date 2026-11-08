@@ -4,6 +4,11 @@ import { AppConfigService } from './app-config.service';
 
 export const routes: Routes = [
   {
+    path: '',
+    pathMatch: 'full',
+    loadComponent: () => import('./hello/home-page').then((m) => m.HomePage),
+  },
+  {
     path: 'upload',
     // Feature flag (config.json "uploadsEnabled"): without it the route does not exist.
     canMatch: [() => inject(AppConfigService).uploadsEnabled],

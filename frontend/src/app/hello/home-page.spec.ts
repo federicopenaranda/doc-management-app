@@ -3,12 +3,12 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { fireEvent, render, screen } from '@testing-library/angular';
-import { API_URL } from './api-url';
-import { AppConfigService } from './app-config.service';
-import { App } from './app';
+import { API_URL } from '../api-url';
+import { AppConfigService } from '../app-config.service';
+import { HomePage } from './home-page';
 
 async function setup(uploadsEnabled = false) {
-  await render(App, {
+  await render(HomePage, {
     providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
@@ -23,7 +23,7 @@ async function setup(uploadsEnabled = false) {
   };
 }
 
-describe('App', () => {
+describe('HomePage', () => {
   it('should render title', async () => {
     await setup();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toContain(
