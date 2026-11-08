@@ -6,6 +6,8 @@ interface AppConfig {
   apiUrl: string;
   /** Feature flag for multi-file upload: remove it two weeks after it is on in use. */
   uploadsEnabled: boolean;
+  /** Feature flag for the app shell (toolbar and menu): remove it two weeks after it is on in use. */
+  shellEnabled: boolean;
 }
 
 function isHttpUrl(value: string): boolean {
@@ -17,6 +19,16 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
+function parseFlag(object: Record<string, unknown>, key: string): boolean {
+  // The secret is edited by hand, so "true" / "false" as strings are accepted too.
+  const flag = object[key] ?? false;
+  const value = flag === 'true' ? true : flag === 'false' ? false : flag;
+  if (typeof value !== 'boolean') {
+    throw new Error(`config.json: "${key}" must be true or false`);
+  }
+  return value;
+}
+
 function parseConfig(raw: unknown): AppConfig {
   const object =
     typeof raw === 'object' && raw !== null && !Array.isArray(raw)
@@ -26,13 +38,9 @@ function parseConfig(raw: unknown): AppConfig {
   if (typeof apiUrl !== 'string' || !isHttpUrl(apiUrl)) {
     throw new Error('config.json: "apiUrl" must be an absolute http(s) URL');
   }
-  // The secret is edited by hand, so "true" / "false" as strings are accepted too.
-  const flag = object['uploadsEnabled'] ?? false;
-  const uploadsEnabled = flag === 'true' ? true : flag === 'false' ? false : flag;
-  if (typeof uploadsEnabled !== 'boolean') {
-    throw new Error('config.json: "uploadsEnabled" must be true or false');
-  }
-  return { apiUrl: apiUrl.replace(/\/+$/, ''), uploadsEnabled };
+  const uploadsEnabled = parseFlag(object, 'uploadsEnabled');
+  const shellEnabled = parseFlag(object, 'shellEnabled');
+  return { apiUrl: apiUrl.replace(/\/+$/, ''), uploadsEnabled, shellEnabled };
 }
 
 /** Runtime configuration: one build serves every environment, config.json says where the API is. */
@@ -49,6 +57,11 @@ export class AppConfigService {
   get uploadsEnabled(): boolean {
     if (!this.config) throw new Error('config.json has not been loaded');
     return this.config.uploadsEnabled;
+  }
+
+  get shellEnabled(): boolean {
+    if (!this.config) throw new Error('config.json has not been loaded');
+    return this.config.shellEnabled;
   }
 
   /** Relative URL, so the app also works when served from a sub-path. */
