@@ -100,6 +100,21 @@ describe('AppConfigService', () => {
     expect(service.shellEnabled).toBe(expected);
   });
 
+  it.each([
+    [{ apiUrl: 'http://localhost:3000' }, false],
+    [{ apiUrl: 'http://localhost:3000', authEnabled: true }, true],
+    [{ apiUrl: 'http://localhost:3000', authEnabled: 'true' }, true],
+    [{ apiUrl: 'http://localhost:3000', authEnabled: 'false' }, false],
+  ])('reads the auth flag from %j as %s (off when absent)', async (body, expected) => {
+    const { service, http } = setup();
+
+    const loading = service.load();
+    http.expectOne('config.json').flush(body);
+    await loading;
+
+    expect(service.authEnabled).toBe(expected);
+  });
+
   it('rejects a shellEnabled that is not a boolean, naming the key', async () => {
     const { service, http } = setup();
 
