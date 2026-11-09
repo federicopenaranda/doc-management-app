@@ -168,6 +168,16 @@ that `db:bootstrap` creates (the backend identity may read, add and update it, n
 **Run `db:bootstrap` (steps above) before deploying a backend with `REFRESH_ENABLED` on**, or every login fails: it tries to store the token in a
 table that does not exist yet. The frontend flag is `refreshEnabled` in the `frontend-sandbox` secret.
 
+### User management
+
+With the flag `USERS_ENABLED` (backend secret, needs `AUTH_ENABLED`) any logged-in user can call `GET /users` (the list, never with password
+hashes) and `POST /users` with `{ firstName, lastName, email, password }` (password 12 to 200 characters; 201 with the new user, 409 when the
+email exists). Until roles exist (SCRUM-17) there is no further check. `db:bootstrap` adds the `first_name` and `last_name` columns (users that
+already existed get empty names) and lets the backend identity read and add users.
+
+**Run `db:bootstrap` (steps above) before deploying a backend with `USERS_ENABLED` on**, or the list and the creation fail with a database
+error. The frontend flag is `usersEnabled` in the `frontend-sandbox` secret.
+
 ## Dead-lettered messages
 
 An upload event that the backend fails to process 5 times is moved to the topic `document-uploaded-dlq`. The pull subscription

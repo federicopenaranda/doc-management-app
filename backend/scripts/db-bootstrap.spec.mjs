@@ -48,12 +48,22 @@ describe('bootstrapStatements', () => {
     );
   });
 
-  it('lets the backend identity only read users (login reads; creating users is for later tickets)', () => {
+  it('adds first and last name to users, safe to repeat and keeping the rows that exist', () => {
+    const add = sql.filter((s) => s.startsWith('ALTER TABLE users'));
+
+    expect(add).toEqual([
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name text NOT NULL DEFAULT ''",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name text NOT NULL DEFAULT ''",
+    ]);
+    expect(sql.indexOf(add[0])).toBeGreaterThan(sql.indexOf(users));
+  });
+
+  it('lets the backend identity read and add users, never change or delete them (that comes later)', () => {
     const grant = sql.find(
       (s) => s.startsWith('GRANT') && s.includes('ON users'),
     );
 
-    expect(grant).toBe(`GRANT SELECT ON users TO "${iamUser}"`);
+    expect(grant).toBe(`GRANT SELECT, INSERT ON users TO "${iamUser}"`);
   });
 
   describe('refresh_tokens', () => {

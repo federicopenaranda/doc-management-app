@@ -54,6 +54,8 @@ const envSchema = z.object({
   AUTH_ENABLED: z.stringbool().default(false),
   // Feature flag for refresh tokens (SCRUM-16): remove it two weeks after it is on in use.
   REFRESH_ENABLED: z.stringbool().default(false),
+  // Feature flag for user management (SCRUM-18): remove it two weeks after it is on in use.
+  USERS_ENABLED: z.stringbool().default(false),
 });
 
 const WORKER_SETTINGS = [
@@ -77,6 +79,14 @@ const envWithWorkerRules = envSchema.superRefine((env, ctx) => {
     ctx.addIssue({
       code: 'custom',
       path: ['REFRESH_ENABLED'],
+      message: 'requires AUTH_ENABLED to be true',
+    });
+  }
+  // Only a logged-in user can manage users.
+  if (env.USERS_ENABLED && !env.AUTH_ENABLED) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['USERS_ENABLED'],
       message: 'requires AUTH_ENABLED to be true',
     });
   }

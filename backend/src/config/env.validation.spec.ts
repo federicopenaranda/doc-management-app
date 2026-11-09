@@ -20,6 +20,7 @@ describe('validateEnv', () => {
       DATABASE_ENABLED: false,
       AUTH_ENABLED: false,
       REFRESH_ENABLED: false,
+      USERS_ENABLED: false,
     });
   });
 
@@ -213,5 +214,28 @@ describe('validateEnv: refresh tokens', () => {
     expect(
       validateEnv({ ...withAuth, REFRESH_ENABLED: 'true' }).REFRESH_ENABLED,
     ).toBe(true);
+  });
+});
+
+describe('validateEnv: users', () => {
+  it('is off by default', () => {
+    expect(validateEnv(valid).USERS_ENABLED).toBe(false);
+  });
+
+  it('needs login, because only a logged-in user can manage users', () => {
+    expect(() => validateEnv({ ...valid, USERS_ENABLED: 'true' })).toThrow(
+      'USERS_ENABLED',
+    );
+  });
+
+  it('is accepted together with login', () => {
+    const env = validateEnv({
+      ...valid,
+      AUTH_ENABLED: 'true',
+      DATABASE_ENABLED: 'true',
+      USERS_ENABLED: 'true',
+    });
+
+    expect(env.USERS_ENABLED).toBe(true);
   });
 });
