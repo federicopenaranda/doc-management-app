@@ -26,6 +26,22 @@ export const routes: Routes = [
         canMatch: [() => inject(AppConfigService).uploadsEnabled],
         loadComponent: () => import('./uploads/upload-page').then((m) => m.UploadPage),
       },
+      {
+        path: 'users',
+        // Feature flag (config.json "usersEnabled"): without it the routes do not exist.
+        canMatch: [() => inject(AppConfigService).usersEnabled],
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            loadComponent: () => import('./users/users-page').then((m) => m.UsersPage),
+          },
+          {
+            path: 'new',
+            loadComponent: () => import('./users/user-form-page').then((m) => m.UserFormPage),
+          },
+        ],
+      },
     ],
   },
 ];

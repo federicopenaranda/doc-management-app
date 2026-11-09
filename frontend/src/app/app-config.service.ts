@@ -12,6 +12,8 @@ interface AppConfig {
   authEnabled: boolean;
   /** Feature flag for token refresh (SCRUM-16): remove it two weeks after it is on in use. */
   refreshEnabled: boolean;
+  /** Feature flag for the user screens (SCRUM-18): remove it two weeks after it is on in use. */
+  usersEnabled: boolean;
 }
 
 function isHttpUrl(value: string): boolean {
@@ -46,12 +48,14 @@ function parseConfig(raw: unknown): AppConfig {
   const shellEnabled = parseFlag(object, 'shellEnabled');
   const authEnabled = parseFlag(object, 'authEnabled');
   const refreshEnabled = parseFlag(object, 'refreshEnabled');
+  const usersEnabled = parseFlag(object, 'usersEnabled');
   return {
     apiUrl: apiUrl.replace(/\/+$/, ''),
     uploadsEnabled,
     shellEnabled,
     authEnabled,
     refreshEnabled,
+    usersEnabled,
   };
 }
 
@@ -84,6 +88,11 @@ export class AppConfigService {
   get refreshEnabled(): boolean {
     if (!this.config) throw new Error('config.json has not been loaded');
     return this.config.refreshEnabled;
+  }
+
+  get usersEnabled(): boolean {
+    if (!this.config) throw new Error('config.json has not been loaded');
+    return this.config.usersEnabled;
   }
 
   /** Relative URL, so the app also works when served from a sub-path. */
