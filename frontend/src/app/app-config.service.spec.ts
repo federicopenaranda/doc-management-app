@@ -115,6 +115,21 @@ describe('AppConfigService', () => {
     expect(service.authEnabled).toBe(expected);
   });
 
+  it.each([
+    [{ apiUrl: 'http://localhost:3000' }, false],
+    [{ apiUrl: 'http://localhost:3000', refreshEnabled: true }, true],
+    [{ apiUrl: 'http://localhost:3000', refreshEnabled: 'true' }, true],
+    [{ apiUrl: 'http://localhost:3000', refreshEnabled: 'false' }, false],
+  ])('reads the refresh flag from %j as %s (off when absent)', async (body, expected) => {
+    const { service, http } = setup();
+
+    const loading = service.load();
+    http.expectOne('config.json').flush(body);
+    await loading;
+
+    expect(service.refreshEnabled).toBe(expected);
+  });
+
   it('rejects a shellEnabled that is not a boolean, naming the key', async () => {
     const { service, http } = setup();
 
