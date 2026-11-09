@@ -52,6 +52,8 @@ const envSchema = z.object({
   DB_USER: z.string().min(1).optional(),
   // Feature flag for login and JWT authentication: remove it two weeks after it is on in use.
   AUTH_ENABLED: z.stringbool().default(false),
+  // Feature flag for refresh tokens (SCRUM-16): remove it two weeks after it is on in use.
+  REFRESH_ENABLED: z.stringbool().default(false),
 });
 
 const WORKER_SETTINGS = [
@@ -68,6 +70,14 @@ const envWithWorkerRules = envSchema.superRefine((env, ctx) => {
       code: 'custom',
       path: ['AUTH_ENABLED'],
       message: 'requires DATABASE_ENABLED to be true',
+    });
+  }
+  // A refresh token is issued at login.
+  if (env.REFRESH_ENABLED && !env.AUTH_ENABLED) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['REFRESH_ENABLED'],
+      message: 'requires AUTH_ENABLED to be true',
     });
   }
   if (env.CLOUD_SQL_INSTANCE !== undefined) {

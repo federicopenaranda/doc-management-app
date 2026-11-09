@@ -28,6 +28,23 @@ const loginSchema = z.object({
   password: z.string().min(1).max(200),
 });
 
+const refreshSchema = z.object({
+  // A real token is 43 characters; the bound keeps a huge body out of the hash.
+  refreshToken: z.string().min(1).max(200),
+});
+
+function parse<T>(schema: z.ZodType<T>, body: unknown): T {
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    throw new BadRequestException(
+      parsed.error.issues
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join('; '),
+    );
+  }
+  return parsed.data;
+}
+
 @ApiExcludeController()
 @Controller('auth')
 export class AuthController {
@@ -45,15 +62,32 @@ export class AuthController {
     if (!this.config.get('AUTH_ENABLED', { infer: true })) {
       throw new NotFoundException();
     }
-    const parsed = loginSchema.safeParse(body);
-    if (!parsed.success) {
-      throw new BadRequestException(
-        parsed.error.issues
-          .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-          .join('; '),
-      );
+    const { email, password } = parse(loginSchema, body);
+    return this.auth.login(email, password);
+  }
+
+  /** A random 256-bit token cannot be guessed, but the limit still stops a flood of lookups. */
+  @Post('refresh')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async refresh(@Body() body: unknown): Promise<LoginResult> {
+    this.requireRefreshEnabled();
+    return this.auth.refresh(parse(refreshSchema, body).refreshToken);
+  }
+
+  @Post('logout')
+  @HttpCode(204)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async logout(@Body() body: unknown): Promise<void> {
+    this.requireRefreshEnabled();
+    await this.auth.logout(parse(refreshSchema, body).refreshToken);
+  }
+
+  // A disabled feature does not exist as far as clients can tell.
+  private requireRefreshEnabled(): void {
+    if (!this.config.get('REFRESH_ENABLED', { infer: true })) {
+      throw new NotFoundException();
     }
-    return this.auth.login(parsed.data.email, parsed.data.password);
   }
 
   @Get('me')

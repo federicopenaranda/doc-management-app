@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // One-time (and safe to repeat) database setup, run by the owner as the built-in `postgres` admin:
-// creates the pgvector extension, the `prueba` test table and the `users` table, and gives the
-// backend's IAM user the access it needs (read and write prueba, read users).
+// creates the pgvector extension, the `prueba` test table, the `users` table and the `refresh_tokens` table, and
+// gives the backend's IAM user the access it needs (read and write prueba, read users, read/add/update refresh_tokens).
 //
 //   DB_ADMIN_PASSWORD=... npm run db:bootstrap -- \
 //     --instance <project>:<region>:<instance> --iam-user <service-account-email-without-.gserviceaccount.com>
@@ -47,6 +47,17 @@ export function bootstrapStatements(iamUser) {
     'CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_key ON users (lower(email))',
     // Login only reads users; creating and changing them comes with the user-management tickets.
     `GRANT SELECT ON users TO ${quoteIdent(iamUser)}`,
+    // Refresh tokens: only a hash is stored. A used or revoked token keeps its row (used_at) so a replay can be told
+    // from an unknown token. Rows are never deleted by the app; shortcut: expired rows pile up, add a cleanup job when it matters.
+    `CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id),
+  token_hash text NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  used_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+)`,
+    `GRANT SELECT, INSERT, UPDATE ON refresh_tokens TO ${quoteIdent(iamUser)}`,
     `INSERT INTO prueba (mensaje) SELECT 'hola desde db:bootstrap' WHERE NOT EXISTS (SELECT 1 FROM prueba)`,
   ];
 }

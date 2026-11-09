@@ -1,7 +1,14 @@
+import { createHash } from 'node:crypto';
 import { UnauthorizedException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import type { Env } from '../config/env.validation.js';
 import { AuthService } from './auth.service.js';
 import { hashPassword, verifyPassword } from './password.js';
+import type {
+  ConsumeResult,
+  RefreshTokensRepository,
+} from './refresh-tokens.repository.js';
 import type { UserRecord, UsersRepository } from './users.repository.js';
 
 vi.mock('./password.js', async (importOriginal) => {
@@ -17,7 +24,18 @@ vi.mock('./password.js', async (importOriginal) => {
 const SECRET = 'test-secret-test-secret-test-secret-1234';
 const FAST = { N: 1024, r: 8, p: 1 };
 
-async function setup(overrides: Partial<UserRecord> = {}) {
+const USER_ID = '6f1e0f0e-5d3c-4b7a-9d52-0a1f3c2b7e11';
+
+const sha256 = (value: string) =>
+  createHash('sha256').update(value).digest('hex');
+
+async function setup(
+  overrides: Partial<UserRecord> = {},
+  {
+    refreshEnabled = false,
+    consume = { status: 'invalid' } as ConsumeResult,
+  } = {},
+) {
   const user: UserRecord = {
     id: '6f1e0f0e-5d3c-4b7a-9d52-0a1f3c2b7e11',
     email: 'ana@example.com',
@@ -28,12 +46,26 @@ async function setup(overrides: Partial<UserRecord> = {}) {
   const findByEmail = vi.fn((email: string) =>
     Promise.resolve(email === user.email ? user : null),
   );
-  const jwt = new JwtService({ secret: SECRET });
-  const service = new AuthService(
-    { findByEmail } as unknown as UsersRepository,
-    jwt,
+  const findById = vi.fn((id: string) =>
+    Promise.resolve(id === user.id ? user : null),
   );
-  return { service, jwt, findByEmail, user };
+  const jwt = new JwtService({ secret: SECRET });
+  const refreshTokens = {
+    insert: vi.fn().mockResolvedValue(undefined),
+    consume: vi.fn().mockResolvedValue(consume),
+    revoke: vi.fn().mockResolvedValue(undefined),
+    revokeAllForUser: vi.fn().mockResolvedValue(undefined),
+  };
+  const config = {
+    get: () => refreshEnabled,
+  } as unknown as ConfigService<Env, true>;
+  const service = new AuthService(
+    { findByEmail, findById } as unknown as UsersRepository,
+    jwt,
+    refreshTokens as unknown as RefreshTokensRepository,
+    config,
+  );
+  return { service, jwt, findByEmail, findById, refreshTokens, user };
 }
 
 async function messageOf(promise: Promise<unknown>): Promise<string> {
@@ -118,5 +150,144 @@ describe('AuthService.login', () => {
     const { service, user } = await setup({ isActive: false });
 
     await messageOf(service.login(user.email, 'correct horse battery'));
+  });
+});
+
+describe('AuthService.login with refresh tokens', () => {
+  it('returns no refresh token and stores nothing while the flag is off', async () => {
+    const { service, refreshTokens, user } = await setup();
+
+    const result = await service.login(user.email, 'correct horse battery');
+
+    expect(result.refreshToken).toBeUndefined();
+    expect(refreshTokens.insert).not.toHaveBeenCalled();
+  });
+
+  it('returns a refresh token and stores only its hash, valid for 7 days', async () => {
+    const { service, refreshTokens, user } = await setup(
+      {},
+      { refreshEnabled: true },
+    );
+    const before = Date.now();
+
+    const result = await service.login(user.email, 'correct horse battery');
+
+    const token = result.refreshToken as string;
+    expect(token).toMatch(/^[A-Za-z0-9_-]{40,}$/);
+    const [userId, hash, expiresAt] = refreshTokens.insert.mock.calls[0] as [
+      string,
+      string,
+      Date,
+    ];
+    expect(userId).toBe(user.id);
+    expect(hash).toBe(sha256(token));
+    const week = 7 * 24 * 3600 * 1000;
+    expect(expiresAt.getTime() - before).toBeGreaterThanOrEqual(week - 1000);
+    expect(expiresAt.getTime() - before).toBeLessThan(week + 5000);
+  });
+
+  it('gives a different refresh token on every login', async () => {
+    const { service, user } = await setup({}, { refreshEnabled: true });
+
+    const first = await service.login(user.email, 'correct horse battery');
+    const second = await service.login(user.email, 'correct horse battery');
+
+    expect(first.refreshToken).not.toBe(second.refreshToken);
+  });
+});
+
+describe('AuthService.refresh', () => {
+  const good = {
+    refreshEnabled: true,
+    consume: { status: 'ok', userId: USER_ID },
+  } as const;
+
+  it('swaps a good refresh token for a new access token and a new refresh token', async () => {
+    const { service, jwt, refreshTokens, user } = await setup({}, good);
+
+    const result = await service.refresh('old-refresh-token');
+
+    expect(refreshTokens.consume).toHaveBeenCalledWith(
+      sha256('old-refresh-token'),
+    );
+    const payload = await jwt.verifyAsync<{ sub: string; email: string }>(
+      result.accessToken,
+    );
+    expect(payload).toMatchObject({ sub: user.id, email: user.email });
+    expect(result.expiresIn).toBe(3600);
+    expect(result.refreshToken).toBeDefined();
+    expect(result.refreshToken).not.toBe('old-refresh-token');
+    expect(refreshTokens.insert).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an unknown or expired token and issues nothing', async () => {
+    const { service, refreshTokens } = await setup(
+      {},
+      { refreshEnabled: true, consume: { status: 'invalid' } },
+    );
+
+    await messageOf(service.refresh('nope'));
+
+    expect(refreshTokens.insert).not.toHaveBeenCalled();
+    expect(refreshTokens.revokeAllForUser).not.toHaveBeenCalled();
+  });
+
+  it('treats a token that is used again as theft: revokes every token of that user and rejects', async () => {
+    const { service, refreshTokens, user } = await setup(
+      {},
+      { refreshEnabled: true, consume: { status: 'reused', userId: USER_ID } },
+    );
+
+    await messageOf(service.refresh('stolen'));
+
+    expect(refreshTokens.revokeAllForUser).toHaveBeenCalledWith(user.id);
+    expect(refreshTokens.insert).not.toHaveBeenCalled();
+  });
+
+  it('rejects a user who was deactivated since login, and issues nothing', async () => {
+    const { service, refreshTokens } = await setup({ isActive: false }, good);
+
+    await messageOf(service.refresh('old-refresh-token'));
+
+    expect(refreshTokens.insert).not.toHaveBeenCalled();
+  });
+
+  it('rejects a token whose user no longer exists', async () => {
+    const { service } = await setup(
+      {},
+      {
+        refreshEnabled: true,
+        consume: { status: 'ok', userId: 'deleted-user' },
+      },
+    );
+
+    await messageOf(service.refresh('old-refresh-token'));
+  });
+
+  it('gives the same message for every failure', async () => {
+    const invalid = await setup({}, { refreshEnabled: true });
+    const inactive = await setup({ isActive: false }, good);
+
+    const messages = await Promise.all([
+      messageOf(invalid.service.refresh('x')),
+      messageOf(inactive.service.refresh('x')),
+    ]);
+
+    expect(new Set(messages).size).toBe(1);
+  });
+});
+
+describe('AuthService.logout', () => {
+  it('revokes the token by its hash', async () => {
+    const { service, refreshTokens } = await setup(
+      {},
+      { refreshEnabled: true },
+    );
+
+    await service.logout('my-refresh-token');
+
+    expect(refreshTokens.revoke).toHaveBeenCalledWith(
+      sha256('my-refresh-token'),
+    );
   });
 });

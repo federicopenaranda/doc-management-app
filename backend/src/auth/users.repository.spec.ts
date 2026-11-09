@@ -51,3 +51,34 @@ describe('UsersRepository.findByEmail', () => {
     await expect(repository.findByEmail('a@b.co')).rejects.toThrow('database');
   });
 });
+
+describe('UsersRepository.findById', () => {
+  it('looks the user up by id with a bound parameter and maps the row', async () => {
+    const { repository, query } = setup([
+      {
+        id: 'u1',
+        email: 'ana@example.com',
+        password_hash: 'scrypt$x',
+        is_active: false,
+      },
+    ]);
+
+    const user = await repository.findById('u1');
+
+    const [sql, params] = query.mock.calls[0] as [string, string[]];
+    expect(sql).toMatch(/FROM users WHERE id = \$1/);
+    expect(params).toEqual(['u1']);
+    expect(user).toEqual({
+      id: 'u1',
+      email: 'ana@example.com',
+      passwordHash: 'scrypt$x',
+      isActive: false,
+    });
+  });
+
+  it('returns null when there is no such user', async () => {
+    const { repository } = setup([]);
+
+    expect(await repository.findById('missing')).toBeNull();
+  });
+});
