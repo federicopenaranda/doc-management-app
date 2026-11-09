@@ -1,4 +1,7 @@
 import { Component, ElementRef, inject, input, output, viewChild } from '@angular/core';
+import { Router } from '@angular/router';
+import { AppConfigService } from '../app-config.service';
+import { AuthService } from '../auth/auth.service';
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { ThemeService } from '../theme/theme.service';
@@ -95,12 +98,21 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
         <button mat-menu-item type="button" i18n>Profile</button>
         <button mat-menu-item type="button" i18n>Documents</button>
         <button mat-menu-item type="button" i18n>Settings</button>
+        @if (authEnabled) {
+          <button mat-menu-item type="button" (click)="logout()">
+            <mat-icon fontIcon="logout" />
+            <span i18n>Log out</span>
+          </button>
+        }
       </mat-menu>
     </header>
   `,
 })
 export class Toolbar {
   protected readonly theme = inject(ThemeService);
+  protected readonly authEnabled = inject(AppConfigService).authEnabled;
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
 
   readonly menuOpen = input(false);
   readonly menuToggle = output<void>();
@@ -109,6 +121,11 @@ export class Toolbar {
   private readonly menuButton = viewChild.required('menuButton', {
     read: ElementRef<HTMLButtonElement>,
   });
+
+  protected logout(): void {
+    this.auth.logout();
+    void this.router.navigateByUrl('/login');
+  }
 
   focusSearch(): void {
     this.search().nativeElement.focus();
