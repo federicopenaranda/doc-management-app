@@ -138,6 +138,24 @@ gcloud sql users set-password postgres --instance dms-postgres --project $P --pa
 
 It needs `gcloud auth application-default login` with an account that has `roles/cloudsql.client`, and the instance must be running.
 
+If the command fails with `Project ... has been deleted`, your application-default login points at a deleted quota project: run
+`gcloud auth application-default set-quota-project doc-management-sandbox` once.
+
+### Users and login
+
+`db:bootstrap` also creates the `users` table (`id`, `email` unique ignoring case, `password_hash`, `is_active`, `created_at`); the backend
+identity may only read it. Passwords are stored as scrypt hashes, never in clear. To create a user, use the same temporary admin password
+(between the two `set-password` commands above), with a password of 12 to 200 characters:
+
+```bash
+read -rs -p "Password for the new user (12+ characters): " USER_PASSWORD; export USER_PASSWORD   # typed hidden, not kept in shell history
+DB_ADMIN_PASSWORD="$PW" npm run users:create -- --instance $P:us-west1:dms-postgres --email you@example.com
+```
+
+It leaves an existing email untouched. Then `POST /auth/login` with `{ "email", "password" }` returns `{ accessToken, expiresIn: 3600 }`, and
+`GET /auth/me` with `Authorization: Bearer <accessToken>` returns who you are. The backend service gets the flag `AUTH_ENABLED` (needs
+`DATABASE_ENABLED`); the tokens are signed with `JWT_SECRET` from the backend secret.
+
 ## Dead-lettered messages
 
 An upload event that the backend fails to process 5 times is moved to the topic `document-uploaded-dlq`. The pull subscription

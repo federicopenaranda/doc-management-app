@@ -77,6 +77,14 @@ resource "google_cloud_run_v2_service" "backend" {
     containers {
       image = local.placeholder_image
 
+      # Every login hashes with 64 MiB and four can run at once, so 512 MiB (the default) is too tight.
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "1Gi"
+        }
+      }
+
       env {
         name  = "FRONTEND_URLS"
         value = local.frontend_url
@@ -125,6 +133,11 @@ resource "google_cloud_run_v2_service" "backend" {
       env {
         name  = "DB_USER"
         value = google_sql_user.backend.name
+      }
+      # Feature flag for login and JWT authentication (needs the database): remove two weeks after it is on in use.
+      env {
+        name  = "AUTH_ENABLED"
+        value = "true"
       }
       env {
         name  = "APP_CONFIG_FILE"

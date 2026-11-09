@@ -50,6 +50,8 @@ const envSchema = z.object({
     .optional(),
   DB_NAME: z.string().min(1).optional(),
   DB_USER: z.string().min(1).optional(),
+  // Feature flag for login and JWT authentication: remove it two weeks after it is on in use.
+  AUTH_ENABLED: z.stringbool().default(false),
 });
 
 const WORKER_SETTINGS = [
@@ -60,6 +62,14 @@ const WORKER_SETTINGS = [
 ] as const;
 
 const envWithWorkerRules = envSchema.superRefine((env, ctx) => {
+  // Users live in the database, so login cannot work without it.
+  if (env.AUTH_ENABLED && !env.DATABASE_ENABLED) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['AUTH_ENABLED'],
+      message: 'requires DATABASE_ENABLED to be true',
+    });
+  }
   if (env.CLOUD_SQL_INSTANCE !== undefined) {
     for (const name of ['DB_NAME', 'DB_USER'] as const) {
       if (env[name] === undefined) {
