@@ -32,9 +32,12 @@ export function validateNewUser({ email, password }) {
 }
 
 /** The INSERT with bound parameters: the password is hashed here and never leaves this function. */
-export async function buildInsert(email, password) {
+export async function buildInsert(email, password, { reset = false } = {}) {
+  const onConflict = reset
+    ? 'DO UPDATE SET password_hash = EXCLUDED.password_hash'
+    : 'DO NOTHING';
   return {
-    text: 'INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT (lower(email)) DO NOTHING RETURNING id',
+    text: `INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT (lower(email)) ${onConflict} RETURNING id`,
     values: [email, await hashPassword(password)],
   };
 }
@@ -45,6 +48,7 @@ async function main() {
       instance: { type: 'string' },
       database: { type: 'string', default: 'dms' },
       email: { type: 'string' },
+      reset: { type: 'boolean', default: false },
     },
   });
   const adminPassword = process.env.DB_ADMIN_PASSWORD;
@@ -58,7 +62,9 @@ async function main() {
     email: values.email,
     password: userPassword,
   });
-  const insert = await buildInsert(email, userPassword);
+  const insert = await buildInsert(email, userPassword, {
+    reset: values.reset,
+  });
 
   await withAdminClient(
     {
@@ -70,7 +76,7 @@ async function main() {
       const { rowCount } = await client.query(insert);
       console.log(
         rowCount === 1
-          ? `users:create ok: ${email} created`
+          ? `users:create ok: ${email} ${values.reset ? 'saved (new password if it already existed)' : 'created'}`
           : `users:create: ${email} already exists, nothing changed`,
       );
     },

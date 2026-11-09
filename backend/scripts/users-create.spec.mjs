@@ -53,6 +53,19 @@ describe('buildInsert', () => {
     );
   });
 
+  it('with reset, replaces only the password hash of an email that already exists', async () => {
+    const { text, values } = await buildInsert(
+      'ana@example.com',
+      'a long enough password',
+      { reset: true },
+    );
+
+    expect(text).toBe(
+      'INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT (lower(email)) DO UPDATE SET password_hash = EXCLUDED.password_hash RETURNING id',
+    );
+    expect(values[1]).toMatch(/^scrypt\$/);
+  });
+
   it('stores a scrypt hash that verifies, never the password', async () => {
     const password = 'a long enough password';
 
