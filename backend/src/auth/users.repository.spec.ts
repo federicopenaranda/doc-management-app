@@ -82,3 +82,76 @@ describe('UsersRepository.findById', () => {
     expect(await repository.findById('missing')).toBeNull();
   });
 });
+
+const summaryRow = {
+  id: 'u1',
+  email: 'ana@example.com',
+  first_name: 'Ana',
+  last_name: 'García',
+  is_active: true,
+  created_at: new Date('2026-11-09T12:00:00Z'),
+};
+const summary = {
+  id: 'u1',
+  email: 'ana@example.com',
+  firstName: 'Ana',
+  lastName: 'García',
+  isActive: true,
+  createdAt: new Date('2026-11-09T12:00:00Z'),
+};
+
+describe('UsersRepository.list', () => {
+  it('lists every user oldest first, without the password hash', async () => {
+    const { repository, query } = setup([summaryRow]);
+
+    const users = await repository.list();
+
+    const [sql] = query.mock.calls[0] as [string];
+    expect(sql).toBe(
+      'SELECT id, email, first_name, last_name, is_active, created_at FROM users ORDER BY created_at, id',
+    );
+    expect(sql).not.toContain('password_hash');
+    expect(users).toEqual([summary]);
+    expect(Object.keys(users[0])).not.toContain('passwordHash');
+  });
+});
+
+describe('UsersRepository.create', () => {
+  const input = {
+    email: 'ana@example.com',
+    firstName: 'Ana',
+    lastName: 'García',
+    passwordHash: 'scrypt$x',
+  };
+
+  it('inserts with bound parameters and returns the new user without the hash', async () => {
+    const { repository, query } = setup([summaryRow]);
+
+    const created = await repository.create(input);
+
+    const [sql, params] = query.mock.calls[0] as [string, string[]];
+    expect(sql).toBe(
+      'INSERT INTO users (email, first_name, last_name, password_hash) VALUES ($1, $2, $3, $4) ON CONFLICT (lower(email)) DO NOTHING RETURNING id, email, first_name, last_name, is_active, created_at',
+    );
+    expect(params).toEqual(['ana@example.com', 'Ana', 'García', 'scrypt$x']);
+    expect(created).toEqual(summary);
+  });
+
+  it('returns null when the email already exists, whatever its letter case', async () => {
+    const { repository } = setup([]);
+
+    expect(await repository.create(input)).toBeNull();
+  });
+
+  it('never builds the statement from the input', async () => {
+    const { repository, query } = setup([summaryRow]);
+
+    await repository.create({
+      ...input,
+      firstName: "x'); DROP TABLE users;--",
+    });
+
+    const [sql] = query.mock.calls[0] as [string];
+    expect(sql).not.toContain('DROP TABLE');
+  });
+});

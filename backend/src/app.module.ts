@@ -9,6 +9,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { AuthModule } from './auth/auth.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
 import { UploadsModule } from './uploads/uploads.module.js';
+import { UsersModule } from './users/users.module.js';
 import { HealthModule } from './health/health.module.js';
 import { validateEnv, type Env } from './config/env.validation.js';
 import { buildPinoHttpOptions } from './logging/logger.config.js';
@@ -30,6 +31,7 @@ import { buildPinoHttpOptions } from './logging/logger.config.js';
     AuthModule,
     DocumentsModule,
     UploadsModule,
+    UsersModule,
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
   ],
   controllers: [AppController],
