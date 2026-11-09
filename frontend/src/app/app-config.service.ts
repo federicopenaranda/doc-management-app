@@ -8,6 +8,8 @@ interface AppConfig {
   uploadsEnabled: boolean;
   /** Feature flag for the app shell (toolbar and menu): remove it two weeks after it is on in use. */
   shellEnabled: boolean;
+  /** Feature flag for login (SCRUM-16): remove it two weeks after it is on in use. */
+  authEnabled: boolean;
 }
 
 function isHttpUrl(value: string): boolean {
@@ -40,7 +42,8 @@ function parseConfig(raw: unknown): AppConfig {
   }
   const uploadsEnabled = parseFlag(object, 'uploadsEnabled');
   const shellEnabled = parseFlag(object, 'shellEnabled');
-  return { apiUrl: apiUrl.replace(/\/+$/, ''), uploadsEnabled, shellEnabled };
+  const authEnabled = parseFlag(object, 'authEnabled');
+  return { apiUrl: apiUrl.replace(/\/+$/, ''), uploadsEnabled, shellEnabled, authEnabled };
 }
 
 /** Runtime configuration: one build serves every environment, config.json says where the API is. */
@@ -62,6 +65,11 @@ export class AppConfigService {
   get shellEnabled(): boolean {
     if (!this.config) throw new Error('config.json has not been loaded');
     return this.config.shellEnabled;
+  }
+
+  get authEnabled(): boolean {
+    if (!this.config) throw new Error('config.json has not been loaded');
+    return this.config.authEnabled;
   }
 
   /** Relative URL, so the app also works when served from a sub-path. */
