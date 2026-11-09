@@ -58,6 +58,17 @@ describe('AuthService', () => {
     expect(auth.token()).toBe('jwt-old');
   });
 
+  it('logout forgets the token, in memory and in sessionStorage', () => {
+    sessionStorage.setItem('dms.accessToken', 'jwt-old');
+    const { auth } = setup();
+
+    auth.logout();
+
+    expect(auth.isAuthenticated()).toBe(false);
+    expect(auth.token()).toBeNull();
+    expect(sessionStorage.getItem('dms.accessToken')).toBeNull();
+  });
+
   it('resolves false and stays logged out on a 401', async () => {
     const { auth, http } = setup();
 

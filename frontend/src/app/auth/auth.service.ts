@@ -7,7 +7,7 @@ const STORAGE_KEY = 'dms.accessToken';
 
 /**
  * Holds the access token. sessionStorage (not localStorage) so a refresh keeps you in but closing
- * the tab logs you out. shortcut: no refresh token and no logout yet, the token lasts 1 hour; add both with SCRUM-17.
+ * the tab logs you out. shortcut: no refresh token, the token lasts 1 hour; add it with SCRUM-17.
  */
 @Service()
 export class AuthService {
@@ -16,6 +16,11 @@ export class AuthService {
 
   readonly token = signal<string | null>(sessionStorage.getItem(STORAGE_KEY));
   readonly isAuthenticated = computed(() => this.token() !== null);
+
+  logout(): void {
+    sessionStorage.removeItem(STORAGE_KEY);
+    this.token.set(null);
+  }
 
   /** Resolves true when logged in, false for wrong credentials; rejects on any other failure. */
   async login(email: string, password: string): Promise<boolean> {

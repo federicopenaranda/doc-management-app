@@ -1,5 +1,31 @@
+import { TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
 import { fireEvent, render, screen } from '@testing-library/angular';
+import { AppConfigService } from '../app-config.service';
+import { AuthService } from '../auth/auth.service';
 import { Toolbar } from './toolbar';
+
+const logout = vi.fn();
+
+function renderToolbar({
+  authEnabled = false,
+  inputs,
+  on,
+}: {
+  authEnabled?: boolean;
+  inputs?: { menuOpen: boolean };
+  on?: { menuToggle: () => void };
+} = {}) {
+  return render(Toolbar, {
+    inputs,
+    on,
+    providers: [
+      provideRouter([]),
+      { provide: AppConfigService, useValue: { authEnabled } },
+      { provide: AuthService, useValue: { logout } },
+    ],
+  });
+}
 
 function follows(first: HTMLElement, second: HTMLElement): boolean {
   return !!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
@@ -12,13 +38,13 @@ describe('Toolbar', () => {
   });
 
   it('is the page banner landmark', async () => {
-    await render(Toolbar);
+    await renderToolbar();
 
     expect(screen.getByRole('banner')).toBeTruthy();
   });
 
   it('lays out hamburger, name, search, create, notifications and profile in order', async () => {
-    await render(Toolbar);
+    await renderToolbar();
 
     const order = [
       screen.getByRole('button', { name: /open menu/i }),
@@ -34,7 +60,7 @@ describe('Toolbar', () => {
 
   it('emits menuToggle when the hamburger is clicked', async () => {
     const menuToggle = vi.fn();
-    await render(Toolbar, { on: { menuToggle } });
+    await renderToolbar({ on: { menuToggle } });
 
     await fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
 
@@ -42,7 +68,7 @@ describe('Toolbar', () => {
   });
 
   it('reflects menuOpen in aria-expanded on the hamburger', async () => {
-    await render(Toolbar, { inputs: { menuOpen: true } });
+    await renderToolbar({ inputs: { menuOpen: true } });
 
     expect(screen.getByRole('button', { name: /open menu/i }).getAttribute('aria-expanded')).toBe(
       'true',
@@ -50,7 +76,7 @@ describe('Toolbar', () => {
   });
 
   it('shows the create button as a plus icon only, with no visible text', async () => {
-    await render(Toolbar);
+    await renderToolbar();
 
     const create = screen.getByRole('button', { name: /create/i });
 
@@ -59,7 +85,7 @@ describe('Toolbar', () => {
   });
 
   it('lets the user pick which type of entity to create', async () => {
-    await render(Toolbar);
+    await renderToolbar();
 
     await fireEvent.click(screen.getByRole('button', { name: /create/i }));
 
@@ -68,7 +94,7 @@ describe('Toolbar', () => {
   });
 
   it('puts the slash hint at the left of the search input', async () => {
-    await render(Toolbar);
+    await renderToolbar();
 
     const input = screen.getByRole('searchbox', { name: /search/i });
     const hint = input.parentElement?.querySelector('kbd');
@@ -80,7 +106,7 @@ describe('Toolbar', () => {
   });
 
   it('has no icon inside the search input and shows the slash hint', async () => {
-    await render(Toolbar);
+    await renderToolbar();
 
     const input = screen.getByRole('searchbox', { name: /search/i });
 
@@ -89,7 +115,7 @@ describe('Toolbar', () => {
   });
 
   it('colors the placeholder with the muted text color so it stays readable', async () => {
-    await render(Toolbar);
+    await renderToolbar();
 
     expect(screen.getByRole('searchbox', { name: /search/i }).className).toContain(
       'placeholder:text-(--mat-sys-on-surface-variant)',
@@ -100,7 +126,7 @@ describe('Toolbar', () => {
     const openUserMenu = () => fireEvent.click(screen.getByRole('button', { name: /user menu/i }));
 
     it('shows a short "Dark theme" row that is off while the app is light', async () => {
-      await render(Toolbar);
+      await renderToolbar();
 
       await openUserMenu();
 
@@ -109,7 +135,7 @@ describe('Toolbar', () => {
     });
 
     it('switches the theme when clicked, turns the row on and keeps the menu open', async () => {
-      await render(Toolbar);
+      await renderToolbar();
       await openUserMenu();
 
       await fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /dark theme/i }));
@@ -122,12 +148,47 @@ describe('Toolbar', () => {
 
     it('starts on when a dark choice was saved', async () => {
       localStorage.setItem('dms-theme', 'dark');
-      await render(Toolbar);
+      await renderToolbar();
 
       await openUserMenu();
 
       const row = await screen.findByRole('menuitemcheckbox', { name: /dark theme/i });
       expect(row.getAttribute('aria-checked')).toBe('true');
+    });
+  });
+
+  describe('log out in the user menu', () => {
+    const openUserMenu = () => fireEvent.click(screen.getByRole('button', { name: /user menu/i }));
+
+    beforeEach(() => logout.mockClear());
+
+    it('is the last item of the menu', async () => {
+      await renderToolbar({ authEnabled: true });
+
+      await openUserMenu();
+
+      const items = await screen.findAllByRole('menuitem');
+      expect(items.at(-1)?.textContent).toContain('Log out');
+    });
+
+    it('forgets the session and goes to /login when clicked', async () => {
+      await renderToolbar({ authEnabled: true });
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      await openUserMenu();
+
+      await fireEvent.click(await screen.findByRole('menuitem', { name: /log out/i }));
+
+      expect(logout).toHaveBeenCalledTimes(1);
+      expect(navigate).toHaveBeenCalledWith('/login');
+    });
+
+    it('is not there while the auth flag is off', async () => {
+      await renderToolbar({ authEnabled: false });
+
+      await openUserMenu();
+
+      await screen.findAllByRole('menuitem');
+      expect(screen.queryByRole('menuitem', { name: /log out/i })).toBeNull();
     });
   });
 });
