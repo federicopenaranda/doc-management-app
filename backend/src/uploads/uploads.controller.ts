@@ -5,9 +5,11 @@ import {
   HttpCode,
   NotFoundException,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
+import { AuthIfEnabledGuard } from '../auth/auth-if-enabled.guard.js';
 import type { Env } from '../config/env.validation.js';
 import { signRequestSchema } from './uploads.schema.js';
 import { UploadsService, type SignedUpload } from './uploads.service.js';
@@ -21,6 +23,7 @@ export class UploadsController {
   ) {}
 
   @Post('sign')
+  @UseGuards(AuthIfEnabledGuard)
   @HttpCode(200)
   async sign(@Body() body: unknown): Promise<{ uploads: SignedUpload[] }> {
     // A disabled feature does not exist as far as clients can tell.
