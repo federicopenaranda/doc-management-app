@@ -156,6 +156,18 @@ It leaves an existing email untouched. Then `POST /auth/login` with `{ "email", 
 `GET /auth/me` with `Authorization: Bearer <accessToken>` returns who you are. The backend service gets the flag `AUTH_ENABLED` (needs
 `DATABASE_ENABLED`); the tokens are signed with `JWT_SECRET` from the backend secret.
 
+To change a forgotten or mistyped password, add `--reset` to the `users:create` command.
+
+### Refresh tokens
+
+With the flag `REFRESH_ENABLED` (backend secret, needs `AUTH_ENABLED`) login also returns a `refreshToken`, valid 7 days. `POST /auth/refresh`
+with `{ "refreshToken" }` swaps it for a new access token and a new refresh token; each token works once, and using an old one again revokes all
+of that user's refresh tokens. `POST /auth/logout` with the token revokes it (204). Only a SHA-256 hash is stored, in the `refresh_tokens` table
+that `db:bootstrap` creates (the backend identity may read, add and update it, never delete).
+
+**Run `db:bootstrap` (steps above) before deploying a backend with `REFRESH_ENABLED` on**, or every login fails: it tries to store the token in a
+table that does not exist yet. The frontend flag is `refreshEnabled` in the `frontend-sandbox` secret.
+
 ## Dead-lettered messages
 
 An upload event that the backend fails to process 5 times is moved to the topic `document-uploaded-dlq`. The pull subscription

@@ -23,10 +23,21 @@ export class UsersRepository {
   ) {}
 
   async findByEmail(email: string): Promise<UserRecord | null> {
+    return this.findOne('lower(email) = lower($1)', email);
+  }
+
+  async findById(id: string): Promise<UserRecord | null> {
+    return this.findOne('id = $1', id);
+  }
+
+  private async findOne(
+    condition: string,
+    value: string,
+  ): Promise<UserRecord | null> {
     if (!this.db) throw new Error('The database feature is not enabled');
     const { rows } = await this.db.pool.query<UserRow>(
-      'SELECT id, email, password_hash, is_active FROM users WHERE lower(email) = lower($1)',
-      [email],
+      `SELECT id, email, password_hash, is_active FROM users WHERE ${condition}`,
+      [value],
     );
     const row = rows[0];
     return row

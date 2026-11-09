@@ -9,9 +9,10 @@ const USER_ID = '6f1e0f0e-5d3c-4b7a-9d52-0a1f3c2b7e11';
 
 // ConfigModule.forRoot() validates the environment when AppModule is first imported,
 // so each case re-imports the app after setting the flags.
-async function createApp(authEnabled: boolean) {
+async function createApp(authEnabled: boolean, refreshEnabled = false) {
   process.env.AUTH_ENABLED = String(authEnabled);
   process.env.DATABASE_ENABLED = String(authEnabled);
+  process.env.REFRESH_ENABLED = String(refreshEnabled);
   vi.resetModules();
   const { AppModule } = await import('./../src/app.module.js');
   const { setupApp } = await import('./../src/app.setup.js');
@@ -24,14 +25,62 @@ async function createApp(authEnabled: boolean) {
     'ana@example.com': { is_active: true },
     'off@example.com': { is_active: false },
   };
-  const query = (_sql: string, params: string[]) => {
-    const found = users[params[0].toLowerCase()];
+  // A tiny in-memory refresh_tokens table, answering the exact statements the repository sends.
+  const tokens = new Map<
+    string,
+    { user_id: string; used_at: Date | null; expires_at: Date }
+  >();
+  const refreshQuery = (sql: string, params: unknown[]) => {
+    const row = tokens.get(params[0] as string);
+    if (sql.startsWith('INSERT INTO refresh_tokens')) {
+      tokens.set(params[1] as string, {
+        user_id: params[0] as string,
+        used_at: null,
+        expires_at: params[2] as Date,
+      });
+      return { rows: [] };
+    }
+    if (
+      sql.startsWith(
+        'UPDATE refresh_tokens SET used_at = now() WHERE token_hash',
+      )
+    ) {
+      if (!row || row.used_at || row.expires_at <= new Date())
+        return { rows: [] };
+      row.used_at = new Date();
+      return { rows: [{ user_id: row.user_id }] };
+    }
+    if (sql.startsWith('SELECT user_id, used_at FROM refresh_tokens')) {
+      return {
+        rows: row ? [{ user_id: row.user_id, used_at: row.used_at }] : [],
+      };
+    }
+    if (sql.startsWith('UPDATE refresh_tokens SET used_at = coalesce')) {
+      if (row) row.used_at ??= new Date();
+      return { rows: [] };
+    }
+    for (const token of tokens.values()) {
+      if (token.user_id === params[0]) token.used_at ??= new Date();
+    }
+    return { rows: [] };
+  };
+  const query = (sql: string, params: string[]) => {
+    if (sql.includes('refresh_tokens')) {
+      return Promise.resolve(refreshQuery(sql, params));
+    }
+    const byId = sql.includes('WHERE id = $1');
+    const email = byId
+      ? params[0] === USER_ID
+        ? 'ana@example.com'
+        : ''
+      : params[0].toLowerCase();
+    const found = users[email];
     return Promise.resolve({
       rows: found
         ? [
             {
               id: USER_ID,
-              email: params[0].toLowerCase(),
+              email,
               password_hash: passwordHash,
               is_active: found.is_active,
             },
@@ -57,6 +106,99 @@ describe('auth (e2e)', () => {
   afterEach(() => {
     delete process.env.AUTH_ENABLED;
     delete process.env.DATABASE_ENABLED;
+    delete process.env.REFRESH_ENABLED;
+  });
+
+  describe('refresh tokens', () => {
+    const post = (app: NestExpressApplication, path: string, body: object) =>
+      request(app.getHttpServer()).post(path).send(body);
+
+    it('are off by default: no refresh token at login, and no /auth/refresh or /auth/logout', async () => {
+      const app = await createApp(true);
+
+      const { body } = await login(app, 'ana@example.com', PASSWORD).expect(
+        200,
+      );
+      expect(body.refreshToken).toBeUndefined();
+      await post(app, '/auth/refresh', { refreshToken: 'x' }).expect(404);
+      await post(app, '/auth/logout', { refreshToken: 'x' }).expect(404);
+      await app.close();
+    });
+
+    it('log in with a refresh token, which swaps once for a new pair', async () => {
+      const app = await createApp(true, true);
+      const first = (await login(app, 'ana@example.com', PASSWORD).expect(200))
+        .body;
+      expect(first.refreshToken).toEqual(expect.any(String));
+
+      const second = (
+        await post(app, '/auth/refresh', {
+          refreshToken: first.refreshToken,
+        }).expect(200)
+      ).body;
+
+      expect(second).toEqual({
+        accessToken: expect.any(String),
+        expiresIn: 3600,
+        refreshToken: expect.any(String),
+      });
+      expect(second.refreshToken).not.toBe(first.refreshToken);
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${second.accessToken}`)
+        .expect(200);
+      await app.close();
+    });
+
+    it('answers 401 when an old token is used again, and that also kills the new one', async () => {
+      const app = await createApp(true, true);
+      const first = (await login(app, 'ana@example.com', PASSWORD).expect(200))
+        .body;
+      const second = (
+        await post(app, '/auth/refresh', {
+          refreshToken: first.refreshToken,
+        }).expect(200)
+      ).body;
+
+      await post(app, '/auth/refresh', {
+        refreshToken: first.refreshToken,
+      }).expect(401);
+      await post(app, '/auth/refresh', {
+        refreshToken: second.refreshToken,
+      }).expect(401);
+      await app.close();
+    });
+
+    it('answers 401 for a token the server never issued', async () => {
+      const app = await createApp(true, true);
+
+      await post(app, '/auth/refresh', { refreshToken: 'made-up' }).expect(401);
+      await app.close();
+    });
+
+    it('answers 400 without a refresh token', async () => {
+      const app = await createApp(true, true);
+
+      await post(app, '/auth/refresh', {}).expect(400);
+      await post(app, '/auth/logout', { refreshToken: 5 }).expect(400);
+      await app.close();
+    });
+
+    it('stop working after logout', async () => {
+      const app = await createApp(true, true);
+      const { body } = await login(app, 'ana@example.com', PASSWORD).expect(
+        200,
+      );
+
+      await post(app, '/auth/logout', {
+        refreshToken: body.refreshToken,
+      }).expect(204);
+
+      await post(app, '/auth/refresh', {
+        refreshToken: body.refreshToken,
+      }).expect(401);
+      await app.close();
+    });
   });
 
   describe('while the feature flag is off', () => {

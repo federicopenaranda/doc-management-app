@@ -6,6 +6,7 @@ import { DatabaseModule } from '../database/database.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
+import { RefreshTokensRepository } from './refresh-tokens.repository.js';
 import { UsersRepository } from './users.repository.js';
 
 @Module({
@@ -20,7 +21,12 @@ import { UsersRepository } from './users.repository.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, UsersRepository, JwtAuthGuard],
+  providers: [
+    AuthService,
+    UsersRepository,
+    RefreshTokensRepository,
+    JwtAuthGuard,
+  ],
   // Other modules protect their routes with @UseGuards(JwtAuthGuard).
   exports: [JwtAuthGuard, JwtModule],
 })

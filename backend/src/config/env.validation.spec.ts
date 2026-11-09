@@ -19,6 +19,7 @@ describe('validateEnv', () => {
       UPLOADS_ENABLED: false,
       DATABASE_ENABLED: false,
       AUTH_ENABLED: false,
+      REFRESH_ENABLED: false,
     });
   });
 
@@ -188,5 +189,29 @@ describe('validateEnv: auth', () => {
     });
 
     expect(env.AUTH_ENABLED).toBe(true);
+  });
+});
+
+describe('validateEnv: refresh tokens', () => {
+  const withAuth = {
+    ...valid,
+    AUTH_ENABLED: 'true',
+    DATABASE_ENABLED: 'true',
+  };
+
+  it('is off by default', () => {
+    expect(validateEnv(withAuth).REFRESH_ENABLED).toBe(false);
+  });
+
+  it('needs login, because a refresh token is issued at login', () => {
+    expect(() => validateEnv({ ...valid, REFRESH_ENABLED: 'true' })).toThrow(
+      'REFRESH_ENABLED',
+    );
+  });
+
+  it('is accepted together with login', () => {
+    expect(
+      validateEnv({ ...withAuth, REFRESH_ENABLED: 'true' }).REFRESH_ENABLED,
+    ).toBe(true);
   });
 });

@@ -56,6 +56,35 @@ describe('bootstrapStatements', () => {
     expect(grant).toBe(`GRANT SELECT ON users TO "${iamUser}"`);
   });
 
+  describe('refresh_tokens', () => {
+    const refresh = sql.find((s) =>
+      s.includes('CREATE TABLE IF NOT EXISTS refresh_tokens'),
+    );
+
+    it('stores only a unique hash of each token, its owner, its expiry and when it was used', () => {
+      expect(refresh).toMatch(/id uuid PRIMARY KEY DEFAULT gen_random_uuid\(\)/);
+      expect(refresh).toMatch(/user_id uuid NOT NULL REFERENCES users\(id\)/);
+      expect(refresh).toMatch(/token_hash text NOT NULL UNIQUE/);
+      expect(refresh).toMatch(/expires_at timestamptz NOT NULL/);
+      expect(refresh).toMatch(/used_at timestamptz(?! NOT NULL)/);
+      expect(refresh).not.toMatch(/token text/);
+    });
+
+    it('lets the backend identity read, add and update tokens, never delete them', () => {
+      const grant = sql.find(
+        (s) => s.startsWith('GRANT') && s.includes('ON refresh_tokens'),
+      );
+
+      expect(grant).toBe(
+        `GRANT SELECT, INSERT, UPDATE ON refresh_tokens TO "${iamUser}"`,
+      );
+    });
+
+    it('is created after users, which it points to', () => {
+      expect(sql.indexOf(refresh)).toBeGreaterThan(sql.indexOf(users));
+    });
+  });
+
   it('inserts one starter row only when the table is empty', () => {
     const insert = sql.find((s) => s.startsWith('INSERT'));
 
