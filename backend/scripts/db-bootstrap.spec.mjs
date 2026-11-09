@@ -62,7 +62,9 @@ describe('bootstrapStatements', () => {
     );
 
     it('stores only a unique hash of each token, its owner, its expiry and when it was used', () => {
-      expect(refresh).toMatch(/id uuid PRIMARY KEY DEFAULT gen_random_uuid\(\)/);
+      expect(refresh).toMatch(
+        /id uuid PRIMARY KEY DEFAULT gen_random_uuid\(\)/,
+      );
       expect(refresh).toMatch(/user_id uuid NOT NULL REFERENCES users\(id\)/);
       expect(refresh).toMatch(/token_hash text NOT NULL UNIQUE/);
       expect(refresh).toMatch(/expires_at timestamptz NOT NULL/);
