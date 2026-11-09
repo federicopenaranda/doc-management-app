@@ -1,11 +1,20 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, throwError } from 'rxjs';
+import { catchError, from, switchMap, throwError } from 'rxjs';
 import { API_URL } from '../api-url';
 import { AuthService } from './auth.service';
 
-/** Sends the token to our API only, and treats a 401 from it as an ended session. */
+// A 401 from these means "wrong password" or "token already used", not "session expired".
+const AUTH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout'];
+
+const isUnauthorized = (error: unknown): error is HttpErrorResponse =>
+  error instanceof HttpErrorResponse && error.status === 401;
+
+/**
+ * Sends the token to our API only. A 401 from it means the access token expired: refresh once and repeat the request;
+ * if that is not possible (or the repeat fails again), the session has ended.
+ */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   // The config.json request is relative and runs before the API address is known.
   if (!req.url.startsWith('http')) return next(req);
@@ -14,20 +23,38 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   const auth = inject(AuthService);
   const router = inject(Router);
-  const token = auth.token();
-  const authorized = token ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req;
-  return next(authorized).pipe(
+  const send = () => {
+    const token = auth.token();
+    return next(token ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req);
+  };
+  const endSession = () => {
+    auth.logout();
+    void router.navigateByUrl('/login');
+  };
+
+  return send().pipe(
     catchError((error: unknown) => {
-      // A 401 on login means a wrong password, not an expired session.
-      if (
-        error instanceof HttpErrorResponse &&
-        error.status === 401 &&
-        req.url !== `${apiUrl}/auth/login`
-      ) {
-        auth.logout();
-        void router.navigateByUrl('/login');
+      if (!isUnauthorized(error) || AUTH_PATHS.some((path) => req.url === `${apiUrl}${path}`)) {
+        return throwError(() => error);
       }
-      return throwError(() => error);
+      if (!auth.canRefresh()) {
+        endSession();
+        return throwError(() => error);
+      }
+      return from(auth.refresh()).pipe(
+        switchMap((refreshed) => {
+          if (!refreshed) {
+            endSession();
+            return throwError(() => error);
+          }
+          return send().pipe(
+            catchError((retryError: unknown) => {
+              if (isUnauthorized(retryError)) endSession();
+              return throwError(() => retryError);
+            }),
+          );
+        }),
+      );
     }),
   );
 };
