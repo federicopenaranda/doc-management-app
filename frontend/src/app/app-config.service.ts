@@ -10,6 +10,8 @@ interface AppConfig {
   refreshEnabled: boolean;
   /** Feature flag for the user screens (SCRUM-18): remove it two weeks after it is on in use. */
   usersEnabled: boolean;
+  /** Feature flag for the Preferences dialog (SCRUM-19): remove it two weeks after it is on in use. */
+  preferencesEnabled: boolean;
 }
 
 function isHttpUrl(value: string): boolean {
@@ -43,11 +45,13 @@ function parseConfig(raw: unknown): AppConfig {
   const authEnabled = parseFlag(object, 'authEnabled');
   const refreshEnabled = parseFlag(object, 'refreshEnabled');
   const usersEnabled = parseFlag(object, 'usersEnabled');
+  const preferencesEnabled = parseFlag(object, 'preferencesEnabled');
   return {
     apiUrl: apiUrl.replace(/\/+$/, ''),
     authEnabled,
     refreshEnabled,
     usersEnabled,
+    preferencesEnabled,
   };
 }
 
@@ -75,6 +79,11 @@ export class AppConfigService {
   get usersEnabled(): boolean {
     if (!this.config) throw new Error('config.json has not been loaded');
     return this.config.usersEnabled;
+  }
+
+  get preferencesEnabled(): boolean {
+    if (!this.config) throw new Error('config.json has not been loaded');
+    return this.config.preferencesEnabled;
   }
 
   /** Relative URL, so the app also works when served from a sub-path. */

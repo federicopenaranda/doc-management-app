@@ -6,6 +6,9 @@ import { AppConfigService } from '../app-config.service';
 
 const ACCESS_KEY = 'dms.accessToken';
 const REFRESH_KEY = 'dms.refreshToken';
+const LANGUAGE_KEY = 'dms.language';
+
+export type Language = 'en' | 'es';
 
 /** Who is logged in, as the toolbar shows it. */
 export interface CurrentUser {
@@ -13,6 +16,7 @@ export interface CurrentUser {
   email: string;
   firstName: string;
   lastName: string;
+  language: Language;
 }
 
 const isText = (value: unknown): value is string => typeof value === 'string' && value !== '';
@@ -36,12 +40,21 @@ export class AuthService {
   async loadCurrentUser(): Promise<void> {
     if (!this.isAuthenticated()) return;
     try {
-      this.currentUser.set(
-        await firstValueFrom(this.http.get<CurrentUser>(`${this.apiUrl}/auth/me`)),
-      );
+      const user = await firstValueFrom(this.http.get<CurrentUser>(`${this.apiUrl}/auth/me`));
+      this.currentUser.set(user);
+      sessionStorage.setItem(LANGUAGE_KEY, user.language);
     } catch {
       // The interceptor already ends the session on a 401; any other failure only costs the name.
     }
+  }
+
+  /** Saves the language in the database, then here. Rejects when the server refuses, leaving everything as it was. */
+  async setLanguage(language: Language): Promise<void> {
+    const user = await firstValueFrom(
+      this.http.put<CurrentUser>(`${this.apiUrl}/auth/me/language`, { language }),
+    );
+    sessionStorage.setItem(LANGUAGE_KEY, user.language);
+    this.currentUser.set(user);
   }
 
   /** True when a 401 can be answered with a refresh instead of ending the session. */
@@ -120,6 +133,7 @@ export class AuthService {
   private forget(): void {
     sessionStorage.removeItem(ACCESS_KEY);
     sessionStorage.removeItem(REFRESH_KEY);
+    sessionStorage.removeItem(LANGUAGE_KEY);
     this.token.set(null);
     this.currentUser.set(null);
   }

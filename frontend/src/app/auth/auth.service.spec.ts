@@ -263,7 +263,13 @@ describe('AuthService', () => {
 
 describe('AuthService current user', () => {
   const API = 'http://localhost:3000';
-  const me = { id: 'u1', email: 'ana@example.com', firstName: 'Ana', lastName: 'García' };
+  const me = {
+    id: 'u1',
+    email: 'ana@example.com',
+    firstName: 'Ana',
+    lastName: 'García',
+    language: 'es',
+  };
   beforeEach(() => sessionStorage.clear());
 
   it('has no current user until it is loaded', () => {
@@ -315,5 +321,48 @@ describe('AuthService current user', () => {
     auth.logout();
 
     expect(auth.currentUser()).toBeNull();
+  });
+
+  it('loadCurrentUser() keeps the language in sessionStorage', async () => {
+    sessionStorage.setItem('dms.accessToken', 'access-1');
+    const { auth, http } = setup();
+
+    const loading = auth.loadCurrentUser();
+    http.expectOne(`${API}/auth/me`).flush(me);
+    await loading;
+
+    expect(sessionStorage.getItem('dms.language')).toBe('es');
+  });
+
+  it('setLanguage() PUTs it, then keeps it in sessionStorage and on the current user', async () => {
+    sessionStorage.setItem('dms.accessToken', 'access-1');
+    const { auth, http } = setup();
+    const loading = auth.loadCurrentUser();
+    http.expectOne(`${API}/auth/me`).flush(me);
+    await loading;
+
+    const saving = auth.setLanguage('en');
+
+    const req = http.expectOne(`${API}/auth/me/language`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ language: 'en' });
+    req.flush({ ...me, language: 'en' });
+    await saving;
+    expect(sessionStorage.getItem('dms.language')).toBe('en');
+    expect(auth.currentUser()?.language).toBe('en');
+  });
+
+  it('setLanguage() changes nothing here when the server refuses', async () => {
+    sessionStorage.setItem('dms.accessToken', 'access-1');
+    sessionStorage.setItem('dms.language', 'es');
+    const { auth, http } = setup();
+
+    const saving = auth.setLanguage('en');
+    http
+      .expectOne(`${API}/auth/me/language`)
+      .flush('boom', { status: 500, statusText: 'Server Error' });
+
+    await expect(saving).rejects.toBeTruthy();
+    expect(sessionStorage.getItem('dms.language')).toBe('es');
   });
 });
