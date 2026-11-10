@@ -160,3 +160,6 @@ credentials.json
 Thumbs.db
 .idea/
 .superpowers/
+
+# Written by the backend dev server (src/main.ts)
+docs/swagger.json
