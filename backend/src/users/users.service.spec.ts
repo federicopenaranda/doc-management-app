@@ -29,6 +29,7 @@ function setup(
     setActive: vi.fn().mockResolvedValue(result),
     archive: vi.fn().mockResolvedValue(result !== null),
     listArchived: vi.fn().mockResolvedValue([]),
+    setPasswordHash: vi.fn().mockResolvedValue(result !== null),
     restore: vi.fn().mockResolvedValue(result !== null),
   };
   const refreshTokens = {
@@ -245,5 +246,34 @@ describe('UsersService.restore', () => {
     const { service } = setup(null);
 
     await expect(service.restore('nope')).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe('UsersService.setPassword', () => {
+  it('stores a scrypt hash that verifies, never the password, and ends the sessions', async () => {
+    const { service, repository, refreshTokens } = setup();
+
+    await expect(
+      service.setPassword('u1', 'a brand new password'),
+    ).resolves.toBeUndefined();
+
+    const [id, hash] = repository.setPasswordHash.mock.calls[0] as [
+      string,
+      string,
+    ];
+    expect(id).toBe('u1');
+    expect(hash).toMatch(/^scrypt\$/);
+    expect(hash).not.toContain('a brand new password');
+    expect(await verifyPassword('a brand new password', hash)).toBe(true);
+    expect(refreshTokens.revokeAllForUser).toHaveBeenCalledWith('u1');
+  });
+
+  it('answers 404 for a user that does not exist or is archived, and revokes nothing', async () => {
+    const { service, refreshTokens } = setup(null);
+
+    await expect(
+      service.setPassword('nope', 'a brand new password'),
+    ).rejects.toThrow(NotFoundException);
+    expect(refreshTokens.revokeAllForUser).not.toHaveBeenCalled();
   });
 });

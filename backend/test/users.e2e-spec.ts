@@ -43,6 +43,12 @@ async function createApp(usersEnabled: boolean) {
       revoked.push(params[0] as string);
       return Promise.resolve({ rows: [] });
     }
+    if (sql.startsWith('UPDATE users SET password_hash = $2')) {
+      const row = live().find((r) => r.id === params[0]);
+      if (!row) return Promise.resolve({ rows: [] });
+      row.password_hash = params[1];
+      return Promise.resolve({ rows: [{ id: row.id }] });
+    }
     if (sql.startsWith('UPDATE users SET archived_at = NULL')) {
       const row = rows.find((r) => r.id === params[0] && r.archived_at);
       if (!row) return Promise.resolve({ rows: [] });
@@ -777,6 +783,111 @@ describe('users status and archive (e2e)', () => {
       await request(on.app.getHttpServer()).get('/users/archived').expect(401);
       await request(on.app.getHttpServer())
         .post(`/users/${FIRST}/restore`)
+        .expect(401);
+      await on.app.close();
+    });
+  });
+
+  describe('PUT /users/:id/password', () => {
+    const FIRST = '00000000-0000-4000-8000-000000000001';
+    const NEW_PASSWORD = 'a brand new password';
+    const loginAs = (
+      server: ReturnType<NestExpressApplication['getHttpServer']>,
+      password: string,
+    ) =>
+      request(server)
+        .post('/auth/login')
+        .send({ email: newUser.email, password });
+
+    it('sets the new password: 204, the old one stops working, their refresh tokens are revoked', async () => {
+      const { app, token, revoked } = await appWithAna();
+      const server = app.getHttpServer();
+
+      const response = await request(server)
+        .put(`/users/${FIRST}/password`)
+        .set(authed(token))
+        .send({ password: NEW_PASSWORD })
+        .expect(204);
+
+      expect(response.text).toBe('');
+      expect(revoked).toEqual([FIRST]);
+      await loginAs(server, PASSWORD).expect(401);
+      await loginAs(server, NEW_PASSWORD).expect(200);
+      await app.close();
+    });
+
+    it('also works for a disabled user, who still cannot log in until enabled', async () => {
+      const { app, token } = await appWithAna();
+      const server = app.getHttpServer();
+      await request(server)
+        .put(`/users/${FIRST}/active`)
+        .set(authed(token))
+        .send({ isActive: false })
+        .expect(200);
+
+      await request(server)
+        .put(`/users/${FIRST}/password`)
+        .set(authed(token))
+        .send({ password: NEW_PASSWORD })
+        .expect(204);
+
+      await loginAs(server, NEW_PASSWORD).expect(401);
+      await app.close();
+    });
+
+    it.each([
+      ['no password', {}],
+      ['a password of 11 characters', { password: 'x'.repeat(11) }],
+      ['a password over 200 characters', { password: 'x'.repeat(201) }],
+      ['a non-string password', { password: 123456789012 }],
+    ])('answers 400 for %s and changes nothing', async (_label, body) => {
+      const { app, token, revoked } = await appWithAna();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .put(`/users/${FIRST}/password`)
+        .set(authed(token))
+        .send(body)
+        .expect(400);
+
+      expect(revoked).toEqual([]);
+      await loginAs(server, PASSWORD).expect(200);
+      await app.close();
+    });
+
+    it('answers 404 for an unknown, archived or malformed id', async () => {
+      const { app, token } = await appWithAna();
+      const server = app.getHttpServer();
+      await request(server)
+        .post(`/users/${FIRST}/archive`)
+        .set(authed(token))
+        .expect(204);
+
+      for (const id of [
+        FIRST,
+        '00000000-0000-4000-8000-0000000000ff',
+        'not-a-uuid',
+      ]) {
+        await request(server)
+          .put(`/users/${id}/password`)
+          .set(authed(token))
+          .send({ password: NEW_PASSWORD })
+          .expect(404);
+      }
+      await app.close();
+    });
+
+    it('needs the flag and a token', async () => {
+      const off = await createApp(false);
+      await request(off.app.getHttpServer())
+        .put(`/users/${FIRST}/password`)
+        .send({ password: NEW_PASSWORD })
+        .expect(404);
+      await off.app.close();
+      const on = await createApp(true);
+      await request(on.app.getHttpServer())
+        .put(`/users/${FIRST}/password`)
+        .send({ password: NEW_PASSWORD })
         .expect(401);
       await on.app.close();
     });

@@ -30,10 +30,12 @@ const email = z.string().trim().pipe(z.email());
 /** What the edit form sends. The password is not edited here: unknown keys are dropped. */
 const editUserSchema = z.object({ firstName: name, lastName: name, email });
 
-const createUserSchema = editUserSchema.extend({
-  // The bounds match the users:create script; the upper one keeps a huge body from turning into a huge hashing job.
-  password: z.string().min(12).max(200),
-});
+// The bounds match the users:create script; the upper one keeps a huge body from turning into a huge hashing job.
+const password = z.string().min(12).max(200);
+
+const createUserSchema = editUserSchema.extend({ password });
+
+const passwordSchema = z.object({ password });
 
 const activeSchema = z.object({ isActive: z.boolean() });
 
@@ -115,6 +117,17 @@ export class UsersController {
     @Param('id') id: string,
   ): Promise<void> {
     return this.users.archive(request.user.id, userId(id));
+  }
+
+  /** An admin sets a new password. Hashing is slow on purpose, so it has the same tighter limit as creating. */
+  @Put(':id/password')
+  @HttpCode(204)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  setPassword(@Param('id') id: string, @Body() body: unknown): Promise<void> {
+    return this.users.setPassword(
+      userId(id),
+      parse(passwordSchema, body).password,
+    );
   }
 
   /** Brings an archived user back, switched off. */

@@ -110,6 +110,16 @@ export class UsersRepository {
     return rows.length > 0;
   }
 
+  /** Replaces the password hash. False when there is no such user or it is archived. */
+  async setPasswordHash(id: string, passwordHash: string): Promise<boolean> {
+    if (!this.db) throw new Error('The database feature is not enabled');
+    const { rows } = await this.db.pool.query<{ id: string }>(
+      'UPDATE users SET password_hash = $2 WHERE id = $1 AND archived_at IS NULL RETURNING id',
+      [id, passwordHash],
+    );
+    return rows.length > 0;
+  }
+
   /** Null when the email is taken (the unique index ignores letter case). */
   async create(user: NewUser): Promise<UserSummary | null> {
     if (!this.db) throw new Error('The database feature is not enabled');

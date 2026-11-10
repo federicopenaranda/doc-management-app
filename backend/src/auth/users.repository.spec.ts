@@ -318,3 +318,23 @@ describe('UsersRepository.restore', () => {
     expect(await repository.restore('missing')).toBe(false);
   });
 });
+
+describe('UsersRepository.setPasswordHash', () => {
+  it('replaces only the hash of one user, with bound parameters', async () => {
+    const { repository, query } = setup([{ id: 'u1' }]);
+
+    const changed = await repository.setPasswordHash('u1', 'scrypt$new');
+
+    expect(query).toHaveBeenCalledWith(
+      'UPDATE users SET password_hash = $2 WHERE id = $1 AND archived_at IS NULL RETURNING id',
+      ['u1', 'scrypt$new'],
+    );
+    expect(changed).toBe(true);
+  });
+
+  it('says false for a user that does not exist or is archived', async () => {
+    const { repository } = setup([]);
+
+    expect(await repository.setPasswordHash('missing', 'scrypt$x')).toBe(false);
+  });
+});
