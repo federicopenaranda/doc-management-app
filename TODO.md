@@ -16,6 +16,7 @@ Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live. *
 
 ## Tomorrow, first
 
+0. **i18n for the Spanish / English switch (follow-up of SCRUM-19):** the Preferences dialog (merged 2026-11-10, flag `preferencesEnabled`) saves `language` (`en`/`es`) in `users.language` and in sessionStorage (`dms.language`), but the app text does not change yet. Make the texts follow it with Angular i18n (the templates already carry `i18n` attributes; `aria-label`s that are built dynamically are not translated yet). Use the brainstorming skill first: build-time locales vs runtime translation, since one build serves every environment. Needs its own Jira ticket.
 1. Start the database and wait for `RUNNABLE`: `gcloud sql instances patch dms-postgres --activation-policy=ALWAYS --project doc-management-sandbox`, then `gcloud sql instances describe dms-postgres --project doc-management-sandbox --format="value(state)"`.
 2. The owner tries the Users screens in the browser (create, edit, disable/enable, archive a test user, own row locked) and reports; check the backend logs for any 500 (`gcloud logging read ... severity>=ERROR`).
 
