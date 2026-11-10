@@ -71,7 +71,7 @@ export class UsersRepository {
   async list(): Promise<UserSummary[]> {
     if (!this.db) throw new Error('The database feature is not enabled');
     const { rows } = await this.db.pool.query<SummaryRow>(
-      `SELECT ${SUMMARY_COLUMNS} FROM users ORDER BY created_at, id`,
+      `SELECT ${SUMMARY_COLUMNS} FROM users WHERE archived_at IS NULL ORDER BY created_at, id`,
     );
     return rows.map(toSummary);
   }
@@ -89,7 +89,7 @@ export class UsersRepository {
   async getSummary(id: string): Promise<UserSummary | null> {
     if (!this.db) throw new Error('The database feature is not enabled');
     const { rows } = await this.db.pool.query<SummaryRow>(
-      `SELECT ${SUMMARY_COLUMNS} FROM users WHERE id = $1`,
+      `SELECT ${SUMMARY_COLUMNS} FROM users WHERE id = $1 AND archived_at IS NULL`,
       [id],
     );
     return rows[0] ? toSummary(rows[0]) : null;
@@ -100,7 +100,7 @@ export class UsersRepository {
     if (!this.db) throw new Error('The database feature is not enabled');
     try {
       const { rows } = await this.db.pool.query<SummaryRow>(
-        `UPDATE users SET email = $2, first_name = $3, last_name = $4 WHERE id = $1 RETURNING ${SUMMARY_COLUMNS}`,
+        `UPDATE users SET email = $2, first_name = $3, last_name = $4 WHERE id = $1 AND archived_at IS NULL RETURNING ${SUMMARY_COLUMNS}`,
         [id, user.email, user.firstName, user.lastName],
       );
       return rows[0]
@@ -113,6 +113,29 @@ export class UsersRepository {
       }
       throw error;
     }
+  }
+
+  /** Null for a user that does not exist or is archived. */
+  async setActive(id: string, isActive: boolean): Promise<UserSummary | null> {
+    if (!this.db) throw new Error('The database feature is not enabled');
+    const { rows } = await this.db.pool.query<SummaryRow>(
+      `UPDATE users SET is_active = $2 WHERE id = $1 AND archived_at IS NULL RETURNING ${SUMMARY_COLUMNS}`,
+      [id, isActive],
+    );
+    return rows[0] ? toSummary(rows[0]) : null;
+  }
+
+  /**
+   * Archives a user: it can no longer sign in and leaves the list, but the row, its email and the record of who archived it
+   * and when stay. Users are never deleted. False when there is no such user or it was archived already.
+   */
+  async archive(id: string, archivedBy: string): Promise<boolean> {
+    if (!this.db) throw new Error('The database feature is not enabled');
+    const { rows } = await this.db.pool.query<{ id: string }>(
+      'UPDATE users SET is_active = false, archived_at = now(), archived_by = $2 WHERE id = $1 AND archived_at IS NULL RETURNING id',
+      [id, archivedBy],
+    );
+    return rows.length > 0;
   }
 
   async findByEmail(email: string): Promise<UserRecord | null> {

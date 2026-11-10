@@ -28,6 +28,6 @@ import { UsersRepository } from './users.repository.js';
     JwtAuthGuard,
   ],
   // Other modules protect their routes with @UseGuards(JwtAuthGuard).
-  exports: [JwtAuthGuard, JwtModule, UsersRepository],
+  exports: [JwtAuthGuard, JwtModule, UsersRepository, RefreshTokensRepository],
 })
 export class AuthModule {}

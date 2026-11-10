@@ -108,7 +108,7 @@ describe('UsersRepository.list', () => {
 
     const [sql] = query.mock.calls[0] as [string];
     expect(sql).toBe(
-      'SELECT id, email, first_name, last_name, is_active, created_at FROM users ORDER BY created_at, id',
+      'SELECT id, email, first_name, last_name, is_active, created_at FROM users WHERE archived_at IS NULL ORDER BY created_at, id',
     );
     expect(sql).not.toContain('password_hash');
     expect(users).toEqual([summary]);
@@ -163,7 +163,7 @@ describe('UsersRepository.getSummary', () => {
     const user = await repository.getSummary('u1');
 
     expect(query).toHaveBeenCalledWith(
-      'SELECT id, email, first_name, last_name, is_active, created_at FROM users WHERE id = $1',
+      'SELECT id, email, first_name, last_name, is_active, created_at FROM users WHERE id = $1 AND archived_at IS NULL',
       ['u1'],
     );
     expect(user).toEqual(summary);
@@ -189,7 +189,7 @@ describe('UsersRepository.update', () => {
     const result = await repository.update('u1', input);
 
     expect(query).toHaveBeenCalledWith(
-      'UPDATE users SET email = $2, first_name = $3, last_name = $4 WHERE id = $1 RETURNING id, email, first_name, last_name, is_active, created_at',
+      'UPDATE users SET email = $2, first_name = $3, last_name = $4 WHERE id = $1 AND archived_at IS NULL RETURNING id, email, first_name, last_name, is_active, created_at',
       ['u1', 'ana@example.com', 'Ana', 'García'],
     );
     expect(result).toEqual({ status: 'ok', user: summary });
@@ -236,5 +236,47 @@ describe('UsersRepository.update', () => {
     await expect(repository.update('u1', input)).rejects.toThrow(
       'connection lost',
     );
+  });
+});
+
+describe('UsersRepository.setActive', () => {
+  it('turns one user on or off with bound parameters and returns it', async () => {
+    const { repository, query } = setup([{ ...summaryRow, is_active: false }]);
+
+    const user = await repository.setActive('u1', false);
+
+    expect(query).toHaveBeenCalledWith(
+      'UPDATE users SET is_active = $2 WHERE id = $1 AND archived_at IS NULL RETURNING id, email, first_name, last_name, is_active, created_at',
+      ['u1', false],
+    );
+    expect(user).toEqual({ ...summary, isActive: false });
+  });
+
+  it('returns null for a user that does not exist or is archived', async () => {
+    const { repository } = setup([]);
+
+    expect(await repository.setActive('missing', true)).toBeNull();
+  });
+});
+
+describe('UsersRepository.archive', () => {
+  it('marks the user archived (when and by whom), switches it off, and keeps the row', async () => {
+    const { repository, query } = setup([{ id: 'u1' }]);
+
+    const archived = await repository.archive('u1', 'admin-1');
+
+    expect(query).toHaveBeenCalledWith(
+      'UPDATE users SET is_active = false, archived_at = now(), archived_by = $2 WHERE id = $1 AND archived_at IS NULL RETURNING id',
+      ['u1', 'admin-1'],
+    );
+    expect(archived).toBe(true);
+    const [sql] = query.mock.calls[0] as [string];
+    expect(sql).not.toMatch(/DELETE/i);
+  });
+
+  it('says false for a user that does not exist or was archived already', async () => {
+    const { repository } = setup([]);
+
+    expect(await repository.archive('missing', 'admin-1')).toBe(false);
   });
 });

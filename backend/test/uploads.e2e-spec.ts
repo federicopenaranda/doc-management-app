@@ -17,7 +17,27 @@ async function createApp(uploadsEnabled: boolean, authEnabled = false) {
     await import('./../src/database/database.service.js');
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(DatabaseService)
-    .useValue(authEnabled ? { pool: { query: vi.fn() } } : null)
+    .useValue(
+      authEnabled
+        ? {
+            pool: {
+              // Every request checks that the token's user is still active: here that is always so.
+              query: vi.fn().mockResolvedValue({
+                rows: [
+                  {
+                    id: 'user-1',
+                    email: 'ana@example.com',
+                    first_name: 'Ana',
+                    last_name: 'García',
+                    is_active: true,
+                    created_at: new Date('2026-11-09T12:00:00Z'),
+                  },
+                ],
+              }),
+            },
+          }
+        : null,
+    )
     .overrideProvider(URL_SIGNER)
     .useValue({
       sign: (_bucket: string, name: string) =>

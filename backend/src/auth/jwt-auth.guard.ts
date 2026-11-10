@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import type { Env } from '../config/env.validation.js';
+import { UsersRepository } from './users.repository.js';
 
 export interface AuthenticatedUser {
   id: string;
@@ -23,6 +24,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwt: JwtService,
     private readonly config: ConfigService<Env, true>,
+    private readonly users: UsersRepository,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -43,9 +45,10 @@ export class JwtAuthGuard implements CanActivate {
     if (typeof payload.sub !== 'string' || typeof payload.email !== 'string') {
       throw new UnauthorizedException();
     }
-    // shortcut: is_active is checked at login only, so a deactivated user's token works until it expires
-    // (1 h). When users can be deactivated (SCRUM-18), load the user by `sub` here.
-    request.user = { id: payload.sub, email: payload.email };
+    // A disabled, archived or deleted user is locked out at once, not when their token expires: one indexed query per request.
+    const user = await this.users.getSummary(payload.sub);
+    if (!user?.isActive) throw new UnauthorizedException();
+    request.user = { id: payload.sub, email: user.email };
     return true;
   }
 }
