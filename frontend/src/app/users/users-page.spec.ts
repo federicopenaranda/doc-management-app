@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/angular';
 import { AuthService, type CurrentUser } from '../auth/auth.service';
-import { UsersApi, type User } from './users-api';
+import { UsersApi, type ArchivedUser, type User } from './users-api';
 import { UsersPage } from './users-page';
 
 const user = (over: Partial<User>): User => ({
@@ -26,7 +26,22 @@ const luis = user({
 // The first user was created before names existed.
 const admin = user({ id: 'u3', email: 'admin@example.com', firstName: '', lastName: '' });
 
+const archivedBea: ArchivedUser = {
+  ...user({
+    id: 'u9',
+    email: 'bea@example.com',
+    firstName: 'Bea',
+    lastName: 'Ruiz',
+    isActive: false,
+  }),
+  archivedAt: '2026-11-10T09:00:00.000Z',
+};
+
 interface Options {
+  /** What GET /users/archived answers; later calls see the state after archive and restore. */
+  archived?: ArchivedUser[];
+  restore?: (id: string) => Promise<void>;
+  listArchived?: () => Promise<ArchivedUser[]>;
   setActive?: (id: string, isActive: boolean) => Promise<User>;
   archive?: (id: string) => Promise<void>;
   /** Who is logged in. */
@@ -35,8 +50,25 @@ interface Options {
 
 async function setup(list: () => Promise<User[]>, options: Options = {}) {
   let listed: User[] = [];
+  let archived = options.archived ?? [];
+  /** Users the fake server has archived since the start: GET /users no longer returns them. */
+  const gone = new Set<string>();
   const api = {
-    list: vi.fn(async () => (listed = await list())),
+    list: vi.fn(async () => (listed = (await list()).filter((u) => !gone.has(u.id)))),
+    listArchived: vi.fn(options.listArchived ?? (async () => archived)),
+    restore: vi.fn(
+      options.restore ??
+        (async (id: string) => {
+          const back = archived.find((u) => u.id === id);
+          archived = archived.filter((u) => u.id !== id);
+          if (back) {
+            const { archivedAt: _archivedAt, ...restored } = back;
+            void _archivedAt;
+            const before = list;
+            list = async () => [...(await before()), restored];
+          }
+        }),
+    ),
     setActive: vi.fn(
       options.setActive ??
         (async (id: string, isActive: boolean) => ({
@@ -44,7 +76,15 @@ async function setup(list: () => Promise<User[]>, options: Options = {}) {
           isActive,
         })),
     ),
-    archive: vi.fn(options.archive ?? (async () => undefined)),
+    archive: vi.fn(
+      options.archive ??
+        (async (id: string) => {
+          const user = listed.find((u) => u.id === id);
+          if (!user) return;
+          gone.add(id);
+          archived = [{ ...user, archivedAt: '2026-11-10T10:00:00.000Z' }, ...archived];
+        }),
+    ),
   };
   await render(UsersPage, {
     providers: [
@@ -252,8 +292,6 @@ describe('UsersPage disable and enable', () => {
 });
 
 describe('UsersPage archive', () => {
-  const rowsOf = () => screen.queryAllByRole('row').length;
-
   it('asks for confirmation first, naming the user and saying their history is kept', async () => {
     const { api } = await setup(async () => [ana]);
     await screen.findByRole('table');
@@ -287,12 +325,11 @@ describe('UsersPage archive', () => {
 
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Archive' }));
 
-    await waitFor(() =>
-      expect(screen.getByRole('table').textContent).not.toContain('ana@example.com'),
-    );
+    const [users] = screen.getAllByRole('table');
+    await waitFor(() => expect(users.textContent).not.toContain('ana@example.com'));
     expect(api.archive).toHaveBeenCalledWith('u1');
-    expect(screen.getByRole('table').textContent).toContain('luis@example.com');
-    expect(rowsOf()).toBe(2); // the header and Luis
+    expect(users.textContent).toContain('luis@example.com');
+    expect(within(users).getAllByRole('row')).toHaveLength(2); // the header and Luis
   });
 
   it('says it could not archive the user, and keeps the row', async () => {
@@ -331,5 +368,88 @@ describe('UsersPage your own row', () => {
     await screen.findByRole('table');
 
     expect(screen.getByRole('link', { name: 'Edit Ana García' })).toBeTruthy();
+  });
+});
+
+describe('UsersPage archived users', () => {
+  const archivedTable = () => screen.getByRole('table', { name: /archived users/i });
+
+  it('has an "Archived users" section below the users table with its own columns', async () => {
+    await setup(async () => [ana], { archived: [archivedBea] });
+
+    const table = await screen.findByRole('table', { name: /archived users/i });
+
+    expect(screen.getByRole('heading', { name: /archived users/i })).toBeTruthy();
+    const headers = within(table)
+      .getAllByRole('columnheader')
+      .map((h) => h.textContent?.trim());
+    expect(headers).toEqual(['First name', 'Last name', 'Email', 'Archived on', 'Actions']);
+    const row = within(table).getAllByRole('row')[1];
+    expect(row.textContent).toContain('Bea');
+    expect(row.textContent).toContain('bea@example.com');
+    expect(row.textContent).toMatch(/2026/);
+  });
+
+  it('says there are no archived users when there are none', async () => {
+    await setup(async () => [ana]);
+
+    await screen.findByRole('table');
+
+    expect(screen.queryByRole('table', { name: /archived users/i })).toBeNull();
+    expect(screen.getByText(/no archived users/i)).toBeTruthy();
+  });
+
+  it('shows the archived users even when no user is active', async () => {
+    await setup(async () => [], { archived: [archivedBea] });
+
+    await screen.findByRole('table', { name: /archived users/i });
+
+    expect(screen.getByText(/no users yet/i)).toBeTruthy();
+  });
+
+  it('restores a user: asks the API, then the row moves to the users table as Disabled', async () => {
+    const { api } = await setup(async () => [ana], { archived: [archivedBea] });
+    await screen.findByRole('table', { name: /archived users/i });
+
+    await fireEvent.click(button('Restore Bea Ruiz'));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('table', { name: /archived users/i })).toBeNull(),
+    );
+    expect(api.restore).toHaveBeenCalledWith('u9');
+    const table = screen.getByRole('table');
+    expect(table.textContent).toContain('bea@example.com');
+    expect(within(table).getAllByText('Disabled')).toHaveLength(1);
+    expect(screen.getByText(/no archived users/i)).toBeTruthy();
+  });
+
+  it('shows a user that was just archived in the archived table', async () => {
+    await setup(async () => [ana, luis]);
+    await screen.findByRole('table');
+    await fireEvent.click(button('Archive Ana García'));
+    const dialog = await screen.findByRole('dialog');
+
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Archive' }));
+
+    await waitFor(() => expect(archivedTable().textContent).toContain('ana@example.com'));
+  });
+
+  it('says it could not restore the user, and keeps the row', async () => {
+    await setup(async () => [ana], {
+      archived: [archivedBea],
+      restore: () => Promise.reject(new Error('boom')),
+    });
+    await screen.findByRole('table', { name: /archived users/i });
+
+    await fireEvent.click(button('Restore Bea Ruiz'));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Could not restore the user');
+    expect(archivedTable().textContent).toContain('bea@example.com');
+  });
+
+  it('says it could not load the archived users when that request fails', async () => {
+    await setup(async () => [ana], { listArchived: () => Promise.reject(new Error('boom')) });
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Could not load the users');
   });
 });
