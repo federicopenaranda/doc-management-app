@@ -49,13 +49,29 @@ describe('bootstrapStatements', () => {
   });
 
   it('adds first and last name to users, safe to repeat and keeping the rows that exist', () => {
-    const add = sql.filter((s) => s.startsWith('ALTER TABLE users'));
+    const add = sql.filter(
+      (s) =>
+        s.startsWith('ALTER TABLE users') && /first_name|last_name/.test(s),
+    );
 
     expect(add).toEqual([
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name text NOT NULL DEFAULT ''",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name text NOT NULL DEFAULT ''",
     ]);
     expect(sql.indexOf(add[0])).toBeGreaterThan(sql.indexOf(users));
+  });
+
+  it('adds archived_at and archived_by to users: when a user was archived and by whom, so the history is kept', () => {
+    expect(sql).toContain(
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS archived_at timestamptz',
+    );
+    expect(sql).toContain(
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS archived_by uuid REFERENCES users(id)',
+    );
+  });
+
+  it('never gives the backend identity the right to delete rows (users are archived, not deleted)', () => {
+    expect(sql.filter((s) => /DELETE/i.test(s))).toEqual([]);
   });
 
   it('lets the backend identity read, add and update users, never delete them', () => {
