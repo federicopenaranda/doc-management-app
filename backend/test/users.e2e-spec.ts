@@ -70,6 +70,7 @@ async function createApp(usersEnabled: boolean) {
         email: params[0],
         first_name: params[1],
         last_name: params[2],
+        password_hash: params[3],
         is_active: true,
         created_at: new Date('2026-11-09T12:00:00Z'),
       };
@@ -94,6 +95,14 @@ async function createApp(usersEnabled: boolean) {
       row.first_name = params[2];
       row.last_name = params[3];
       return Promise.resolve({ rows: [row] });
+    }
+    if (sql.includes('FROM users WHERE lower(email) = lower($1)')) {
+      const row = rows.find(
+        (r) =>
+          (r.email as string).toLowerCase() ===
+          (params[0] as string).toLowerCase(),
+      );
+      return Promise.resolve({ rows: row ? [row] : [] });
     }
     if (sql.includes('FROM users WHERE id = $1')) {
       const row =
@@ -720,6 +729,24 @@ describe('users status and archive (e2e)', () => {
         .expect(204);
 
       await request(server).get('/users').set(authed(anasToken)).expect(401);
+      await app.close();
+    });
+
+    it('cannot log in again after being archived, even with the right password', async () => {
+      const { app, token } = await appWithAna();
+      const server = app.getHttpServer();
+      const login = () =>
+        request(server)
+          .post('/auth/login')
+          .send({ email: newUser.email, password: PASSWORD });
+      await login().expect(200);
+
+      await request(server)
+        .post(`/users/${FIRST}/archive`)
+        .set(authed(token))
+        .expect(204);
+
+      await login().expect(401);
       await app.close();
     });
 
