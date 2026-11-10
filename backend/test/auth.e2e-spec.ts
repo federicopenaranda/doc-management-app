@@ -82,7 +82,10 @@ async function createApp(authEnabled: boolean, refreshEnabled = false) {
               id: USER_ID,
               email,
               password_hash: passwordHash,
+              first_name: 'Ana',
+              last_name: 'García',
               is_active: found.is_active,
+              created_at: new Date('2026-11-09T12:00:00Z'),
             },
           ]
         : [],
@@ -292,7 +295,23 @@ describe('auth (e2e)', () => {
 
       const response = await me(app, body.accessToken).expect(200);
 
-      expect(response.body).toEqual({ id: USER_ID, email: 'ana@example.com' });
+      expect(response.body).toEqual({
+        id: USER_ID,
+        email: 'ana@example.com',
+        firstName: 'Ana',
+        lastName: 'García',
+      });
+      await app.close();
+    });
+
+    it('answers 401 for a valid token whose user does not exist any more', async () => {
+      const app = await createApp(true);
+      const jwt = new JwtService({ secret: SECRET });
+
+      await me(
+        app,
+        await jwt.signAsync({ sub: 'deleted-user', email: 'gone@example.com' }),
+      ).expect(401);
       await app.close();
     });
 

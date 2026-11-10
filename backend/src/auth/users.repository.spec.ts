@@ -155,3 +155,86 @@ describe('UsersRepository.create', () => {
     expect(sql).not.toContain('DROP TABLE');
   });
 });
+
+describe('UsersRepository.getSummary', () => {
+  it('looks one user up by id with a bound parameter and returns it without the hash', async () => {
+    const { repository, query } = setup([summaryRow]);
+
+    const user = await repository.getSummary('u1');
+
+    expect(query).toHaveBeenCalledWith(
+      'SELECT id, email, first_name, last_name, is_active, created_at FROM users WHERE id = $1',
+      ['u1'],
+    );
+    expect(user).toEqual(summary);
+  });
+
+  it('returns null when there is no such user', async () => {
+    const { repository } = setup([]);
+
+    expect(await repository.getSummary('missing')).toBeNull();
+  });
+});
+
+describe('UsersRepository.update', () => {
+  const input = {
+    email: 'ana@example.com',
+    firstName: 'Ana',
+    lastName: 'García',
+  };
+
+  it('changes the email and the names of one user with bound parameters and returns it', async () => {
+    const { repository, query } = setup([summaryRow]);
+
+    const result = await repository.update('u1', input);
+
+    expect(query).toHaveBeenCalledWith(
+      'UPDATE users SET email = $2, first_name = $3, last_name = $4 WHERE id = $1 RETURNING id, email, first_name, last_name, is_active, created_at',
+      ['u1', 'ana@example.com', 'Ana', 'García'],
+    );
+    expect(result).toEqual({ status: 'ok', user: summary });
+  });
+
+  it('never touches the password hash or the active flag', async () => {
+    const { repository, query } = setup([summaryRow]);
+
+    await repository.update('u1', input);
+
+    const [sql] = query.mock.calls[0] as [string];
+    expect(sql).not.toMatch(/password_hash|is_active =/);
+  });
+
+  it('reports a user that does not exist', async () => {
+    const { repository } = setup([]);
+
+    expect(await repository.update('missing', input)).toEqual({
+      status: 'not-found',
+    });
+  });
+
+  it('reports an email that belongs to another user (unique violation)', async () => {
+    const query = vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error('duplicate'), { code: '23505' }),
+      );
+    const repository = new UsersRepository({
+      pool: { query },
+    } as unknown as DatabaseService);
+
+    expect(await repository.update('u1', input)).toEqual({
+      status: 'email-taken',
+    });
+  });
+
+  it('lets any other database error through', async () => {
+    const query = vi.fn().mockRejectedValue(new Error('connection lost'));
+    const repository = new UsersRepository({
+      pool: { query },
+    } as unknown as DatabaseService);
+
+    await expect(repository.update('u1', input)).rejects.toThrow(
+      'connection lost',
+    );
+  });
+});

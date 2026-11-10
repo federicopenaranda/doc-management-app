@@ -18,6 +18,14 @@ const INVALID_REFRESH = 'Invalid refresh token';
 // Checked when the email is unknown, so that case takes as long as a real one.
 let dummyHash: Promise<string> | undefined;
 
+/** Who the logged-in user is, as the toolbar shows it. */
+export interface Profile {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+}
+
 export interface LoginResult {
   accessToken: string;
   expiresIn: number;
@@ -63,6 +71,18 @@ export class AuthService {
     const user = await this.users.findById(result.userId);
     if (!user?.isActive) throw new UnauthorizedException(INVALID_REFRESH);
     return this.issueTokens(user);
+  }
+
+  /** Read from the database, not the token, so an edited name or email shows at once. */
+  async profile(userId: string): Promise<Profile> {
+    const user = await this.users.getSummary(userId);
+    if (!user?.isActive) throw new UnauthorizedException();
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    };
   }
 
   async logout(refreshToken: string): Promise<void> {

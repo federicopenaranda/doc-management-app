@@ -172,8 +172,10 @@ table that does not exist yet. The frontend flag is `refreshEnabled` in the `fro
 
 With the flag `USERS_ENABLED` (backend secret, needs `AUTH_ENABLED`) any logged-in user can call `GET /users` (the list, never with password
 hashes) and `POST /users` with `{ firstName, lastName, email, password }` (password 12 to 200 characters; 201 with the new user, 409 when the
-email exists). Until roles exist (SCRUM-17) there is no further check. `db:bootstrap` adds the `first_name` and `last_name` columns (users that
-already existed get empty names) and lets the backend identity read and add users.
+email exists). `GET /users/:id` returns one user and `PUT /users/:id` changes the email and the names (`{ firstName, lastName, email }`; 404 for an
+unknown user, 409 when another user has that email); passwords are not edited there. `GET /auth/me` returns `{ id, email, firstName, lastName }`
+read from the database. Until roles exist (SCRUM-17) there is no further check. `db:bootstrap` adds the `first_name` and `last_name` columns (users that
+already existed get empty names) and lets the backend identity read, add and update users (never delete).
 
 **Run `db:bootstrap` (steps above) before deploying a backend with `USERS_ENABLED` on**, or the list and the creation fail with a database
 error. The frontend flag is `usersEnabled` in the `frontend-sandbox` secret.

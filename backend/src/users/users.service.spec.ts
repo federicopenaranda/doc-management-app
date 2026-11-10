@@ -1,6 +1,10 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { verifyPassword } from '../auth/password.js';
-import type { UserSummary, UsersRepository } from '../auth/users.repository.js';
+import type {
+  UpdateResult,
+  UserSummary,
+  UsersRepository,
+} from '../auth/users.repository.js';
 import { UsersService } from './users.service.js';
 
 const created: UserSummary = {
@@ -12,10 +16,15 @@ const created: UserSummary = {
   createdAt: new Date('2026-11-09T12:00:00Z'),
 };
 
-function setup(result: UserSummary | null = created) {
+function setup(
+  result: UserSummary | null = created,
+  update: UpdateResult = { status: 'ok', user: created },
+) {
   const repository = {
     create: vi.fn().mockResolvedValue(result),
     list: vi.fn().mockResolvedValue([created]),
+    getSummary: vi.fn().mockResolvedValue(result),
+    update: vi.fn().mockResolvedValue(update),
   };
   return {
     repository,
@@ -71,5 +80,52 @@ describe('UsersService.list', () => {
     const { service } = setup();
 
     await expect(service.list()).resolves.toEqual([created]);
+  });
+});
+
+describe('UsersService.get', () => {
+  it('returns one user', async () => {
+    const { service, repository } = setup();
+
+    await expect(service.get('u1')).resolves.toEqual(created);
+    expect(repository.getSummary).toHaveBeenCalledWith('u1');
+  });
+
+  it('answers 404 for a user that does not exist', async () => {
+    const { service } = setup(null);
+
+    await expect(service.get('nope')).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe('UsersService.update', () => {
+  const edit = {
+    email: 'ana.garcia@example.com',
+    firstName: 'Ana',
+    lastName: 'García',
+  };
+
+  it('passes the new email and names to the repository and returns the user', async () => {
+    const { service, repository } = setup();
+
+    await expect(service.update('u1', edit)).resolves.toEqual(created);
+    expect(repository.update).toHaveBeenCalledWith('u1', edit);
+  });
+
+  it('answers 404 for a user that does not exist', async () => {
+    const { service } = setup(created, { status: 'not-found' });
+
+    await expect(service.update('nope', edit)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('answers 409 when the email belongs to another user', async () => {
+    const { service } = setup(created, { status: 'email-taken' });
+
+    await expect(service.update('u1', edit)).rejects.toThrow(
+      'A user with this email already exists',
+    );
+    await expect(service.update('u1', edit)).rejects.toThrow(ConflictException);
   });
 });
