@@ -60,6 +60,17 @@ describe('UserFormPage', () => {
     expect((screen.getByLabelText(/^confirm password/i) as HTMLInputElement).type).toBe('password');
   });
 
+  it('can show each of the two password fields on its own', async () => {
+    await setup();
+    const [first] = screen.getAllByRole('button', { name: 'Show password' });
+
+    await fireEvent.click(first);
+
+    expect((screen.getByLabelText(/^password/i) as HTMLInputElement).type).toBe('text');
+    expect((screen.getByLabelText(/^confirm password/i) as HTMLInputElement).type).toBe('password');
+    expect(screen.getAllByRole('button', { name: /show password|hide password/i })).toHaveLength(2);
+  });
+
   it('keeps the Create button disabled until everything is valid', async () => {
     const { fill, submit } = await setup();
     expect(submit().disabled).toBe(true);
@@ -224,6 +235,12 @@ describe('UserFormPage editing', () => {
     expect((screen.getByLabelText(/^last name/i) as HTMLInputElement).value).toBe('García');
     expect((screen.getByLabelText(/^email/i) as HTMLInputElement).value).toBe('ana@example.com');
     expect(api.get).toHaveBeenCalledWith('u1');
+  });
+
+  it('has no show password button either', async () => {
+    await setupEdit();
+
+    expect(screen.queryByRole('button', { name: /show password/i })).toBeNull();
   });
 
   it('has no password fields: the password is not edited here', async () => {

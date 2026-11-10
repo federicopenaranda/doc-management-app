@@ -1,15 +1,16 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
-import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatFormField, MatLabel, MatSuffix } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { Router } from '@angular/router';
+import { PasswordToggle } from '../shared/password-toggle';
 import { AuthService } from './auth.service';
 
 type LoginError = 'invalid' | 'unavailable' | null;
 
 @Component({
   selector: 'dms-login-page',
-  imports: [MatButton, MatFormField, MatLabel, MatInput],
+  imports: [MatButton, MatFormField, MatLabel, MatInput, MatSuffix, PasswordToggle],
   template: `
     <main class="mx-auto flex max-w-sm flex-col gap-6 p-8">
       <h1 class="text-2xl font-medium" i18n>Sign in</h1>
@@ -41,6 +42,7 @@ type LoginError = 'invalid' | 'unavailable' | null;
             [value]="password()"
             (input)="password.set(passwordInput.value)"
           />
+          <dms-password-toggle matSuffix [input]="passwordInput" />
         </mat-form-field>
 
         @if (error(); as kind) {
