@@ -9,10 +9,11 @@ import {
 } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { ErrorStateMatcher } from '@angular/material/core';
-import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatError, MatFormField, MatLabel, MatSuffix } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
+import { PasswordToggle } from '../shared/password-toggle';
 import { UsersApi } from './users-api';
 
 type FormError = 'taken' | 'unavailable' | null;
@@ -37,7 +38,17 @@ const showWhenTyped: ErrorStateMatcher = {
 /** Adds a user, or (on /users/:id/edit) changes the names and the email of one. The password is only set when adding. */
 @Component({
   selector: 'dms-user-form-page',
-  imports: [MatButton, MatError, MatFormField, MatLabel, MatInput, ReactiveFormsModule, RouterLink],
+  imports: [
+    MatButton,
+    MatError,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatSuffix,
+    PasswordToggle,
+    ReactiveFormsModule,
+    RouterLink,
+  ],
   template: `
     <section aria-labelledby="user-form-title" class="mx-auto flex max-w-md flex-col gap-6 p-8">
       <h2 id="user-form-title" class="text-2xl font-medium">
@@ -104,6 +115,7 @@ const showWhenTyped: ErrorStateMatcher = {
               <mat-form-field>
                 <mat-label i18n>Password</mat-label>
                 <input
+                  #passwordInput
                   matInput
                   type="password"
                   formControlName="password"
@@ -111,6 +123,7 @@ const showWhenTyped: ErrorStateMatcher = {
                   required
                   [errorStateMatcher]="showWhenTyped"
                 />
+                <dms-password-toggle matSuffix [input]="passwordInput" />
                 <mat-error>
                   @if (form.controls.password.hasError('maxlength')) {
                     <ng-container i18n>The password can have at most 200 characters</ng-container>
@@ -123,6 +136,7 @@ const showWhenTyped: ErrorStateMatcher = {
               <mat-form-field>
                 <mat-label i18n>Confirm password</mat-label>
                 <input
+                  #confirmInput
                   matInput
                   type="password"
                   formControlName="confirm"
@@ -130,6 +144,7 @@ const showWhenTyped: ErrorStateMatcher = {
                   required
                   [errorStateMatcher]="showWhenTyped"
                 />
+                <dms-password-toggle matSuffix [input]="confirmInput" />
                 <mat-error i18n>Passwords do not match</mat-error>
               </mat-form-field>
             }

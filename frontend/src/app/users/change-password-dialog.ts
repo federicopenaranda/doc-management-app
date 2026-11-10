@@ -15,8 +15,9 @@ import {
   MatDialogRef,
   MatDialogTitle,
 } from '@angular/material/dialog';
-import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatError, MatFormField, MatLabel, MatSuffix } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { PasswordToggle } from '../shared/password-toggle';
 import { UsersApi } from './users-api';
 
 // The same bounds as the API, which has the final word (also used by the user form).
@@ -40,6 +41,8 @@ const showWhenTyped: ErrorStateMatcher = {
     MatFormField,
     MatInput,
     MatLabel,
+    MatSuffix,
+    PasswordToggle,
     ReactiveFormsModule,
   ],
   template: `
@@ -49,6 +52,7 @@ const showWhenTyped: ErrorStateMatcher = {
         <mat-form-field>
           <mat-label i18n>New password</mat-label>
           <input
+            #passwordInput
             matInput
             type="password"
             formControlName="password"
@@ -57,6 +61,7 @@ const showWhenTyped: ErrorStateMatcher = {
             cdkFocusInitial
             [errorStateMatcher]="showWhenTyped"
           />
+          <dms-password-toggle matSuffix [input]="passwordInput" />
           <mat-error>
             @if (form.controls.password.hasError('maxlength')) {
               <ng-container i18n>The password can have at most 200 characters</ng-container>
@@ -69,6 +74,7 @@ const showWhenTyped: ErrorStateMatcher = {
         <mat-form-field>
           <mat-label i18n>Confirm password</mat-label>
           <input
+            #confirmInput
             matInput
             type="password"
             formControlName="confirm"
@@ -76,6 +82,7 @@ const showWhenTyped: ErrorStateMatcher = {
             required
             [errorStateMatcher]="showWhenTyped"
           />
+          <dms-password-toggle matSuffix [input]="confirmInput" />
           <mat-error i18n>Passwords do not match</mat-error>
         </mat-form-field>
 

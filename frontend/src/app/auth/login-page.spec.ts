@@ -12,7 +12,7 @@ async function setup(login: (email: string, password: string) => Promise<boolean
   const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
   function fill(email: string, password: string) {
     fireEvent.input(screen.getByLabelText(/email/i), { target: { value: email } });
-    fireEvent.input(screen.getByLabelText(/password/i), { target: { value: password } });
+    fireEvent.input(screen.getByLabelText(/^password/i), { target: { value: password } });
   }
   function submit(email = 'me@example.com', password = 'a-long-password') {
     fill(email, password);
@@ -27,7 +27,15 @@ describe('LoginPage', () => {
 
     expect(screen.getByRole('heading', { name: /sign in/i })).toBeTruthy();
     expect(screen.getByLabelText(/email/i)).toBeTruthy();
-    expect((screen.getByLabelText(/password/i) as HTMLInputElement).type).toBe('password');
+    expect((screen.getByLabelText(/^password/i) as HTMLInputElement).type).toBe('password');
+  });
+
+  it('can show the password it was typed with', async () => {
+    await setup(async () => true);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+
+    expect((screen.getByLabelText(/^password/i) as HTMLInputElement).type).toBe('text');
   });
 
   it('signs in with the typed credentials and goes to the hello page', async () => {

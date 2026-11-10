@@ -32,6 +32,17 @@ describe('ChangePasswordDialog', () => {
     expect((screen.getByLabelText(/^confirm password/i) as HTMLInputElement).type).toBe('password');
   });
 
+  it('can show each of the two password fields', async () => {
+    await setup();
+
+    const buttons = screen.getAllByRole('button', { name: 'Show password' });
+    expect(buttons).toHaveLength(2);
+    await fireEvent.click(buttons[0]);
+
+    expect((screen.getByLabelText(/^new password/i) as HTMLInputElement).type).toBe('text');
+    expect((screen.getByLabelText(/^confirm password/i) as HTMLInputElement).type).toBe('password');
+  });
+
   it('sends nothing while the passwords are too short or do not match', async () => {
     const { api } = await setup();
 
