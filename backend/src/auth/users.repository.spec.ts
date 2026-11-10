@@ -338,3 +338,39 @@ describe('UsersRepository.setPasswordHash', () => {
     expect(await repository.setPasswordHash('missing', 'scrypt$x')).toBe(false);
   });
 });
+
+describe('UsersRepository.getLanguage', () => {
+  it('reads the language of one user with a bound parameter', async () => {
+    const { repository, query } = setup([{ language: 'es' }]);
+
+    expect(await repository.getLanguage('u1')).toBe('es');
+    expect(query).toHaveBeenCalledWith(
+      'SELECT language FROM users WHERE id = $1 AND archived_at IS NULL',
+      ['u1'],
+    );
+  });
+
+  it('returns null when there is no such user', async () => {
+    const { repository } = setup([]);
+
+    expect(await repository.getLanguage('missing')).toBeNull();
+  });
+});
+
+describe('UsersRepository.setLanguage', () => {
+  it('changes only the language of one user, with bound parameters', async () => {
+    const { repository, query } = setup([{ id: 'u1' }]);
+
+    expect(await repository.setLanguage('u1', 'es')).toBe(true);
+    expect(query).toHaveBeenCalledWith(
+      'UPDATE users SET language = $2 WHERE id = $1 AND archived_at IS NULL RETURNING id',
+      ['u1', 'es'],
+    );
+  });
+
+  it('says false for a user that does not exist or is archived', async () => {
+    const { repository } = setup([]);
+
+    expect(await repository.setLanguage('missing', 'en')).toBe(false);
+  });
+});

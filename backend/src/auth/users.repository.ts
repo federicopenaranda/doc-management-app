@@ -30,6 +30,8 @@ export interface ArchivedUser extends UserSummary {
   archivedAt: Date;
 }
 
+export type Language = 'en' | 'es';
+
 export interface NewUser {
   email: string;
   firstName: string;
@@ -106,6 +108,26 @@ export class UsersRepository {
     const { rows } = await this.db.pool.query<{ id: string }>(
       'UPDATE users SET archived_at = NULL, archived_by = NULL, is_active = false WHERE id = $1 AND archived_at IS NOT NULL RETURNING id',
       [id],
+    );
+    return rows.length > 0;
+  }
+
+  /** Null for a user that does not exist or is archived. */
+  async getLanguage(id: string): Promise<Language | null> {
+    if (!this.db) throw new Error('The database feature is not enabled');
+    const { rows } = await this.db.pool.query<{ language: Language }>(
+      'SELECT language FROM users WHERE id = $1 AND archived_at IS NULL',
+      [id],
+    );
+    return rows[0]?.language ?? null;
+  }
+
+  /** False when there is no such user or it is archived. */
+  async setLanguage(id: string, language: Language): Promise<boolean> {
+    if (!this.db) throw new Error('The database feature is not enabled');
+    const { rows } = await this.db.pool.query<{ id: string }>(
+      'UPDATE users SET language = $2 WHERE id = $1 AND archived_at IS NULL RETURNING id',
+      [id, language],
     );
     return rows.length > 0;
   }

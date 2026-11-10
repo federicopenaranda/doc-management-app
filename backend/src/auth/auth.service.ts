@@ -5,7 +5,11 @@ import { JwtService } from '@nestjs/jwt';
 import type { Env } from '../config/env.validation.js';
 import { hashPassword, verifyPassword } from './password.js';
 import { RefreshTokensRepository } from './refresh-tokens.repository.js';
-import { UsersRepository, type UserRecord } from './users.repository.js';
+import {
+  UsersRepository,
+  type Language,
+  type UserRecord,
+} from './users.repository.js';
 
 /** Seconds. */
 const ACCESS_TOKEN_SECONDS = 3600;
@@ -24,6 +28,7 @@ export interface Profile {
   email: string;
   firstName: string;
   lastName: string;
+  language: Language;
 }
 
 export interface LoginResult {
@@ -75,14 +80,25 @@ export class AuthService {
 
   /** Read from the database, not the token, so an edited name or email shows at once. */
   async profile(userId: string): Promise<Profile> {
-    const user = await this.users.getSummary(userId);
-    if (!user?.isActive) throw new UnauthorizedException();
+    const [user, language] = await Promise.all([
+      this.users.getSummary(userId),
+      this.users.getLanguage(userId),
+    ]);
+    if (!user?.isActive || !language) throw new UnauthorizedException();
     return {
       id: user.id,
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      language,
     };
+  }
+
+  async setLanguage(userId: string, language: Language): Promise<Profile> {
+    if (!(await this.users.setLanguage(userId, language))) {
+      throw new UnauthorizedException();
+    }
+    return this.profile(userId);
   }
 
   async logout(refreshToken: string): Promise<void> {
