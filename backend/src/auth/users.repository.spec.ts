@@ -280,3 +280,41 @@ describe('UsersRepository.archive', () => {
     expect(await repository.archive('missing', 'admin-1')).toBe(false);
   });
 });
+
+describe('UsersRepository.listArchived', () => {
+  it('lists only archived users, newest first, with when they were archived and no password hash', async () => {
+    const archivedAt = new Date('2026-11-10T09:00:00Z');
+    const { repository, query } = setup([
+      { ...summaryRow, archived_at: archivedAt },
+    ]);
+
+    const users = await repository.listArchived();
+
+    const [sql] = query.mock.calls[0] as [string];
+    expect(sql).toBe(
+      'SELECT id, email, first_name, last_name, is_active, created_at, archived_at FROM users WHERE archived_at IS NOT NULL ORDER BY archived_at DESC, id',
+    );
+    expect(sql).not.toContain('password_hash');
+    expect(users).toEqual([{ ...summary, archivedAt }]);
+  });
+});
+
+describe('UsersRepository.restore', () => {
+  it('clears the archive marks and leaves the user disabled', async () => {
+    const { repository, query } = setup([{ id: 'u1' }]);
+
+    const restored = await repository.restore('u1');
+
+    expect(query).toHaveBeenCalledWith(
+      'UPDATE users SET archived_at = NULL, archived_by = NULL, is_active = false WHERE id = $1 AND archived_at IS NOT NULL RETURNING id',
+      ['u1'],
+    );
+    expect(restored).toBe(true);
+  });
+
+  it('says false for a user that does not exist or is not archived', async () => {
+    const { repository } = setup([]);
+
+    expect(await repository.restore('missing')).toBe(false);
+  });
+});

@@ -7,6 +7,7 @@ import { hashPassword } from '../auth/password.js';
 import { RefreshTokensRepository } from '../auth/refresh-tokens.repository.js';
 import {
   UsersRepository,
+  type ArchivedUser,
   type EditedUser,
   type UserSummary,
 } from '../auth/users.repository.js';
@@ -29,6 +30,17 @@ export class UsersService {
 
   list(): Promise<UserSummary[]> {
     return this.users.list();
+  }
+
+  listArchived(): Promise<ArchivedUser[]> {
+    return this.users.listArchived();
+  }
+
+  /** The user comes back disabled (see UsersRepository.restore). */
+  async restore(id: string): Promise<void> {
+    if (!(await this.users.restore(id))) {
+      throw new NotFoundException('User not found');
+    }
   }
 
   async get(id: string): Promise<UserSummary> {

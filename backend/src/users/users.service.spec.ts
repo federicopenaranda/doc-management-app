@@ -28,6 +28,8 @@ function setup(
     update: vi.fn().mockResolvedValue(update),
     setActive: vi.fn().mockResolvedValue(result),
     archive: vi.fn().mockResolvedValue(result !== null),
+    listArchived: vi.fn().mockResolvedValue([]),
+    restore: vi.fn().mockResolvedValue(result !== null),
   };
   const refreshTokens = {
     revokeAllForUser: vi.fn().mockResolvedValue(undefined),
@@ -218,5 +220,30 @@ describe('UsersService.archive', () => {
       NotFoundException,
     );
     expect(refreshTokens.revokeAllForUser).not.toHaveBeenCalled();
+  });
+});
+
+describe('UsersService.listArchived', () => {
+  it('returns what the repository has', async () => {
+    const { service, repository } = setup();
+
+    await expect(service.listArchived()).resolves.toEqual([]);
+    expect(repository.listArchived).toHaveBeenCalledOnce();
+  });
+});
+
+describe('UsersService.restore', () => {
+  it('restores an archived user', async () => {
+    const { service, repository } = setup();
+
+    await expect(service.restore('u1')).resolves.toBeUndefined();
+
+    expect(repository.restore).toHaveBeenCalledWith('u1');
+  });
+
+  it('answers 404 for a user that does not exist or is not archived', async () => {
+    const { service } = setup(null);
+
+    await expect(service.restore('nope')).rejects.toThrow(NotFoundException);
   });
 });

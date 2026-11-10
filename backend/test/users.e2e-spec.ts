@@ -43,6 +43,17 @@ async function createApp(usersEnabled: boolean) {
       revoked.push(params[0] as string);
       return Promise.resolve({ rows: [] });
     }
+    if (sql.startsWith('UPDATE users SET archived_at = NULL')) {
+      const row = rows.find((r) => r.id === params[0] && r.archived_at);
+      if (!row) return Promise.resolve({ rows: [] });
+      row.archived_at = null;
+      row.archived_by = null;
+      row.is_active = false;
+      return Promise.resolve({ rows: [{ id: row.id }] });
+    }
+    if (sql.includes('archived_at IS NOT NULL ORDER BY')) {
+      return Promise.resolve({ rows: rows.filter((r) => r.archived_at) });
+    }
     if (sql.startsWith('UPDATE users SET is_active = false, archived_at')) {
       const row = live().find((r) => r.id === params[0]);
       if (!row) return Promise.resolve({ rows: [] });
@@ -691,6 +702,83 @@ describe('users status and archive (e2e)', () => {
         .set(authed(token))
         .expect(404);
       await app.close();
+    });
+  });
+
+  describe('archived users', () => {
+    const FIRST = '00000000-0000-4000-8000-000000000001';
+
+    it('lists archived users, and restoring one brings it back disabled', async () => {
+      const { app, token } = await appWithAna();
+      const server = app.getHttpServer();
+      const empty = await request(server)
+        .get('/users/archived')
+        .set(authed(token))
+        .expect(200);
+      expect(empty.body).toEqual([]);
+      await request(server)
+        .post(`/users/${FIRST}/archive`)
+        .set(authed(token))
+        .expect(204);
+
+      const archived = await request(server)
+        .get('/users/archived')
+        .set(authed(token))
+        .expect(200);
+      expect(archived.body).toEqual([
+        expect.objectContaining({
+          id: FIRST,
+          email: 'ana@example.com',
+          archivedAt: expect.any(String),
+        }),
+      ]);
+      expect(JSON.stringify(archived.body)).not.toContain('password');
+
+      await request(server)
+        .post(`/users/${FIRST}/restore`)
+        .set(authed(token))
+        .expect(204);
+
+      const list = await request(server)
+        .get('/users')
+        .set(authed(token))
+        .expect(200);
+      expect(list.body).toEqual([
+        expect.objectContaining({ id: FIRST, isActive: false }),
+      ]);
+      const after = await request(server)
+        .get('/users/archived')
+        .set(authed(token))
+        .expect(200);
+      expect(after.body).toEqual([]);
+      await app.close();
+    });
+
+    it('answers 404 when restoring a user who is not archived, unknown, or not an id', async () => {
+      const { app, token } = await appWithAna();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post(`/users/${FIRST}/restore`)
+        .set(authed(token))
+        .expect(404);
+      await request(server)
+        .post('/users/not-a-uuid/restore')
+        .set(authed(token))
+        .expect(404);
+      await app.close();
+    });
+
+    it('needs the flag and a token', async () => {
+      const off = await createApp(false);
+      await request(off.app.getHttpServer()).get('/users/archived').expect(404);
+      await off.app.close();
+      const on = await createApp(true);
+      await request(on.app.getHttpServer()).get('/users/archived').expect(401);
+      await request(on.app.getHttpServer())
+        .post(`/users/${FIRST}/restore`)
+        .expect(401);
+      await on.app.close();
     });
   });
 

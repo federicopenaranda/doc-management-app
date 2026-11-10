@@ -25,6 +25,11 @@ export interface UserSummary {
   createdAt: Date;
 }
 
+/** An archived user, with when it was archived. */
+export interface ArchivedUser extends UserSummary {
+  archivedAt: Date;
+}
+
 export interface NewUser {
   email: string;
   firstName: string;
@@ -46,6 +51,10 @@ interface SummaryRow {
   last_name: string;
   is_active: boolean;
   created_at: Date;
+}
+
+interface ArchivedRow extends SummaryRow {
+  archived_at: Date;
 }
 
 const SUMMARY_COLUMNS =
@@ -74,6 +83,31 @@ export class UsersRepository {
       `SELECT ${SUMMARY_COLUMNS} FROM users WHERE archived_at IS NULL ORDER BY created_at, id`,
     );
     return rows.map(toSummary);
+  }
+
+  /** shortcut: no paging, like list(). */
+  async listArchived(): Promise<ArchivedUser[]> {
+    if (!this.db) throw new Error('The database feature is not enabled');
+    const { rows } = await this.db.pool.query<ArchivedRow>(
+      `SELECT ${SUMMARY_COLUMNS}, archived_at FROM users WHERE archived_at IS NOT NULL ORDER BY archived_at DESC, id`,
+    );
+    return rows.map((row) => ({
+      ...toSummary(row),
+      archivedAt: row.archived_at,
+    }));
+  }
+
+  /**
+   * Brings an archived user back, switched off so nobody regains access by accident. This clears who archived it and
+   * when: the record of that is lost until there is an activity log. False when there is no such archived user.
+   */
+  async restore(id: string): Promise<boolean> {
+    if (!this.db) throw new Error('The database feature is not enabled');
+    const { rows } = await this.db.pool.query<{ id: string }>(
+      'UPDATE users SET archived_at = NULL, archived_by = NULL, is_active = false WHERE id = $1 AND archived_at IS NOT NULL RETURNING id',
+      [id],
+    );
+    return rows.length > 0;
   }
 
   /** Null when the email is taken (the unique index ignores letter case). */

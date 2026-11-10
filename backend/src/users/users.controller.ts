@@ -18,7 +18,7 @@ import {
   JwtAuthGuard,
   type AuthenticatedRequest,
 } from '../auth/jwt-auth.guard.js';
-import type { UserSummary } from '../auth/users.repository.js';
+import type { ArchivedUser, UserSummary } from '../auth/users.repository.js';
 import { UsersEnabledGuard } from './users-enabled.guard.js';
 import { UsersService } from './users.service.js';
 
@@ -74,6 +74,12 @@ export class UsersController {
     return this.users.list();
   }
 
+  // Declared before ':id', or "archived" would be read as an id.
+  @Get('archived')
+  listArchived(): Promise<ArchivedUser[]> {
+    return this.users.listArchived();
+  }
+
   @Get(':id')
   get(@Param('id') id: string): Promise<UserSummary> {
     return this.users.get(userId(id));
@@ -109,6 +115,13 @@ export class UsersController {
     @Param('id') id: string,
   ): Promise<void> {
     return this.users.archive(request.user.id, userId(id));
+  }
+
+  /** Brings an archived user back, switched off. */
+  @Post(':id/restore')
+  @HttpCode(204)
+  restore(@Param('id') id: string): Promise<void> {
+    return this.users.restore(userId(id));
   }
 
   /** The email and the names. Changing a password is a separate feature. */
