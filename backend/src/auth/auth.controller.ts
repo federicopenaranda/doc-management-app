@@ -6,6 +6,7 @@ import {
   HttpCode,
   NotFoundException,
   Post,
+  Put,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -28,6 +29,8 @@ const refreshSchema = z.object({
   // A real token is 43 characters; the bound keeps a huge body out of the hash.
   refreshToken: z.string().min(1).max(200),
 });
+
+const languageSchema = z.object({ language: z.enum(['en', 'es']) });
 
 function parse<T>(schema: z.ZodType<T>, body: unknown): T {
   const parsed = schema.safeParse(body);
@@ -90,5 +93,17 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   me(@Req() request: AuthenticatedRequest): Promise<Profile> {
     return this.auth.profile(request.user.id);
+  }
+
+  @Put('me/language')
+  @UseGuards(JwtAuthGuard)
+  setLanguage(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: unknown,
+  ): Promise<Profile> {
+    return this.auth.setLanguage(
+      request.user.id,
+      parse(languageSchema, body).language,
+    );
   }
 }

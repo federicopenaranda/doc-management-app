@@ -63,6 +63,8 @@ async function setup(
         : null,
     ),
   );
+  const getLanguage = vi.fn(() => Promise.resolve('es'));
+  const setLanguage = vi.fn(() => Promise.resolve(true));
   const jwt = new JwtService({ secret: SECRET });
   const refreshTokens = {
     insert: vi.fn().mockResolvedValue(undefined),
@@ -73,8 +75,15 @@ async function setup(
   const config = {
     get: () => refreshEnabled,
   } as unknown as ConfigService<Env, true>;
+  const users = {
+    findByEmail,
+    findById,
+    getSummary,
+    getLanguage,
+    setLanguage,
+  };
   const service = new AuthService(
-    { findByEmail, findById, getSummary } as unknown as UsersRepository,
+    users as unknown as UsersRepository,
     jwt,
     refreshTokens as unknown as RefreshTokensRepository,
     config,
@@ -86,6 +95,7 @@ async function setup(
     findById,
     getSummary,
     refreshTokens,
+    users,
     user,
   };
 }
@@ -323,6 +333,7 @@ describe('AuthService.profile', () => {
       email: user.email,
       firstName: 'Ana',
       lastName: 'García',
+      language: 'es',
     });
   });
 
@@ -336,5 +347,23 @@ describe('AuthService.profile', () => {
     const { service, user } = await setup({ isActive: false });
 
     await messageOf(service.profile(user.id));
+  });
+});
+
+describe('AuthService.setLanguage', () => {
+  it('saves the language and answers with the profile', async () => {
+    const { service, user, users } = await setup();
+
+    await expect(service.setLanguage(user.id, 'en')).resolves.toMatchObject({
+      id: user.id,
+    });
+    expect(users.setLanguage).toHaveBeenCalledWith(user.id, 'en');
+  });
+
+  it('rejects a user that does not exist or is archived', async () => {
+    const { service, users } = await setup();
+    users.setLanguage.mockResolvedValueOnce(false);
+
+    await messageOf(service.setLanguage('deleted-user', 'en'));
   });
 });

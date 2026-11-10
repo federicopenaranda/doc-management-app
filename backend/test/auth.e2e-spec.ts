@@ -64,7 +64,15 @@ async function createApp(authEnabled: boolean, refreshEnabled = false) {
     }
     return { rows: [] };
   };
+  let language = 'en';
   const query = (sql: string, params: string[]) => {
+    if (sql.startsWith('SELECT language FROM users')) {
+      return Promise.resolve({ rows: [{ language }] });
+    }
+    if (sql.startsWith('UPDATE users SET language')) {
+      language = params[1];
+      return Promise.resolve({ rows: [{ id: USER_ID }] });
+    }
     if (sql.includes('refresh_tokens')) {
       return Promise.resolve(refreshQuery(sql, params));
     }
@@ -279,6 +287,53 @@ describe('auth (e2e)', () => {
     });
   });
 
+  describe('PUT /auth/me/language', () => {
+    it('saves the language and /auth/me then shows it', async () => {
+      const app = await createApp(true);
+      const { body } = await login(app, 'ana@example.com', PASSWORD).expect(
+        200,
+      );
+      const auth = { Authorization: `Bearer ${body.accessToken}` };
+
+      await request(app.getHttpServer())
+        .put('/auth/me/language')
+        .set(auth)
+        .send({ language: 'es' })
+        .expect(200);
+
+      const me = await request(app.getHttpServer())
+        .get('/auth/me')
+        .set(auth)
+        .expect(200);
+      expect(me.body.language).toBe('es');
+      await app.close();
+    });
+
+    it('answers 400 for a language that is not offered', async () => {
+      const app = await createApp(true);
+      const { body } = await login(app, 'ana@example.com', PASSWORD).expect(
+        200,
+      );
+
+      await request(app.getHttpServer())
+        .put('/auth/me/language')
+        .set('Authorization', `Bearer ${body.accessToken}`)
+        .send({ language: 'fr' })
+        .expect(400);
+      await app.close();
+    });
+
+    it('answers 401 without a token', async () => {
+      const app = await createApp(true);
+
+      await request(app.getHttpServer())
+        .put('/auth/me/language')
+        .send({ language: 'es' })
+        .expect(401);
+      await app.close();
+    });
+  });
+
   describe('GET /auth/me', () => {
     const me = (app: NestExpressApplication, token?: string) => {
       const req = request(app.getHttpServer()).get('/auth/me');
@@ -300,6 +355,7 @@ describe('auth (e2e)', () => {
         email: 'ana@example.com',
         firstName: 'Ana',
         lastName: 'García',
+        language: 'en',
       });
       await app.close();
     });
