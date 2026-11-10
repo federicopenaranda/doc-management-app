@@ -41,6 +41,16 @@ export class UsersApi {
     return firstValueFrom(this.http.put<User>(`${this.apiUrl}/users/${id}`, user));
   }
 
+  /** Turns a user on or off. Rejects with the HttpErrorResponse (409: you cannot disable yourself). */
+  setActive(id: string, isActive: boolean): Promise<User> {
+    return firstValueFrom(this.http.put<User>(`${this.apiUrl}/users/${id}/active`, { isActive }));
+  }
+
+  /** Users are archived, never deleted: the API keeps the row and its history. */
+  async archive(id: string): Promise<void> {
+    await firstValueFrom(this.http.post<void>(`${this.apiUrl}/users/${id}/archive`, null));
+  }
+
   /** Rejects with the HttpErrorResponse: a 409 means the email is taken. */
   create(user: NewUser): Promise<User> {
     return firstValueFrom(this.http.post<User>(`${this.apiUrl}/users`, user));

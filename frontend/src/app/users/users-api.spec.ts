@@ -105,3 +105,37 @@ describe('UsersApi edit', () => {
     await expect(result).rejects.toMatchObject({ status: 409 });
   });
 });
+
+describe('UsersApi status and archive', () => {
+  it('setActive() PUTs { isActive } to /users/:id/active and returns the user', async () => {
+    const { api, http } = setup();
+
+    const result = api.setActive('u1', false);
+
+    const req = http.expectOne(`${API}/users/u1/active`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ isActive: false });
+    req.flush({ ...ana, isActive: false });
+    await expect(result).resolves.toMatchObject({ id: 'u1', isActive: false });
+  });
+
+  it('archive() POSTs to /users/:id/archive and resolves with nothing', async () => {
+    const { api, http } = setup();
+
+    const result = api.archive('u1');
+
+    const req = http.expectOne(`${API}/users/u1/archive`);
+    expect(req.request.method).toBe('POST');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    await expect(result).resolves.toBeUndefined();
+  });
+
+  it('archive() rejects with the HTTP error', async () => {
+    const { api, http } = setup();
+
+    const result = api.archive('u1');
+    http.expectOne(`${API}/users/u1/archive`).flush({}, { status: 409, statusText: 'Conflict' });
+
+    await expect(result).rejects.toMatchObject({ status: 409 });
+  });
+});

@@ -1,11 +1,16 @@
 import { Component, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
+import { AuthService } from '../auth/auth.service';
+import { ArchiveUserDialog } from './archive-user-dialog';
 import { UsersApi, type User } from './users-api';
 
 type LoadState = 'loading' | 'ready' | 'error';
+type ActionError = 'update' | 'archive' | null;
 
 @Component({
   selector: 'dms-users-page',
@@ -20,6 +25,16 @@ type LoadState = 'loading' | 'ready' | 'error';
           <ng-container i18n>Add user</ng-container>
         </a>
       </div>
+
+      @if (actionError(); as kind) {
+        <p role="alert" class="text-red-800">
+          @if (kind === 'update') {
+            <ng-container i18n>Could not update the user</ng-container>
+          } @else {
+            <ng-container i18n>Could not archive the user</ng-container>
+          }
+        </p>
+      }
 
       @switch (state()) {
         @case ('loading') {
@@ -62,7 +77,6 @@ type LoadState = 'loading' | 'ready' | 'error';
                 </td>
               </ng-container>
 
-              <!-- shortcut: Delete and Disable/Enable are placeholders until deleting and disabling users are built. -->
               <ng-container matColumnDef="actions">
                 <th mat-header-cell *matHeaderCellDef i18n>Actions</th>
                 <td mat-cell *matCellDef="let user">
@@ -73,13 +87,21 @@ type LoadState = 'loading' | 'ready' | 'error';
                   >
                     <mat-icon fontIcon="edit" />
                   </a>
-                  <button matIconButton type="button" [attr.aria-label]="'Delete ' + label(user)">
-                    <mat-icon fontIcon="delete" />
+                  <button
+                    matIconButton
+                    type="button"
+                    [disabled]="actionsLocked(user)"
+                    [attr.aria-label]="'Archive ' + label(user)"
+                    (click)="archive(user)"
+                  >
+                    <mat-icon fontIcon="archive" />
                   </button>
                   <button
                     matIconButton
                     type="button"
+                    [disabled]="actionsLocked(user)"
                     [attr.aria-label]="(user.isActive ? 'Disable ' : 'Enable ') + label(user)"
+                    (click)="toggleActive(user)"
                   >
                     <mat-icon [fontIcon]="user.isActive ? 'block' : 'check_circle'" />
                   </button>
@@ -97,10 +119,15 @@ type LoadState = 'loading' | 'ready' | 'error';
 })
 export class UsersPage {
   private readonly api = inject(UsersApi);
+  private readonly auth = inject(AuthService);
+  private readonly dialog = inject(MatDialog);
 
   protected readonly columns = ['firstName', 'lastName', 'email', 'status', 'actions'];
   protected readonly state = signal<LoadState>('loading');
   protected readonly users = signal<User[]>([]);
+  /** Set while a disable, enable or archive request runs: only one at a time. */
+  protected readonly busy = signal(false);
+  protected readonly actionError = signal<ActionError>(null);
 
   constructor() {
     void this.load();
@@ -113,6 +140,47 @@ export class UsersPage {
       this.state.set('ready');
     } catch {
       this.state.set('error');
+    }
+  }
+
+  /** Nobody can disable or archive themselves (the API refuses too), and nothing is sent twice. */
+  protected actionsLocked(user: User): boolean {
+    return this.busy() || this.auth.currentUser()?.id === user.id;
+  }
+
+  protected async toggleActive(user: User): Promise<void> {
+    await this.run('update', async () => {
+      const updated = await this.api.setActive(user.id, !user.isActive);
+      this.users.update((list) => list.map((u) => (u.id === updated.id ? updated : u)));
+    });
+  }
+
+  /** Users are archived, never deleted: after the confirmation they leave the list and their history is kept. */
+  protected async archive(user: User): Promise<void> {
+    const confirmed = await firstValueFrom(
+      this.dialog
+        .open<ArchiveUserDialog, { name: string }, boolean>(ArchiveUserDialog, {
+          data: { name: this.label(user) },
+        })
+        .afterClosed(),
+    );
+    if (!confirmed) return;
+    await this.run('archive', async () => {
+      await this.api.archive(user.id);
+      this.users.update((list) => list.filter((u) => u.id !== user.id));
+    });
+  }
+
+  private async run(failure: 'update' | 'archive', action: () => Promise<void>): Promise<void> {
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.actionError.set(null);
+    try {
+      await action();
+    } catch {
+      this.actionError.set(failure);
+    } finally {
+      this.busy.set(false);
     }
   }
 

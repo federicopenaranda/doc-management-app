@@ -1,5 +1,7 @@
+import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { fireEvent, render, screen, within } from '@testing-library/angular';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/angular';
+import { AuthService, type CurrentUser } from '../auth/auth.service';
 import { UsersApi, type User } from './users-api';
 import { UsersPage } from './users-page';
 
@@ -24,13 +26,37 @@ const luis = user({
 // The first user was created before names existed.
 const admin = user({ id: 'u3', email: 'admin@example.com', firstName: '', lastName: '' });
 
-async function setup(list: () => Promise<User[]>) {
-  const api = { list: vi.fn(list) };
+interface Options {
+  setActive?: (id: string, isActive: boolean) => Promise<User>;
+  archive?: (id: string) => Promise<void>;
+  /** Who is logged in. */
+  me?: CurrentUser | null;
+}
+
+async function setup(list: () => Promise<User[]>, options: Options = {}) {
+  let listed: User[] = [];
+  const api = {
+    list: vi.fn(async () => (listed = await list())),
+    setActive: vi.fn(
+      options.setActive ??
+        (async (id: string, isActive: boolean) => ({
+          ...(listed.find((u) => u.id === id) ?? user({ id })),
+          isActive,
+        })),
+    ),
+    archive: vi.fn(options.archive ?? (async () => undefined)),
+  };
   await render(UsersPage, {
-    providers: [provideRouter([]), { provide: UsersApi, useValue: api }],
+    providers: [
+      provideRouter([]),
+      { provide: UsersApi, useValue: api },
+      { provide: AuthService, useValue: { currentUser: signal(options.me ?? null) } },
+    ],
   });
   return { api };
 }
+
+const button = (name: string) => screen.getByRole('button', { name }) as HTMLButtonElement;
 
 describe('UsersPage', () => {
   it('shows a Users heading and an "Add user" link to the form, above the table', async () => {
@@ -76,14 +102,15 @@ describe('UsersPage', () => {
     expect(cells[1].textContent?.trim()).toBe('—');
   });
 
-  it('has a Delete and a Disable button per active user, named after the user', async () => {
+  it('has an Archive and a Disable button per active user, named after the user', async () => {
     await setup(async () => [ana]);
 
     await screen.findByRole('table');
 
-    expect(screen.getByRole('button', { name: 'Delete Ana García' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Disable Ana García' })).toBeTruthy();
+    expect(button('Archive Ana García')).toBeTruthy();
+    expect(button('Disable Ana García')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^enable/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^delete/i })).toBeNull();
   });
 
   it('offers Enable instead of Disable for a disabled user, and the email when there is no name', async () => {
@@ -91,21 +118,9 @@ describe('UsersPage', () => {
 
     await screen.findByRole('table');
 
-    expect(screen.getByRole('button', { name: 'Enable Luis Pérez' })).toBeTruthy();
+    expect(button('Enable Luis Pérez')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Disable Luis Pérez' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Delete admin@example.com' })).toBeTruthy();
-  });
-
-  it('the action buttons are placeholders: clicking them changes nothing and asks the server nothing', async () => {
-    const { api } = await setup(async () => [ana]);
-    await screen.findByRole('table');
-
-    await fireEvent.click(screen.getByRole('button', { name: 'Delete Ana García' }));
-    await fireEvent.click(screen.getByRole('button', { name: 'Disable Ana García' }));
-
-    expect(api.list).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: 'Delete Ana García' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Disable Ana García' })).toBeTruthy();
+    expect(button('Archive admin@example.com')).toBeTruthy();
   });
 
   it('says it is loading until the list arrives', async () => {
@@ -118,7 +133,7 @@ describe('UsersPage', () => {
   it('says there are no users when the list is empty', async () => {
     await setup(async () => []);
 
-    expect((await screen.findByRole('status')).textContent).toContain('No users yet');
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('No users yet'));
   });
 
   it('says it could not load the users and retries on request', async () => {
@@ -152,13 +167,169 @@ describe('UsersPage edit links', () => {
     );
   });
 
-  it('puts the Edit link before the Delete and Disable buttons', async () => {
+  it('puts the Edit link before the Archive and Disable buttons', async () => {
     await setup(async () => [ana]);
     await screen.findByRole('table');
 
     const edit = screen.getByRole('link', { name: 'Edit Ana García' });
-    const del = screen.getByRole('button', { name: 'Delete Ana García' });
+    const archive = button('Archive Ana García');
 
-    expect(edit.compareDocumentPosition(del) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(edit.compareDocumentPosition(archive) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe('UsersPage disable and enable', () => {
+  const statusOf = (name: string) =>
+    within(screen.getByRole('row', { name: new RegExp(name) }))
+      .getAllByRole('cell')[3]
+      .textContent?.trim();
+
+  it('disables an active user: asks the API, then shows Disabled and offers Enable', async () => {
+    const { api } = await setup(async () => [ana]);
+    await screen.findByRole('table');
+
+    await fireEvent.click(button('Disable Ana García'));
+
+    await waitFor(() => expect(button('Enable Ana García')).toBeTruthy());
+    expect(api.setActive).toHaveBeenCalledWith('u1', false);
+    expect(statusOf('Ana')).toBe('Disabled');
+    expect(screen.queryByRole('button', { name: 'Disable Ana García' })).toBeNull();
+  });
+
+  it('enables a disabled user', async () => {
+    const { api } = await setup(async () => [luis]);
+    await screen.findByRole('table');
+
+    await fireEvent.click(button('Enable Luis Pérez'));
+
+    await waitFor(() => expect(button('Disable Luis Pérez')).toBeTruthy());
+    expect(api.setActive).toHaveBeenCalledWith('u2', true);
+    expect(statusOf('Luis')).toBe('Active');
+  });
+
+  it('says it could not update the user, and leaves the row as it was', async () => {
+    await setup(async () => [ana], { setActive: () => Promise.reject(new Error('boom')) });
+    await screen.findByRole('table');
+
+    await fireEvent.click(button('Disable Ana García'));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Could not update the user');
+    expect(statusOf('Ana')).toBe('Active');
+    expect(button('Disable Ana García').disabled).toBe(false);
+  });
+
+  it('clears the message once the next action works', async () => {
+    let calls = 0;
+    await setup(async () => [ana], {
+      setActive: async (id, isActive) => {
+        calls++;
+        if (calls === 1) throw new Error('boom');
+        return user({ id, isActive });
+      },
+    });
+    await screen.findByRole('table');
+    await fireEvent.click(button('Disable Ana García'));
+    await screen.findByRole('alert');
+
+    await fireEvent.click(button('Disable Ana García'));
+
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
+
+  it('keeps the row buttons disabled while the request runs, so nothing is sent twice', async () => {
+    const { api } = await setup(async () => [ana], {
+      setActive: () => new Promise<User>(() => undefined),
+    });
+    await screen.findByRole('table');
+
+    await fireEvent.click(button('Disable Ana García'));
+    await fireEvent.click(button('Disable Ana García'));
+
+    expect(api.setActive).toHaveBeenCalledTimes(1);
+    expect(button('Disable Ana García').disabled).toBe(true);
+    expect(button('Archive Ana García').disabled).toBe(true);
+  });
+});
+
+describe('UsersPage archive', () => {
+  const rowsOf = () => screen.queryAllByRole('row').length;
+
+  it('asks for confirmation first, naming the user and saying their history is kept', async () => {
+    const { api } = await setup(async () => [ana]);
+    await screen.findByRole('table');
+
+    await fireEvent.click(button('Archive Ana García'));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading').textContent).toContain('Archive Ana García?');
+    expect(dialog.textContent).toContain('history is kept');
+    expect(api.archive).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when the confirmation is cancelled', async () => {
+    const { api } = await setup(async () => [ana]);
+    await screen.findByRole('table');
+    await fireEvent.click(button('Archive Ana García'));
+    const dialog = await screen.findByRole('dialog');
+
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(api.archive).not.toHaveBeenCalled();
+    expect(screen.getByRole('table').textContent).toContain('ana@example.com');
+  });
+
+  it('archives the user when confirmed, and the row leaves the table', async () => {
+    const { api } = await setup(async () => [ana, luis]);
+    await screen.findByRole('table');
+    await fireEvent.click(button('Archive Ana García'));
+    const dialog = await screen.findByRole('dialog');
+
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Archive' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('table').textContent).not.toContain('ana@example.com'),
+    );
+    expect(api.archive).toHaveBeenCalledWith('u1');
+    expect(screen.getByRole('table').textContent).toContain('luis@example.com');
+    expect(rowsOf()).toBe(2); // the header and Luis
+  });
+
+  it('says it could not archive the user, and keeps the row', async () => {
+    await setup(async () => [ana], { archive: () => Promise.reject(new Error('boom')) });
+    await screen.findByRole('table');
+    await fireEvent.click(button('Archive Ana García'));
+    const dialog = await screen.findByRole('dialog');
+
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Archive' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Could not archive the user');
+    expect(screen.getByRole('table').textContent).toContain('ana@example.com');
+  });
+});
+
+describe('UsersPage your own row', () => {
+  const me: CurrentUser = {
+    id: 'u1',
+    email: 'ana@example.com',
+    firstName: 'Ana',
+    lastName: 'García',
+  };
+
+  it('cannot be disabled or archived by yourself, while the others can', async () => {
+    await setup(async () => [ana, luis], { me });
+    await screen.findByRole('table');
+
+    expect(button('Disable Ana García').disabled).toBe(true);
+    expect(button('Archive Ana García').disabled).toBe(true);
+    expect(button('Enable Luis Pérez').disabled).toBe(false);
+    expect(button('Archive Luis Pérez').disabled).toBe(false);
+  });
+
+  it('still lets you edit yourself', async () => {
+    await setup(async () => [ana], { me });
+    await screen.findByRole('table');
+
+    expect(screen.getByRole('link', { name: 'Edit Ana García' })).toBeTruthy();
   });
 });
