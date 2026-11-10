@@ -3,6 +3,8 @@ import { Router, RouterLink } from '@angular/router';
 import { AppConfigService } from '../app-config.service';
 import { AuthService } from '../auth/auth.service';
 import { MatIconButton } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
+import { PreferencesDialog } from './preferences-dialog';
 import { MatIcon } from '@angular/material/icon';
 import { ThemeService } from '../theme/theme.service';
 import { MatSlideToggle } from '@angular/material/slide-toggle';
@@ -116,6 +118,9 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
         <button mat-menu-item type="button" i18n>Profile</button>
         <button mat-menu-item type="button" i18n>Documents</button>
         <button mat-menu-item type="button" i18n>Settings</button>
+        @if (authEnabled && preferencesEnabled) {
+          <button mat-menu-item type="button" (click)="openPreferences()" i18n>Preferences</button>
+        }
         @if (authEnabled) {
           <button mat-menu-item type="button" (click)="logout()">
             <mat-icon fontIcon="logout" />
@@ -129,6 +134,8 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 export class Toolbar {
   protected readonly theme = inject(ThemeService);
   protected readonly authEnabled = inject(AppConfigService).authEnabled;
+  protected readonly preferencesEnabled = inject(AppConfigService).preferencesEnabled;
+  private readonly dialog = inject(MatDialog);
   private readonly auth = inject(AuthService);
 
   /** The first and last name, or the email for a user created before names existed. */
@@ -149,6 +156,10 @@ export class Toolbar {
   private readonly menuButton = viewChild.required('menuButton', {
     read: ElementRef<HTMLButtonElement>,
   });
+
+  protected openPreferences(): void {
+    this.dialog.open(PreferencesDialog);
+  }
 
   protected logout(): void {
     this.auth.logout();

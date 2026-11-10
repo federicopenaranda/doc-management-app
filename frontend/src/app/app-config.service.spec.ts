@@ -104,6 +104,20 @@ describe('AppConfigService', () => {
     expect(service.usersEnabled).toBe(expected);
   });
 
+  it.each([
+    [{ apiUrl: 'http://localhost:3000' }, false],
+    [{ apiUrl: 'http://localhost:3000', preferencesEnabled: true }, true],
+    [{ apiUrl: 'http://localhost:3000', preferencesEnabled: 'true' }, true],
+  ])('reads the preferences flag from %j as %s (off when absent)', async (body, expected) => {
+    const { service, http } = setup();
+
+    const loading = service.load();
+    http.expectOne('config.json').flush(body);
+    await loading;
+
+    expect(service.preferencesEnabled).toBe(expected);
+  });
+
   it('rejects a flag that is not a boolean, naming the key', async () => {
     const { service, http } = setup();
 

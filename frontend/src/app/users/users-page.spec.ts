@@ -353,6 +353,7 @@ describe('UsersPage your own row', () => {
     email: 'ana@example.com',
     firstName: 'Ana',
     lastName: 'García',
+    language: 'en',
   };
 
   it('cannot be disabled or archived by yourself, while the others can', async () => {

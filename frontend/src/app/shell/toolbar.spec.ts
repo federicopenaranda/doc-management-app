@@ -11,11 +11,13 @@ const loadCurrentUser = vi.fn();
 
 function renderToolbar({
   authEnabled = false,
+  preferencesEnabled = false,
   user = null,
   inputs,
   on,
 }: {
   authEnabled?: boolean;
+  preferencesEnabled?: boolean;
   user?: CurrentUser | null;
   inputs?: { menuOpen: boolean };
   on?: { menuToggle: () => void };
@@ -25,8 +27,11 @@ function renderToolbar({
     on,
     providers: [
       provideRouter([]),
-      { provide: AppConfigService, useValue: { authEnabled } },
-      { provide: AuthService, useValue: { logout, loadCurrentUser, currentUser: signal(user) } },
+      { provide: AppConfigService, useValue: { authEnabled, preferencesEnabled } },
+      {
+        provide: AuthService,
+        useValue: { logout, loadCurrentUser, currentUser: signal(user), setLanguage: vi.fn() },
+      },
     ],
   });
 }
@@ -207,12 +212,40 @@ describe('Toolbar', () => {
   });
 });
 
+describe('Toolbar preferences', () => {
+  const openUserMenu = () => fireEvent.click(screen.getByRole('button', { name: /user menu/i }));
+
+  it('opens the preferences dialog from the user menu', async () => {
+    await renderToolbar({ authEnabled: true, preferencesEnabled: true });
+    await openUserMenu();
+
+    await fireEvent.click(await screen.findByRole('menuitem', { name: 'Preferences' }));
+
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+  });
+
+  it.each([
+    [false, true],
+    [true, false],
+  ])(
+    'is not in the menu with auth %s and preferences %s',
+    async (authEnabled, preferencesEnabled) => {
+      await renderToolbar({ authEnabled, preferencesEnabled });
+      await openUserMenu();
+
+      await screen.findAllByRole('menuitem');
+      expect(screen.queryByRole('menuitem', { name: 'Preferences' })).toBeNull();
+    },
+  );
+});
+
 describe('Toolbar current user', () => {
   const ana: CurrentUser = {
     id: 'u1',
     email: 'ana@example.com',
     firstName: 'Ana',
     lastName: 'García',
+    language: 'en',
   };
 
   beforeEach(() => loadCurrentUser.mockClear());
