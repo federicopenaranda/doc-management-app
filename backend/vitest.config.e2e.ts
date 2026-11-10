@@ -13,6 +13,10 @@ export default defineConfig({
       JWT_SECRET: 'test-secret-test-secret-test-secret-1234',
       GCS_BUCKET: 'dms-test',
       FRONTEND_URLS: 'http://localhost:4200,https://dms.example.com',
+      TIKA_URL: 'https://tika.example.com',
+      PROCESSED_BUCKET: 'dms-test-processed',
+      BACKEND_URL: 'https://backend.example.com',
+      PUBSUB_PUSH_SA_EMAIL: 'pubsub-push@project.iam.gserviceaccount.com',
     },
   },
 });

@@ -106,16 +106,6 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "PUBSUB_PUSH_SA_EMAIL"
         value = google_service_account.pubsub_push.email
       }
-      # Feature flag: remove two weeks after it is on in use.
-      env {
-        name  = "DOCUMENT_PROCESSING_ENABLED"
-        value = "true"
-      }
-      # Feature flag for signed upload URLs: remove two weeks after it is on in use.
-      env {
-        name  = "UPLOADS_ENABLED"
-        value = "true"
-      }
       # Feature flag for the database connection: remove two weeks after it is on in use.
       env {
         name  = "DATABASE_ENABLED"

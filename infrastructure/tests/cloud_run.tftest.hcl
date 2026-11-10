@@ -124,9 +124,4 @@ run "backend_env_has_worker_settings" {
     condition     = one([for env in google_cloud_run_v2_service.backend.template[0].containers[0].env : env.value if env.name == "PUBSUB_PUSH_SA_EMAIL"]) == google_service_account.pubsub_push.email
     error_message = "the backend only accepts pushes signed by the pubsub-push identity"
   }
-
-  assert {
-    condition     = one([for env in google_cloud_run_v2_service.backend.template[0].containers[0].env : env.value if env.name == "DOCUMENT_PROCESSING_ENABLED"]) == "true"
-    error_message = "the document processing flag is on"
-  }
 }

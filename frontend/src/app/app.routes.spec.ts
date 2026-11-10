@@ -8,13 +8,13 @@ import { routes } from './app.routes';
 import { UploadApi } from './uploads/upload-api';
 import { UsersApi } from './users/users-api';
 
-function setup(uploadsEnabled: boolean, shellEnabled = false, usersEnabled = false) {
+function setup(usersEnabled = false) {
   TestBed.configureTestingModule({
     providers: [
       provideRouter(routes),
       provideHttpClient(),
       { provide: API_URL, useValue: 'http://localhost:3000' },
-      { provide: AppConfigService, useValue: { uploadsEnabled, shellEnabled, usersEnabled } },
+      { provide: AppConfigService, useValue: { usersEnabled, authEnabled: false } },
       { provide: UploadApi, useValue: { sign: vi.fn() } },
       { provide: UsersApi, useValue: { list: vi.fn().mockResolvedValue([]), create: vi.fn() } },
     ],
@@ -23,8 +23,8 @@ function setup(uploadsEnabled: boolean, shellEnabled = false, usersEnabled = fal
 }
 
 describe('routes', () => {
-  it('lazy loads the upload page when the feature flag is on', async () => {
-    const harness = await setup(true);
+  it('lazy loads the upload page', async () => {
+    const harness = await setup();
 
     await harness.navigateByUrl('/upload');
 
@@ -32,7 +32,7 @@ describe('routes', () => {
   });
 
   it('lazy loads the home page at the root', async () => {
-    const harness = await setup(false);
+    const harness = await setup();
 
     await harness.navigateByUrl('/');
 
@@ -42,7 +42,7 @@ describe('routes', () => {
   });
 
   it('renders pages inside the shell main landmark', async () => {
-    const harness = await setup(true);
+    const harness = await setup();
 
     await harness.navigateByUrl('/upload');
 
@@ -52,7 +52,7 @@ describe('routes', () => {
   });
 
   it('lazy loads the users list when the users flag is on', async () => {
-    const harness = await setup(false, false, true);
+    const harness = await setup(true);
 
     await harness.navigateByUrl('/users');
 
@@ -62,7 +62,7 @@ describe('routes', () => {
   });
 
   it('lazy loads the new user form when the users flag is on', async () => {
-    const harness = await setup(false, false, true);
+    const harness = await setup(true);
 
     await harness.navigateByUrl('/users/new');
 
@@ -70,7 +70,7 @@ describe('routes', () => {
   });
 
   it('lazy loads the edit user form when the users flag is on', async () => {
-    const harness = await setup(false, false, true);
+    const harness = await setup(true);
 
     await harness.navigateByUrl('/users/u1/edit');
 
@@ -78,26 +78,20 @@ describe('routes', () => {
   });
 
   it('has no edit user form while the users flag is off', async () => {
-    const harness = await setup(false, false, false);
+    const harness = await setup();
 
     await expect(harness.navigateByUrl('/users/u1/edit')).rejects.toThrow();
   });
 
   it('has no users list while the users flag is off', async () => {
-    const harness = await setup(false, false, false);
+    const harness = await setup();
 
     await expect(harness.navigateByUrl('/users')).rejects.toThrow();
   });
 
   it('has no new user form while the users flag is off', async () => {
-    const harness = await setup(false, false, false);
+    const harness = await setup();
 
     await expect(harness.navigateByUrl('/users/new')).rejects.toThrow();
-  });
-
-  it('has no upload route while the feature flag is off', async () => {
-    const harness = await setup(false);
-
-    await expect(harness.navigateByUrl('/upload')).rejects.toThrow();
   });
 });

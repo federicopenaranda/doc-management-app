@@ -8,7 +8,7 @@ Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live. *
 
 - **Terraform** (`infrastructure/`): applied by CI. A PR touching `infrastructure/**` shows a plan; merging to `main` runs `apply`. Details in `infrastructure/README.md`.
 - **Cloud Run:** `frontend` and `backend` (public), `tika` (private). Frontend https://frontend-193663799936.us-west1.run.app, backend https://backend-193663799936.us-west1.run.app. Both deploy from `main` (`.github/workflows/`), and a deploy only runs after `verify` passes.
-- **Document worker** (2026-11-05): upload -> Pub/Sub -> `POST /pubsub/documents` -> Tika -> `document.md` in the processed bucket. Flag `DOCUMENT_PROCESSING_ENABLED`. Multi-file upload page `/upload` (flag `uploadsEnabled`), `POST /uploads/sign`.
+- **Document worker** (2026-11-05): upload -> Pub/Sub -> `POST /pubsub/documents` -> Tika -> `document.md` in the processed bucket. Multi-file upload page `/upload`, `POST /uploads/sign`. Their flags (`DOCUMENT_PROCESSING_ENABLED`, `UPLOADS_ENABLED`, `uploadsEnabled`, `shellEnabled`) were removed; the four worker settings (`TIKA_URL`, `PROCESSED_BUCKET`, `BACKEND_URL`, `PUBSUB_PUSH_SA_EMAIL`) are now always required.
 - **Database** (2026-11-08): Cloud SQL, IAM login for `backend-run`. `npm run db:bootstrap` (as the `postgres` admin with a temporary password, steps in `infrastructure/README.md`) creates the tables: `users` (names, `is_active`, `archived_at`, `archived_by`), `refresh_tokens`, `prueba`. The backend identity may read/add/update users and refresh tokens and has **no DELETE right anywhere**.
 - **Login (SCRUM-16, done):** `POST /auth/login`, access token 1 h, refresh token 7 days (single use, reuse revokes all), `GET /auth/me`, logout. Frontend `/login`, token interceptor with silent refresh, user name in the toolbar. Flags `AUTH_ENABLED`/`authEnabled`, `REFRESH_ENABLED`/`refreshEnabled`.
 - **Users (SCRUM-18, built, not yet tried by the owner in the browser):** menu "Users" -> Material table, Add user (with confirm password), Edit (names + email), Disable/Enable, Archive (confirmation dialog). **Users are archived, never deleted: history is very important in this app.** Nobody can disable/archive themselves; disabling/archiving cuts sessions at once (every authenticated request checks `is_active`). Any logged-in user can manage users until roles exist. Flags `USERS_ENABLED`/`usersEnabled`.
@@ -26,7 +26,7 @@ Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live. *
 3. Screen for archived users, with restore (restoring must also reopen the reserved email).
 4. Change a user's password (admin sets a new one; revoke their refresh tokens).
 5. **Roles and permissions (SCRUM-17):** decides who may create/edit/disable/archive users (today any logged-in user can).
-6. **Remove the feature flags around 2026-11-23** (two weeks after use, per `CLAUDE.md`): `AUTH_ENABLED`/`authEnabled`, `REFRESH_ENABLED`/`refreshEnabled`, `USERS_ENABLED`/`usersEnabled`, `AuthIfEnabledGuard`, `UsersEnabledGuard`, and the keys in both secrets. `DOCUMENT_PROCESSING_ENABLED`/`uploadsEnabled`/`shellEnabled` are older and overdue.
+6. **Remove the feature flags around 2026-11-23** (two weeks after use, per `CLAUDE.md`): `AUTH_ENABLED`/`authEnabled`, `REFRESH_ENABLED`/`refreshEnabled`, `USERS_ENABLED`/`usersEnabled`, `AuthIfEnabledGuard`, `UsersEnabledGuard`, and the keys in both secrets.
 
 ## Smaller items
 

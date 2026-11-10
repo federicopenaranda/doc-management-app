@@ -22,8 +22,6 @@ export const routes: Routes = [
       },
       {
         path: 'upload',
-        // Feature flag (config.json "uploadsEnabled"): without it the route does not exist.
-        canMatch: [() => inject(AppConfigService).uploadsEnabled],
         loadComponent: () => import('./uploads/upload-page').then((m) => m.UploadPage),
       },
       {

@@ -4,10 +4,6 @@ import { firstValueFrom } from 'rxjs';
 
 interface AppConfig {
   apiUrl: string;
-  /** Feature flag for multi-file upload: remove it two weeks after it is on in use. */
-  uploadsEnabled: boolean;
-  /** Feature flag for the app shell (toolbar and menu): remove it two weeks after it is on in use. */
-  shellEnabled: boolean;
   /** Feature flag for login (SCRUM-16): remove it two weeks after it is on in use. */
   authEnabled: boolean;
   /** Feature flag for token refresh (SCRUM-16): remove it two weeks after it is on in use. */
@@ -44,15 +40,11 @@ function parseConfig(raw: unknown): AppConfig {
   if (typeof apiUrl !== 'string' || !isHttpUrl(apiUrl)) {
     throw new Error('config.json: "apiUrl" must be an absolute http(s) URL');
   }
-  const uploadsEnabled = parseFlag(object, 'uploadsEnabled');
-  const shellEnabled = parseFlag(object, 'shellEnabled');
   const authEnabled = parseFlag(object, 'authEnabled');
   const refreshEnabled = parseFlag(object, 'refreshEnabled');
   const usersEnabled = parseFlag(object, 'usersEnabled');
   return {
     apiUrl: apiUrl.replace(/\/+$/, ''),
-    uploadsEnabled,
-    shellEnabled,
     authEnabled,
     refreshEnabled,
     usersEnabled,
@@ -68,16 +60,6 @@ export class AppConfigService {
   get apiUrl(): string {
     if (!this.config) throw new Error('config.json has not been loaded');
     return this.config.apiUrl;
-  }
-
-  get uploadsEnabled(): boolean {
-    if (!this.config) throw new Error('config.json has not been loaded');
-    return this.config.uploadsEnabled;
-  }
-
-  get shellEnabled(): boolean {
-    if (!this.config) throw new Error('config.json has not been loaded');
-    return this.config.shellEnabled;
   }
 
   get authEnabled(): boolean {

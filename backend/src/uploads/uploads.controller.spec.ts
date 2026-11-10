@@ -1,15 +1,12 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
-import type { Env } from '../config/env.validation.js';
+import { BadRequestException } from '@nestjs/common';
 import { UploadsController } from './uploads.controller.js';
 import type { UploadsService } from './uploads.service.js';
 
-function setup(enabled = true) {
+function setup() {
   const sign = vi.fn().mockResolvedValue([{ name: 'a.pdf' }]);
-  const config = { get: () => enabled } as unknown as ConfigService<Env, true>;
   return {
     sign,
-    controller: new UploadsController(config, {
+    controller: new UploadsController({
       sign,
     } as unknown as UploadsService),
   };
@@ -40,15 +37,6 @@ describe('UploadsController.sign', () => {
     expect(sign).toHaveBeenCalledWith([
       { name: 'a.bin', size: 1, contentType: 'application/octet-stream' },
     ]);
-  });
-
-  it('is not found when the flag is off', async () => {
-    const { controller, sign } = setup(false);
-
-    await expect(controller.sign({ files: [file()] })).rejects.toThrow(
-      NotFoundException,
-    );
-    expect(sign).not.toHaveBeenCalled();
   });
 
   it.each([

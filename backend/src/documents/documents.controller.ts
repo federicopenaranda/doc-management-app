@@ -36,9 +36,6 @@ export class DocumentsController {
   @HttpCode(200)
   @UseGuards(PubsubOidcGuard)
   async receive(@Body() body: unknown): Promise<void> {
-    if (!this.config.get('DOCUMENT_PROCESSING_ENABLED', { infer: true }))
-      return;
-
     const event = this.decode(body);
     if (!event) return;
     if (
