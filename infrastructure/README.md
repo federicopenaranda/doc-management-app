@@ -177,6 +177,9 @@ unknown user, 409 when another user has that email); passwords are not edited th
 read from the database. Until roles exist (SCRUM-17) there is no further check. `db:bootstrap` adds the `first_name` and `last_name` columns (users that
 already existed get empty names) and lets the backend identity read, add and update users (never delete).
 
+Users are archived, never deleted: `db:bootstrap` adds `archived_at` and `archived_by` to `users`, and the backend identity has no `DELETE` right on
+any table. An archived user disappears from the list, cannot log in, and keeps their row, their email and their history.
+
 **Run `db:bootstrap` (steps above) before deploying a backend with `USERS_ENABLED` on**, or the list and the creation fail with a database
 error. The frontend flag is `usersEnabled` in the `frontend-sandbox` secret.
 

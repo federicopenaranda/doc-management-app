@@ -48,6 +48,9 @@ export function bootstrapStatements(iamUser) {
     // Names came with the user screens (SCRUM-18); users that already exist get empty names.
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name text NOT NULL DEFAULT ''",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name text NOT NULL DEFAULT ''",
+    // A user is archived, never deleted: the row, its email and its history stay. Null means not archived.
+    'ALTER TABLE users ADD COLUMN IF NOT EXISTS archived_at timestamptz',
+    'ALTER TABLE users ADD COLUMN IF NOT EXISTS archived_by uuid REFERENCES users(id)',
     // Login reads users, the user screens add and edit them; deleting them comes with the next tickets.
     `GRANT SELECT, INSERT, UPDATE ON users TO ${quoteIdent(iamUser)}`,
     // Refresh tokens: only a hash is stored. A used or revoked token keeps its row (used_at) so a replay can be told
