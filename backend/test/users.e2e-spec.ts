@@ -4,6 +4,16 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
 const PASSWORD = 'a long enough password';
+// The logged-in admin: it exists for the "is this user still active?" check, but it is not one of the listed users.
+const ADMIN_ID = '00000000-0000-4000-8000-0000000000aa';
+const adminRow = {
+  id: ADMIN_ID,
+  email: 'admin@example.com',
+  first_name: 'Admin',
+  last_name: 'User',
+  is_active: true,
+  created_at: new Date('2026-11-08T12:00:00Z'),
+};
 const newUser = {
   firstName: 'Ana',
   lastName: 'García',
@@ -26,12 +36,33 @@ async function createApp(usersEnabled: boolean) {
   // A tiny in-memory users table, answering the exact statements the repository sends.
   const rows: Record<string, unknown>[] = [];
   const stored: unknown[][] = [];
-  const query = (sql: string, params: string[] = []) => {
+  const revoked: string[] = [];
+  const live = () => rows.filter((r) => !r.archived_at);
+  const query = (sql: string, params: unknown[] = []) => {
+    if (sql.startsWith('UPDATE refresh_tokens')) {
+      revoked.push(params[0] as string);
+      return Promise.resolve({ rows: [] });
+    }
+    if (sql.startsWith('UPDATE users SET is_active = false, archived_at')) {
+      const row = live().find((r) => r.id === params[0]);
+      if (!row) return Promise.resolve({ rows: [] });
+      row.is_active = false;
+      row.archived_at = new Date();
+      row.archived_by = params[1];
+      return Promise.resolve({ rows: [{ id: row.id }] });
+    }
+    if (sql.startsWith('UPDATE users SET is_active = $2')) {
+      const row = live().find((r) => r.id === params[0]);
+      if (!row) return Promise.resolve({ rows: [] });
+      row.is_active = params[1];
+      return Promise.resolve({ rows: [row] });
+    }
     if (sql.startsWith('INSERT INTO users')) {
       stored.push(params);
       const taken = rows.some(
         (row) =>
-          (row.email as string).toLowerCase() === params[0].toLowerCase(),
+          (row.email as string).toLowerCase() ===
+          (params[0] as string).toLowerCase(),
       );
       if (taken) return Promise.resolve({ rows: [] });
       const row = {
@@ -46,12 +77,13 @@ async function createApp(usersEnabled: boolean) {
       return Promise.resolve({ rows: [row] });
     }
     if (sql.startsWith('UPDATE users SET')) {
-      const row = rows.find((r) => r.id === params[0]);
+      const row = live().find((r) => r.id === params[0]);
       if (!row) return Promise.resolve({ rows: [] });
       const taken = rows.some(
         (r) =>
           r !== row &&
-          (r.email as string).toLowerCase() === params[1].toLowerCase(),
+          (r.email as string).toLowerCase() ===
+            (params[1] as string).toLowerCase(),
       );
       if (taken) {
         return Promise.reject(
@@ -64,11 +96,14 @@ async function createApp(usersEnabled: boolean) {
       return Promise.resolve({ rows: [row] });
     }
     if (sql.includes('FROM users WHERE id = $1')) {
-      const row = rows.find((r) => r.id === params[0]);
+      const row =
+        params[0] === ADMIN_ID
+          ? adminRow
+          : live().find((r) => r.id === params[0]);
       return Promise.resolve({ rows: row ? [row] : [] });
     }
     if (sql.startsWith('SELECT id, email, first_name')) {
-      return Promise.resolve({ rows });
+      return Promise.resolve({ rows: live() });
     }
     return Promise.resolve({ rows: [] });
   };
@@ -80,10 +115,12 @@ async function createApp(usersEnabled: boolean) {
   const app = moduleRef.createNestApplication<NestExpressApplication>();
   setupApp(app);
   await app.init();
-  const token = app
-    .get(JwtService)
-    .sign({ sub: 'someone', email: 'admin@example.com' });
-  return { app, token, stored };
+  const jwt = app.get(JwtService);
+  const token = jwt.sign({ sub: ADMIN_ID, email: 'admin@example.com' });
+  /** A token for any user, as if that user had logged in earlier. */
+  const tokenFor = (id: string) =>
+    jwt.sign({ sub: id, email: 'x@example.com' });
+  return { app, token, stored, revoked, tokenFor };
 }
 
 const authed = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -442,6 +479,257 @@ describe('users by id (e2e)', () => {
         .expect(200);
 
       expect(JSON.stringify(stored)).not.toContain('a brand new password');
+      await app.close();
+    });
+  });
+});
+
+describe('users status and archive (e2e)', () => {
+  afterEach(() => {
+    delete process.env.AUTH_ENABLED;
+    delete process.env.DATABASE_ENABLED;
+    delete process.env.USERS_ENABLED;
+  });
+
+  const FIRST = '00000000-0000-4000-8000-000000000001';
+  const UNKNOWN = '00000000-0000-4000-8000-0000000000ff';
+
+  async function appWithAna() {
+    const ctx = await createApp(true);
+    await request(ctx.app.getHttpServer())
+      .post('/users')
+      .set(authed(ctx.token))
+      .send(newUser)
+      .expect(201);
+    return ctx;
+  }
+
+  describe('while the feature flag is off or without a token', () => {
+    it('is 404 with the flag off, and 401 without a token', async () => {
+      const off = await createApp(false);
+      const offServer = off.app.getHttpServer();
+      await request(offServer)
+        .put(`/users/${FIRST}/active`)
+        .send({ isActive: false })
+        .expect(404);
+      await request(offServer).post(`/users/${FIRST}/archive`).expect(404);
+      await off.app.close();
+
+      const on = await createApp(true);
+      const onServer = on.app.getHttpServer();
+      await request(onServer)
+        .put(`/users/${FIRST}/active`)
+        .send({ isActive: false })
+        .expect(401);
+      await request(onServer).post(`/users/${FIRST}/archive`).expect(401);
+      await on.app.close();
+    });
+  });
+
+  describe('PUT /users/:id/active', () => {
+    it('disables and enables a user, and disabling ends their sessions', async () => {
+      const { app, token, revoked } = await appWithAna();
+      const server = app.getHttpServer();
+
+      const off = await request(server)
+        .put(`/users/${FIRST}/active`)
+        .set(authed(token))
+        .send({ isActive: false })
+        .expect(200);
+      expect(off.body).toMatchObject({ id: FIRST, isActive: false });
+      expect(revoked).toEqual([FIRST]);
+
+      const on = await request(server)
+        .put(`/users/${FIRST}/active`)
+        .set(authed(token))
+        .send({ isActive: true })
+        .expect(200);
+      expect(on.body).toMatchObject({ id: FIRST, isActive: true });
+      expect(revoked).toEqual([FIRST]);
+      const list = await request(server)
+        .get('/users')
+        .set(authed(token))
+        .expect(200);
+      expect(list.body[0].isActive).toBe(true);
+      await app.close();
+    });
+
+    it('answers 409 when you try to disable yourself', async () => {
+      const { app, token } = await appWithAna();
+
+      const response = await request(app.getHttpServer())
+        .put(`/users/${ADMIN_ID}/active`)
+        .set(authed(token))
+        .send({ isActive: false })
+        .expect(409);
+
+      expect(response.body.message).toEqual([
+        'You cannot disable your own user',
+      ]);
+      await app.close();
+    });
+
+    it.each([
+      ['an id nobody has', UNKNOWN],
+      ['something that is not an id', 'not-a-uuid'],
+    ])('answers 404 for %s', async (_label, id) => {
+      const { app, token } = await appWithAna();
+
+      await request(app.getHttpServer())
+        .put(`/users/${id}/active`)
+        .set(authed(token))
+        .send({ isActive: false })
+        .expect(404);
+      await app.close();
+    });
+
+    it.each([
+      ['no body', {}],
+      ['a text instead of a boolean', { isActive: 'false' }],
+      ['a number', { isActive: 0 }],
+    ])('answers 400 for %s', async (_label, body) => {
+      const { app, token } = await appWithAna();
+
+      await request(app.getHttpServer())
+        .put(`/users/${FIRST}/active`)
+        .set(authed(token))
+        .send(body)
+        .expect(400);
+      await app.close();
+    });
+  });
+
+  describe('POST /users/:id/archive', () => {
+    it('archives the user: 204, gone from the list and from by-id reads, sessions ended', async () => {
+      const { app, token, revoked } = await appWithAna();
+      const server = app.getHttpServer();
+
+      await request(server)
+        .post(`/users/${FIRST}/archive`)
+        .set(authed(token))
+        .expect(204);
+
+      expect(revoked).toEqual([FIRST]);
+      const list = await request(server)
+        .get('/users')
+        .set(authed(token))
+        .expect(200);
+      expect(list.body).toEqual([]);
+      await request(server)
+        .get(`/users/${FIRST}`)
+        .set(authed(token))
+        .expect(404);
+      await request(server)
+        .put(`/users/${FIRST}`)
+        .set(authed(token))
+        .send({
+          firstName: 'Ana',
+          lastName: 'García',
+          email: 'ana@example.com',
+        })
+        .expect(404);
+      await app.close();
+    });
+
+    it('keeps the email reserved, so the history stays unambiguous', async () => {
+      const { app, token } = await appWithAna();
+      const server = app.getHttpServer();
+      await request(server)
+        .post(`/users/${FIRST}/archive`)
+        .set(authed(token))
+        .expect(204);
+
+      const response = await request(server)
+        .post('/users')
+        .set(authed(token))
+        .send(newUser)
+        .expect(409);
+
+      expect(response.body.message).toEqual([
+        'A user with this email already exists',
+      ]);
+      await app.close();
+    });
+
+    it('answers 404 when the user is archived already, and 409 for yourself', async () => {
+      const { app, token } = await appWithAna();
+      const server = app.getHttpServer();
+      await request(server)
+        .post(`/users/${FIRST}/archive`)
+        .set(authed(token))
+        .expect(204);
+
+      await request(server)
+        .post(`/users/${FIRST}/archive`)
+        .set(authed(token))
+        .expect(404);
+      const self = await request(server)
+        .post(`/users/${ADMIN_ID}/archive`)
+        .set(authed(token))
+        .expect(409);
+      expect(self.body.message).toEqual(['You cannot archive your own user']);
+      await app.close();
+    });
+
+    it.each([
+      ['an id nobody has', UNKNOWN],
+      ['something that is not an id', 'not-a-uuid'],
+    ])('answers 404 for %s', async (_label, id) => {
+      const { app, token } = await appWithAna();
+
+      await request(app.getHttpServer())
+        .post(`/users/${id}/archive`)
+        .set(authed(token))
+        .expect(404);
+      await app.close();
+    });
+  });
+
+  describe('a token of a user who is no longer active', () => {
+    it('stops working the moment the user is disabled, and works again when enabled', async () => {
+      const { app, token, tokenFor } = await appWithAna();
+      const server = app.getHttpServer();
+      const anasToken = tokenFor(FIRST);
+      await request(server).get('/users').set(authed(anasToken)).expect(200);
+
+      await request(server)
+        .put(`/users/${FIRST}/active`)
+        .set(authed(token))
+        .send({ isActive: false })
+        .expect(200);
+      await request(server).get('/users').set(authed(anasToken)).expect(401);
+      await request(server).get('/auth/me').set(authed(anasToken)).expect(401);
+
+      await request(server)
+        .put(`/users/${FIRST}/active`)
+        .set(authed(token))
+        .send({ isActive: true })
+        .expect(200);
+      await request(server).get('/users').set(authed(anasToken)).expect(200);
+      await app.close();
+    });
+
+    it('stops working when the user is archived', async () => {
+      const { app, token, tokenFor } = await appWithAna();
+      const server = app.getHttpServer();
+      const anasToken = tokenFor(FIRST);
+
+      await request(server)
+        .post(`/users/${FIRST}/archive`)
+        .set(authed(token))
+        .expect(204);
+
+      await request(server).get('/users').set(authed(anasToken)).expect(401);
+      await app.close();
+    });
+
+    it('is refused when the user does not exist at all', async () => {
+      const { app, tokenFor } = await appWithAna();
+
+      await request(app.getHttpServer())
+        .get('/users')
+        .set(authed(tokenFor(UNKNOWN)))
+        .expect(401);
       await app.close();
     });
   });

@@ -177,6 +177,10 @@ unknown user, 409 when another user has that email); passwords are not edited th
 read from the database. Until roles exist (SCRUM-17) there is no further check. `db:bootstrap` adds the `first_name` and `last_name` columns (users that
 already existed get empty names) and lets the backend identity read, add and update users (never delete).
 
+`PUT /users/:id/active` with `{ isActive }` turns a user on or off and `POST /users/:id/archive` archives one (204). Nobody can disable or archive
+themselves (409). Turning a user off, or archiving, revokes their refresh tokens, and every authenticated request checks that its user is still
+active (one query), so they are locked out at once and not when their access token expires. An archived user leaves the list and its by-id routes.
+
 Users are archived, never deleted: `db:bootstrap` adds `archived_at` and `archived_by` to `users`, and the backend identity has no `DELETE` right on
 any table. An archived user disappears from the list, cannot log in, and keeps their row, their email and their history.
 

@@ -8,12 +8,16 @@ import {
   Param,
   Post,
   Put,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import {
+  JwtAuthGuard,
+  type AuthenticatedRequest,
+} from '../auth/jwt-auth.guard.js';
 import type { UserSummary } from '../auth/users.repository.js';
 import { UsersEnabledGuard } from './users-enabled.guard.js';
 import { UsersService } from './users.service.js';
@@ -30,6 +34,8 @@ const createUserSchema = editUserSchema.extend({
   // The bounds match the users:create script; the upper one keeps a huge body from turning into a huge hashing job.
   password: z.string().min(12).max(200),
 });
+
+const activeSchema = z.object({ isActive: z.boolean() });
 
 const idSchema = z.uuid();
 
@@ -81,7 +87,31 @@ export class UsersController {
     return this.users.create(parse(createUserSchema, body));
   }
 
-  /** The email and the names. Changing a password or the active flag are separate features. */
+  /** Turns a user on or off. Nobody can disable themselves; turning a user off ends their sessions at once. */
+  @Put(':id/active')
+  setActive(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<UserSummary> {
+    return this.users.setActive(
+      request.user.id,
+      userId(id),
+      parse(activeSchema, body).isActive,
+    );
+  }
+
+  /** Users are archived, never deleted: they leave the list and cannot sign in, and their history stays. */
+  @Post(':id/archive')
+  @HttpCode(204)
+  archive(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+  ): Promise<void> {
+    return this.users.archive(request.user.id, userId(id));
+  }
+
+  /** The email and the names. Changing a password is a separate feature. */
   @Put(':id')
   update(@Param('id') id: string, @Body() body: unknown): Promise<UserSummary> {
     return this.users.update(userId(id), parse(editUserSchema, body));
