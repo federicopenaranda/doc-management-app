@@ -62,6 +62,16 @@ describe('Toolbar', () => {
     order.slice(1).forEach((element, i) => expect(follows(order[i], element)).toBe(true));
   });
 
+  it('has the icon and the DMS text as one link to the home route', async () => {
+    await renderToolbar();
+
+    const link = screen.getByRole('link', { name: 'DMS' });
+
+    expect(link.getAttribute('href')).toBe('/');
+    expect(link.querySelector('mat-icon')).not.toBeNull();
+    expect(link.textContent).toContain('DMS');
+  });
+
   it('emits menuToggle when the hamburger is clicked', async () => {
     const menuToggle = vi.fn();
     await renderToolbar({ on: { menuToggle } });

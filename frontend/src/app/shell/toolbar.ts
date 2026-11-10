@@ -1,5 +1,5 @@
 import { Component, computed, ElementRef, inject, input, output, viewChild } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AppConfigService } from '../app-config.service';
 import { AuthService } from '../auth/auth.service';
 import { MatIconButton } from '@angular/material/button';
@@ -9,7 +9,15 @@ import { MatSlideToggle } from '@angular/material/slide-toggle';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 
 @Component({
-  imports: [MatIconButton, MatIcon, MatMenu, MatMenuItem, MatMenuTrigger, MatSlideToggle],
+  imports: [
+    MatIconButton,
+    MatIcon,
+    MatMenu,
+    MatMenuItem,
+    MatMenuTrigger,
+    MatSlideToggle,
+    RouterLink,
+  ],
   selector: 'dms-toolbar',
   template: `
     <header
@@ -27,8 +35,11 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
         <mat-icon fontIcon="menu" />
       </button>
 
-      <mat-icon aria-hidden="true" fontIcon="description" />
-      <span class="hidden font-medium sm:inline" i18n>DMS</span>
+      <!-- The text is hidden on narrow screens, so the label keeps the link named. -->
+      <a routerLink="/" class="flex items-center gap-2" i18n-aria-label aria-label="DMS">
+        <mat-icon aria-hidden="true" fontIcon="description" />
+        <span class="hidden font-medium sm:inline" aria-hidden="true" i18n>DMS</span>
+      </a>
       @if (authEnabled && displayName(); as name) {
         <span
           data-testid="current-user"
