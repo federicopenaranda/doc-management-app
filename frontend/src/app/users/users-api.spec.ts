@@ -139,3 +139,36 @@ describe('UsersApi status and archive', () => {
     await expect(result).rejects.toMatchObject({ status: 409 });
   });
 });
+
+describe('UsersApi archived users', () => {
+  it('listArchived() GETs /users/archived', async () => {
+    const { api, http } = setup();
+
+    const result = api.listArchived();
+
+    const req = http.expectOne(`${API}/users/archived`);
+    expect(req.request.method).toBe('GET');
+    req.flush([{ ...ana, archivedAt: '2026-11-10T09:00:00.000Z' }]);
+    await expect(result).resolves.toMatchObject([{ id: 'u1', archivedAt: expect.any(String) }]);
+  });
+
+  it('restore() POSTs to /users/:id/restore and resolves with nothing', async () => {
+    const { api, http } = setup();
+
+    const result = api.restore('u1');
+
+    const req = http.expectOne(`${API}/users/u1/restore`);
+    expect(req.request.method).toBe('POST');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    await expect(result).resolves.toBeUndefined();
+  });
+
+  it('restore() rejects with the HTTP error', async () => {
+    const { api, http } = setup();
+
+    const result = api.restore('u1');
+    http.expectOne(`${API}/users/u1/restore`).flush({}, { status: 404, statusText: 'Not Found' });
+
+    await expect(result).rejects.toMatchObject({ status: 404 });
+  });
+});

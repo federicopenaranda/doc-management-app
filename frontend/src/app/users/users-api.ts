@@ -13,6 +13,11 @@ export interface User {
   createdAt: string;
 }
 
+/** A user who was archived, with when. */
+export interface ArchivedUser extends User {
+  archivedAt: string;
+}
+
 export interface NewUser {
   firstName: string;
   lastName: string;
@@ -49,6 +54,15 @@ export class UsersApi {
   /** Users are archived, never deleted: the API keeps the row and its history. */
   async archive(id: string): Promise<void> {
     await firstValueFrom(this.http.post<void>(`${this.apiUrl}/users/${id}/archive`, null));
+  }
+
+  listArchived(): Promise<ArchivedUser[]> {
+    return firstValueFrom(this.http.get<ArchivedUser[]>(`${this.apiUrl}/users/archived`));
+  }
+
+  /** Brings an archived user back, disabled. Rejects with the HttpErrorResponse (404: not archived). */
+  async restore(id: string): Promise<void> {
+    await firstValueFrom(this.http.post<void>(`${this.apiUrl}/users/${id}/restore`, null));
   }
 
   /** Rejects with the HttpErrorResponse: a 409 means the email is taken. */
