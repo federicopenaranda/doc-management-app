@@ -58,12 +58,12 @@ describe('bootstrapStatements', () => {
     expect(sql.indexOf(add[0])).toBeGreaterThan(sql.indexOf(users));
   });
 
-  it('lets the backend identity read and add users, never change or delete them (that comes later)', () => {
+  it('lets the backend identity read, add and update users, never delete them', () => {
     const grant = sql.find(
       (s) => s.startsWith('GRANT') && s.includes('ON users'),
     );
 
-    expect(grant).toBe(`GRANT SELECT, INSERT ON users TO "${iamUser}"`);
+    expect(grant).toBe(`GRANT SELECT, INSERT, UPDATE ON users TO "${iamUser}"`);
   });
 
   describe('refresh_tokens', () => {

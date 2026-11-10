@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // One-time (and safe to repeat) database setup, run by the owner as the built-in `postgres` admin:
 // creates the pgvector extension, the `prueba` test table, the `users` table and the `refresh_tokens` table, and
-// gives the backend's IAM user the access it needs (read and write prueba, read/add users, read/add/update refresh_tokens).
+// gives the backend's IAM user the access it needs (read and write prueba, read/add/update users, read/add/update refresh_tokens).
 //
 //   DB_ADMIN_PASSWORD=... npm run db:bootstrap -- \
 //     --instance <project>:<region>:<instance> --iam-user <service-account-email-without-.gserviceaccount.com>
@@ -48,8 +48,8 @@ export function bootstrapStatements(iamUser) {
     // Names came with the user screens (SCRUM-18); users that already exist get empty names.
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name text NOT NULL DEFAULT ''",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name text NOT NULL DEFAULT ''",
-    // Login reads users and the user screens add them; changing and deleting them comes with the next tickets.
-    `GRANT SELECT, INSERT ON users TO ${quoteIdent(iamUser)}`,
+    // Login reads users, the user screens add and edit them; deleting them comes with the next tickets.
+    `GRANT SELECT, INSERT, UPDATE ON users TO ${quoteIdent(iamUser)}`,
     // Refresh tokens: only a hash is stored. A used or revoked token keeps its row (used_at) so a replay can be told
     // from an unknown token. Rows are never deleted by the app; shortcut: expired rows pile up, add a cleanup job when it matters.
     `CREATE TABLE IF NOT EXISTS refresh_tokens (
