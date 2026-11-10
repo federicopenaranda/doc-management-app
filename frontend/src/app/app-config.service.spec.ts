@@ -61,47 +61,6 @@ describe('AppConfigService', () => {
 
   it.each([
     [{ apiUrl: 'http://localhost:3000' }, false],
-    [{ apiUrl: 'http://localhost:3000', uploadsEnabled: false }, false],
-    [{ apiUrl: 'http://localhost:3000', uploadsEnabled: true }, true],
-    // Secrets are edited by hand: a quoted value is a common slip and must not stop the app.
-    [{ apiUrl: 'http://localhost:3000', uploadsEnabled: 'true' }, true],
-    [{ apiUrl: 'http://localhost:3000', uploadsEnabled: 'false' }, false],
-  ])('reads the uploads flag from %j as %s (off when absent)', async (body, expected) => {
-    const { service, http } = setup();
-
-    const loading = service.load();
-    http.expectOne('config.json').flush(body);
-    await loading;
-
-    expect(service.uploadsEnabled).toBe(expected);
-  });
-
-  it('rejects an uploadsEnabled that is not a boolean, naming config.json', async () => {
-    const { service, http } = setup();
-
-    const loading = service.load();
-    http.expectOne('config.json').flush({ apiUrl: 'http://localhost:3000', uploadsEnabled: 'yes' });
-
-    await expect(loading).rejects.toThrow('config.json');
-  });
-
-  it.each([
-    [{ apiUrl: 'http://localhost:3000' }, false],
-    [{ apiUrl: 'http://localhost:3000', shellEnabled: true }, true],
-    [{ apiUrl: 'http://localhost:3000', shellEnabled: 'true' }, true],
-    [{ apiUrl: 'http://localhost:3000', shellEnabled: 'false' }, false],
-  ])('reads the shell flag from %j as %s (off when absent)', async (body, expected) => {
-    const { service, http } = setup();
-
-    const loading = service.load();
-    http.expectOne('config.json').flush(body);
-    await loading;
-
-    expect(service.shellEnabled).toBe(expected);
-  });
-
-  it.each([
-    [{ apiUrl: 'http://localhost:3000' }, false],
     [{ apiUrl: 'http://localhost:3000', authEnabled: true }, true],
     [{ apiUrl: 'http://localhost:3000', authEnabled: 'true' }, true],
     [{ apiUrl: 'http://localhost:3000', authEnabled: 'false' }, false],
@@ -145,13 +104,13 @@ describe('AppConfigService', () => {
     expect(service.usersEnabled).toBe(expected);
   });
 
-  it('rejects a shellEnabled that is not a boolean, naming the key', async () => {
+  it('rejects a flag that is not a boolean, naming the key', async () => {
     const { service, http } = setup();
 
     const loading = service.load();
-    http.expectOne('config.json').flush({ apiUrl: 'http://localhost:3000', shellEnabled: 'yes' });
+    http.expectOne('config.json').flush({ apiUrl: 'http://localhost:3000', authEnabled: 'yes' });
 
-    await expect(loading).rejects.toThrow('"shellEnabled" must be true or false');
+    await expect(loading).rejects.toThrow('"authEnabled" must be true or false');
   });
 
   it('throws when apiUrl is read before the config is loaded', () => {

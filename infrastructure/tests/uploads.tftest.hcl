@@ -34,12 +34,3 @@ run "backend_can_sign_urls_as_itself" {
     error_message = "the backend identity needs signBlob on itself to sign V4 URLs without a key file"
   }
 }
-
-run "uploads_flag_is_on_for_the_backend" {
-  command = plan
-
-  assert {
-    condition     = one([for env in google_cloud_run_v2_service.backend.template[0].containers[0].env : env.value if env.name == "UPLOADS_ENABLED"]) == "true"
-    error_message = "the uploads feature flag is on"
-  }
-}

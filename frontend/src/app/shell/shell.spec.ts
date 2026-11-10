@@ -5,22 +5,15 @@ import { fireEvent, render, screen } from '@testing-library/angular';
 import { AppConfigService } from '../app-config.service';
 import { Shell } from './shell';
 
-async function setup(shellEnabled: boolean) {
+async function setup() {
   return render(Shell, {
-    providers: [provideRouter([]), { provide: AppConfigService, useValue: { shellEnabled } }],
+    providers: [provideRouter([]), { provide: AppConfigService, useValue: { authEnabled: false } }],
   });
 }
 
 describe('Shell', () => {
-  it('renders exactly one main landmark with the shell flag off, and no toolbar', async () => {
-    await setup(false);
-
-    expect(screen.getAllByRole('main')).toHaveLength(1);
-    expect(screen.queryByRole('banner')).toBeNull();
-  });
-
-  it('renders exactly one main landmark with the shell flag on', async () => {
-    await setup(true);
+  it('renders exactly one main landmark', async () => {
+    await setup();
 
     expect(screen.getAllByRole('main')).toHaveLength(1);
   });
@@ -29,7 +22,7 @@ describe('Shell', () => {
     const openMenu = () => fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
 
     it('opens from the hamburger and marks it expanded', async () => {
-      await setup(true);
+      await setup();
 
       await openMenu();
 
@@ -40,7 +33,7 @@ describe('Shell', () => {
     });
 
     it('closes when the scrim is clicked', async () => {
-      await setup(true);
+      await setup();
       await openMenu();
 
       await fireEvent.click(screen.getByTestId('scrim'));
@@ -49,7 +42,7 @@ describe('Shell', () => {
     });
 
     it('closes on Escape and puts focus back on the hamburger', async () => {
-      await setup(true);
+      await setup();
       await openMenu();
 
       await fireEvent.keyDown(document.body, { key: 'Escape' });
@@ -59,7 +52,7 @@ describe('Shell', () => {
     });
 
     it('moves focus into the menu when it opens', async () => {
-      await setup(true);
+      await setup();
 
       await openMenu();
 
@@ -67,7 +60,7 @@ describe('Shell', () => {
     });
 
     it('puts focus back on the hamburger when an entry closes the menu', async () => {
-      await setup(true);
+      await setup();
       await openMenu();
 
       await fireEvent.click(screen.getByRole('button', { name: 'Documents' }));
@@ -76,7 +69,7 @@ describe('Shell', () => {
     });
 
     it('puts focus back on the hamburger when the scrim closes the menu', async () => {
-      await setup(true);
+      await setup();
       await openMenu();
 
       await fireEvent.click(screen.getByTestId('scrim'));
@@ -85,7 +78,7 @@ describe('Shell', () => {
     });
 
     it('leaves Escape alone when another widget already handled it', async () => {
-      await setup(true);
+      await setup();
       await openMenu();
       const handled = new KeyboardEvent('keydown', {
         key: 'Escape',
@@ -101,7 +94,7 @@ describe('Shell', () => {
     });
 
     it('closes when a menu entry is clicked', async () => {
-      await setup(true);
+      await setup();
       await openMenu();
 
       await fireEvent.click(screen.getByRole('button', { name: 'Documents' }));
@@ -112,7 +105,7 @@ describe('Shell', () => {
 
   describe('slash shortcut', () => {
     it('focuses the search input when / is pressed on the page', async () => {
-      await setup(true);
+      await setup();
 
       await fireEvent.keyDown(document.body, { key: '/' });
 
@@ -124,7 +117,7 @@ describe('Shell', () => {
         imports: [Shell],
         providers: [
           provideRouter([]),
-          { provide: AppConfigService, useValue: { shellEnabled: true } },
+          { provide: AppConfigService, useValue: { authEnabled: false } },
         ],
       });
       const other = screen.getByLabelText('other');
@@ -136,7 +129,7 @@ describe('Shell', () => {
     });
 
     it.each(['ctrlKey', 'metaKey', 'altKey'])('ignores / with %s held', async (modifier) => {
-      await setup(true);
+      await setup();
 
       await fireEvent.keyDown(document.body, { key: '/', [modifier]: true });
 
@@ -144,21 +137,13 @@ describe('Shell', () => {
     });
 
     it('leaves / alone when another widget already handled it', async () => {
-      await setup(true);
+      await setup();
       const handled = new KeyboardEvent('keydown', { key: '/', cancelable: true, bubbles: true });
       handled.preventDefault();
 
       document.body.dispatchEvent(handled);
 
       expect(document.activeElement).not.toBe(screen.getByRole('searchbox'));
-    });
-
-    it('does nothing with the shell flag off', async () => {
-      await setup(false);
-
-      await fireEvent.keyDown(document.body, { key: '/' });
-
-      expect(screen.queryByRole('searchbox')).toBeNull();
     });
   });
 });

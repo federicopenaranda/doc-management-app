@@ -1,7 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
-import { AppConfigService } from '../app-config.service';
 import { HelloService } from './hello.service';
 
 @Component({
@@ -11,8 +10,6 @@ import { HelloService } from './hello.service';
 })
 export class HomePage {
   private readonly hello = inject(HelloService);
-
-  protected readonly uploadsEnabled = inject(AppConfigService).uploadsEnabled;
 
   protected readonly title = signal('doc-management');
   protected readonly message = signal('');

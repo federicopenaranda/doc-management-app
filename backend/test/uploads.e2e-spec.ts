@@ -4,9 +4,8 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 
 // ConfigModule.forRoot() validates the environment when AppModule is first imported,
-// so each case re-imports the app after setting the flag.
-async function createApp(uploadsEnabled: boolean, authEnabled = false) {
-  process.env.UPLOADS_ENABLED = String(uploadsEnabled);
+// so each case re-imports the app after setting the flags.
+async function createApp(authEnabled = false) {
   process.env.AUTH_ENABLED = String(authEnabled);
   process.env.DATABASE_ENABLED = String(authEnabled);
   vi.resetModules();
@@ -56,14 +55,13 @@ const body = {
 
 describe('POST /uploads/sign (e2e)', () => {
   afterEach(() => {
-    delete process.env.UPLOADS_ENABLED;
     delete process.env.AUTH_ENABLED;
     delete process.env.DATABASE_ENABLED;
   });
 
   describe('while login is on (AUTH_ENABLED)', () => {
     it('answers 401 without a token', async () => {
-      const app = await createApp(true, true);
+      const app = await createApp(true);
 
       await request(app.getHttpServer())
         .post('/uploads/sign')
@@ -73,7 +71,7 @@ describe('POST /uploads/sign (e2e)', () => {
     });
 
     it('answers 401 for a token that is not valid', async () => {
-      const app = await createApp(true, true);
+      const app = await createApp(true);
 
       await request(app.getHttpServer())
         .post('/uploads/sign')
@@ -84,7 +82,7 @@ describe('POST /uploads/sign (e2e)', () => {
     });
 
     it('signs for a valid token', async () => {
-      const app = await createApp(true, true);
+      const app = await createApp(true);
       const token = app
         .get(JwtService)
         .sign({ sub: 'user-1', email: 'ana@example.com' });
@@ -96,34 +94,10 @@ describe('POST /uploads/sign (e2e)', () => {
         .expect(200);
       await app.close();
     });
-
-    it('is still 404 when the uploads flag is off, even with a valid token', async () => {
-      const app = await createApp(false, true);
-      const token = app
-        .get(JwtService)
-        .sign({ sub: 'user-1', email: 'ana@example.com' });
-
-      await request(app.getHttpServer())
-        .post('/uploads/sign')
-        .set('Authorization', `Bearer ${token}`)
-        .send(body)
-        .expect(404);
-      await app.close();
-    });
   });
 
-  it('is 404 while the feature flag is off', async () => {
-    const app = await createApp(false);
-
-    await request(app.getHttpServer())
-      .post('/uploads/sign')
-      .send(body)
-      .expect(404);
-    await app.close();
-  });
-
-  it('returns a signed upload per file when the flag is on', async () => {
-    const app = await createApp(true);
+  it('returns a signed upload per file', async () => {
+    const app = await createApp();
 
     const response = await request(app.getHttpServer())
       .post('/uploads/sign')
@@ -146,7 +120,7 @@ describe('POST /uploads/sign (e2e)', () => {
   });
 
   it('answers 400 for an invalid request', async () => {
-    const app = await createApp(true);
+    const app = await createApp();
 
     await request(app.getHttpServer())
       .post('/uploads/sign')

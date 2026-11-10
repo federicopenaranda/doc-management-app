@@ -27,17 +27,14 @@ const envSchema = z.object({
         )
         .min(1),
     ),
-  // Document worker. Feature flag: remove it two weeks after it is on in use.
-  // z.stringbool, not z.coerce.boolean: the latter turns the string "false" into true.
-  DOCUMENT_PROCESSING_ENABLED: z.stringbool().default(false),
-  // Feature flag for signed upload URLs: remove it two weeks after it is on in use.
-  UPLOADS_ENABLED: z.stringbool().default(false),
-  TIKA_URL: z.url({ protocol: /^https?$/ }).optional(),
-  PROCESSED_BUCKET: z.string().min(1).optional(),
+  // Document worker settings.
+  TIKA_URL: z.url({ protocol: /^https?$/ }),
+  PROCESSED_BUCKET: z.string().min(1),
   // Audience of the Pub/Sub push token (the backend's own URL).
-  BACKEND_URL: z.url({ protocol: /^https?$/ }).optional(),
-  PUBSUB_PUSH_SA_EMAIL: z.email().optional(),
+  BACKEND_URL: z.url({ protocol: /^https?$/ }),
+  PUBSUB_PUSH_SA_EMAIL: z.email(),
   // Feature flag for the database connection: remove it two weeks after it is on in use.
+  // z.stringbool, not z.coerce.boolean: the latter turns the string "false" into true.
   DATABASE_ENABLED: z.stringbool().default(false),
   // Cloud SQL connection name (project:region:instance). When set, the backend connects through the
   // Cloud SQL connector with IAM login; otherwise it uses DATABASE_URL.
@@ -58,14 +55,7 @@ const envSchema = z.object({
   USERS_ENABLED: z.stringbool().default(false),
 });
 
-const WORKER_SETTINGS = [
-  'TIKA_URL',
-  'PROCESSED_BUCKET',
-  'BACKEND_URL',
-  'PUBSUB_PUSH_SA_EMAIL',
-] as const;
-
-const envWithWorkerRules = envSchema.superRefine((env, ctx) => {
+const envWithRules = envSchema.superRefine((env, ctx) => {
   // Users live in the database, so login cannot work without it.
   if (env.AUTH_ENABLED && !env.DATABASE_ENABLED) {
     ctx.addIssue({
@@ -101,23 +91,13 @@ const envWithWorkerRules = envSchema.superRefine((env, ctx) => {
       }
     }
   }
-  if (!env.DOCUMENT_PROCESSING_ENABLED) return;
-  for (const name of WORKER_SETTINGS) {
-    if (env[name] === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        path: [name],
-        message: 'is required when DOCUMENT_PROCESSING_ENABLED is true',
-      });
-    }
-  }
 });
 
 export type Env = z.infer<typeof envSchema>;
 
 /** Validates the environment at startup; throws (aborting boot) if a variable is missing or invalid. */
 export function validateEnv(config: Record<string, unknown>): Env {
-  const result = envWithWorkerRules.safeParse(config);
+  const result = envWithRules.safeParse(config);
   if (!result.success) {
     // Only variable names and rules are reported, never the values (they may be secrets).
     const problems = result.error.issues

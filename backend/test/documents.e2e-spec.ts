@@ -27,13 +27,6 @@ describe('POST /pubsub/documents (e2e)', () => {
   };
 
   beforeAll(async () => {
-    Object.assign(process.env, {
-      DOCUMENT_PROCESSING_ENABLED: 'true',
-      TIKA_URL: 'https://tika.example.com',
-      PROCESSED_BUCKET: 'dms-test-processed',
-      BACKEND_URL: 'https://backend.example.com',
-      PUBSUB_PUSH_SA_EMAIL: 'pubsub-push@project.iam.gserviceaccount.com',
-    });
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(OBJECT_STORE)
       .useValue(store)
@@ -47,15 +40,6 @@ describe('POST /pubsub/documents (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
-    for (const name of [
-      'DOCUMENT_PROCESSING_ENABLED',
-      'TIKA_URL',
-      'PROCESSED_BUCKET',
-      'BACKEND_URL',
-      'PUBSUB_PUSH_SA_EMAIL',
-    ]) {
-      delete process.env[name];
-    }
   });
 
   it('answers 401 without a Pub/Sub token and does not process', async () => {

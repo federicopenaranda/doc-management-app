@@ -15,11 +15,10 @@ const validEvent = {
   contentType: 'application/pdf',
 };
 
-function setup(enabled = true) {
+function setup() {
   const service = { process: vi.fn().mockResolvedValue(undefined) };
   const config = {
-    get: (key: string) =>
-      key === 'DOCUMENT_PROCESSING_ENABLED' ? enabled : 'dms-processed',
+    get: () => 'dms-processed',
   } as unknown as ConfigService<Env, true>;
   return {
     service,
@@ -37,14 +36,6 @@ describe('DocumentsController.receive', () => {
     await controller.receive(push(validEvent));
 
     expect(service.process).toHaveBeenCalledWith(validEvent);
-  });
-
-  it('does nothing when the flag is off', async () => {
-    const { controller, service } = setup(false);
-
-    await controller.receive(push(validEvent));
-
-    expect(service.process).not.toHaveBeenCalled();
   });
 
   it.each([
