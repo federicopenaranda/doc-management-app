@@ -70,6 +70,19 @@ describe('bootstrapStatements', () => {
     );
   });
 
+  it('adds a language to users (SCRUM-19): English or Spanish, English for everyone who exists', () => {
+    const add = sql.find((s) =>
+      s.includes('ADD COLUMN IF NOT EXISTS language'),
+    );
+
+    expect(add).toBe(
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'es'))",
+    );
+    expect(sql.indexOf(add)).toBeGreaterThan(
+      sql.findIndex((s) => s.startsWith('CREATE TABLE IF NOT EXISTS users')),
+    );
+  });
+
   it('never gives the backend identity the right to delete rows (users are archived, not deleted)', () => {
     expect(sql.filter((s) => /DELETE/i.test(s))).toEqual([]);
   });
