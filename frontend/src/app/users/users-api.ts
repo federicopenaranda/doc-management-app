@@ -60,6 +60,11 @@ export class UsersApi {
     return firstValueFrom(this.http.get<ArchivedUser[]>(`${this.apiUrl}/users/archived`));
   }
 
+  /** An admin sets a new password. Rejects with the HttpErrorResponse (404: no such user). */
+  async setPassword(id: string, password: string): Promise<void> {
+    await firstValueFrom(this.http.put<void>(`${this.apiUrl}/users/${id}/password`, { password }));
+  }
+
   /** Brings an archived user back, disabled. Rejects with the HttpErrorResponse (404: not archived). */
   async restore(id: string): Promise<void> {
     await firstValueFrom(this.http.post<void>(`${this.apiUrl}/users/${id}/restore`, null));

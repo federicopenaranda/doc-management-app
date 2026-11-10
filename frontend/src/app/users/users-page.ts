@@ -8,6 +8,7 @@ import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { ArchiveUserDialog } from './archive-user-dialog';
+import { ChangePasswordDialog } from './change-password-dialog';
 import { UsersApi, type ArchivedUser, type User } from './users-api';
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -26,6 +27,10 @@ type ActionError = 'update' | 'archive' | 'restore' | null;
           <ng-container i18n>Add user</ng-container>
         </a>
       </div>
+
+      @if (notice(); as text) {
+        <p role="status">{{ text }}</p>
+      }
 
       @if (actionError(); as kind) {
         <p role="alert" class="text-red-800">
@@ -90,6 +95,14 @@ type ActionError = 'update' | 'archive' | 'restore' | null;
                   >
                     <mat-icon fontIcon="edit" />
                   </a>
+                  <button
+                    matIconButton
+                    type="button"
+                    [attr.aria-label]="'Change password for ' + label(user)"
+                    (click)="changePassword(user)"
+                  >
+                    <mat-icon fontIcon="key" />
+                  </button>
                   <button
                     matIconButton
                     type="button"
@@ -184,6 +197,8 @@ export class UsersPage {
   /** Set while a disable, enable or archive request runs: only one at a time. */
   protected readonly busy = signal(false);
   protected readonly actionError = signal<ActionError>(null);
+  /** Tells that a password was changed; cleared when the next change starts. */
+  protected readonly notice = signal('');
 
   constructor() {
     void this.load();
@@ -232,6 +247,18 @@ export class UsersPage {
       await this.api.archive(user.id);
       await this.refresh();
     });
+  }
+
+  protected async changePassword(user: User): Promise<void> {
+    this.notice.set('');
+    const changed = await firstValueFrom(
+      this.dialog
+        .open<ChangePasswordDialog, { id: string; name: string }, boolean>(ChangePasswordDialog, {
+          data: { id: user.id, name: this.label(user) },
+        })
+        .afterClosed(),
+    );
+    if (changed) this.notice.set($localize`Password changed for ${this.label(user)}`);
   }
 
   /** The user comes back disabled, so it shows in the users table until someone enables it. */
