@@ -36,6 +36,14 @@ export class UsersService {
     return this.users.listArchived();
   }
 
+  /** Sets a new password and ends the user's sessions: their refresh tokens stop working at once. */
+  async setPassword(id: string, password: string): Promise<void> {
+    if (!(await this.users.setPasswordHash(id, await hashPassword(password)))) {
+      throw new NotFoundException('User not found');
+    }
+    await this.refreshTokens.revokeAllForUser(id);
+  }
+
   /** The user comes back disabled (see UsersRepository.restore). */
   async restore(id: string): Promise<void> {
     if (!(await this.users.restore(id))) {
