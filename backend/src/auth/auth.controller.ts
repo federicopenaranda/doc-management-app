@@ -14,12 +14,8 @@ import { ApiExcludeController } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import type { Env } from '../config/env.validation.js';
-import { AuthService, type LoginResult } from './auth.service.js';
-import {
-  JwtAuthGuard,
-  type AuthenticatedRequest,
-  type AuthenticatedUser,
-} from './jwt-auth.guard.js';
+import { AuthService, type LoginResult, type Profile } from './auth.service.js';
+import { JwtAuthGuard, type AuthenticatedRequest } from './jwt-auth.guard.js';
 
 const loginSchema = z.object({
   // Trimmed first: an email pasted from a mail client often carries a space.
@@ -92,7 +88,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  me(@Req() request: AuthenticatedRequest): AuthenticatedUser {
-    return request.user;
+  me(@Req() request: AuthenticatedRequest): Promise<Profile> {
+    return this.auth.profile(request.user.id);
   }
 }

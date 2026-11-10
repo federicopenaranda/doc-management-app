@@ -49,6 +49,20 @@ async function setup(
   const findById = vi.fn((id: string) =>
     Promise.resolve(id === user.id ? user : null),
   );
+  const getSummary = vi.fn((id: string) =>
+    Promise.resolve(
+      id === user.id
+        ? {
+            id: user.id,
+            email: user.email,
+            firstName: 'Ana',
+            lastName: 'García',
+            isActive: user.isActive,
+            createdAt: new Date('2026-11-09T12:00:00Z'),
+          }
+        : null,
+    ),
+  );
   const jwt = new JwtService({ secret: SECRET });
   const refreshTokens = {
     insert: vi.fn().mockResolvedValue(undefined),
@@ -60,12 +74,20 @@ async function setup(
     get: () => refreshEnabled,
   } as unknown as ConfigService<Env, true>;
   const service = new AuthService(
-    { findByEmail, findById } as unknown as UsersRepository,
+    { findByEmail, findById, getSummary } as unknown as UsersRepository,
     jwt,
     refreshTokens as unknown as RefreshTokensRepository,
     config,
   );
-  return { service, jwt, findByEmail, findById, refreshTokens, user };
+  return {
+    service,
+    jwt,
+    findByEmail,
+    findById,
+    getSummary,
+    refreshTokens,
+    user,
+  };
 }
 
 async function messageOf(promise: Promise<unknown>): Promise<string> {
@@ -289,5 +311,30 @@ describe('AuthService.logout', () => {
     expect(refreshTokens.revoke).toHaveBeenCalledWith(
       sha256('my-refresh-token'),
     );
+  });
+});
+
+describe('AuthService.profile', () => {
+  it('returns who the user is from the database, with the names and nothing else', async () => {
+    const { service, user } = await setup();
+
+    await expect(service.profile(user.id)).resolves.toEqual({
+      id: user.id,
+      email: user.email,
+      firstName: 'Ana',
+      lastName: 'García',
+    });
+  });
+
+  it('rejects a token whose user no longer exists', async () => {
+    const { service } = await setup();
+
+    await messageOf(service.profile('deleted-user'));
+  });
+
+  it('rejects a user who was deactivated since the token was issued', async () => {
+    const { service, user } = await setup({ isActive: false });
+
+    await messageOf(service.profile(user.id));
   });
 });

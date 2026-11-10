@@ -32,6 +32,13 @@ export interface NewUser {
   passwordHash: string;
 }
 
+export type EditedUser = Omit<NewUser, 'passwordHash'>;
+
+export type UpdateResult =
+  | { status: 'ok'; user: UserSummary }
+  | { status: 'not-found' }
+  | { status: 'email-taken' };
+
 interface SummaryRow {
   id: string;
   email: string;
@@ -77,6 +84,35 @@ export class UsersRepository {
       [user.email, user.firstName, user.lastName, user.passwordHash],
     );
     return rows[0] ? toSummary(rows[0]) : null;
+  }
+
+  async getSummary(id: string): Promise<UserSummary | null> {
+    if (!this.db) throw new Error('The database feature is not enabled');
+    const { rows } = await this.db.pool.query<SummaryRow>(
+      `SELECT ${SUMMARY_COLUMNS} FROM users WHERE id = $1`,
+      [id],
+    );
+    return rows[0] ? toSummary(rows[0]) : null;
+  }
+
+  /** Only the email and the names: the password and the active flag have their own changes. */
+  async update(id: string, user: EditedUser): Promise<UpdateResult> {
+    if (!this.db) throw new Error('The database feature is not enabled');
+    try {
+      const { rows } = await this.db.pool.query<SummaryRow>(
+        `UPDATE users SET email = $2, first_name = $3, last_name = $4 WHERE id = $1 RETURNING ${SUMMARY_COLUMNS}`,
+        [id, user.email, user.firstName, user.lastName],
+      );
+      return rows[0]
+        ? { status: 'ok', user: toSummary(rows[0]) }
+        : { status: 'not-found' };
+    } catch (error) {
+      // 23505: the unique index on lower(email) refused it, so another user has that email.
+      if ((error as { code?: string }).code === '23505') {
+        return { status: 'email-taken' };
+      }
+      throw error;
+    }
   }
 
   async findByEmail(email: string): Promise<UserRecord | null> {
