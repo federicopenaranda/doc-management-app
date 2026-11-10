@@ -69,3 +69,39 @@ describe('UsersApi', () => {
     await expect(result).rejects.toMatchObject({ status: 409 });
   });
 });
+
+describe('UsersApi edit', () => {
+  const edit = { firstName: 'Ana María', lastName: 'García', email: 'ana@example.com' };
+
+  it('get() GETs /users/:id and returns the user', async () => {
+    const { api, http } = setup();
+
+    const result = api.get('u1');
+
+    const req = http.expectOne(`${API}/users/u1`);
+    expect(req.request.method).toBe('GET');
+    req.flush(ana);
+    await expect(result).resolves.toEqual(ana);
+  });
+
+  it('update() PUTs exactly the three editable fields to /users/:id and returns the user', async () => {
+    const { api, http } = setup();
+
+    const result = api.update('u1', edit);
+
+    const req = http.expectOne(`${API}/users/u1`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual(edit);
+    req.flush({ ...ana, ...edit });
+    await expect(result).resolves.toMatchObject(edit);
+  });
+
+  it('update() rejects with the HTTP error, so the form can tell a duplicate email (409)', async () => {
+    const { api, http } = setup();
+
+    const result = api.update('u1', edit);
+    http.expectOne(`${API}/users/u1`).flush({}, { status: 409, statusText: 'Conflict' });
+
+    await expect(result).rejects.toMatchObject({ status: 409 });
+  });
+});

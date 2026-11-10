@@ -62,10 +62,17 @@ type LoadState = 'loading' | 'ready' | 'error';
                 </td>
               </ng-container>
 
-              <!-- shortcut: the two buttons are placeholders until deleting and disabling users are built. -->
+              <!-- shortcut: Delete and Disable/Enable are placeholders until deleting and disabling users are built. -->
               <ng-container matColumnDef="actions">
                 <th mat-header-cell *matHeaderCellDef i18n>Actions</th>
                 <td mat-cell *matCellDef="let user">
+                  <a
+                    matIconButton
+                    [routerLink]="['/users', user.id, 'edit']"
+                    [attr.aria-label]="'Edit ' + label(user)"
+                  >
+                    <mat-icon fontIcon="edit" />
+                  </a>
                   <button matIconButton type="button" [attr.aria-label]="'Delete ' + label(user)">
                     <mat-icon fontIcon="delete" />
                   </button>

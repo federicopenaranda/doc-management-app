@@ -40,6 +40,10 @@ export const routes: Routes = [
             path: 'new',
             loadComponent: () => import('./users/user-form-page').then((m) => m.UserFormPage),
           },
+          {
+            path: ':id/edit',
+            loadComponent: () => import('./users/user-form-page').then((m) => m.UserFormPage),
+          },
         ],
       },
     ],

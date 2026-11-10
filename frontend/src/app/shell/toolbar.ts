@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject, input, output, viewChild } from '@angular/core';
+import { Component, computed, ElementRef, inject, input, output, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { AppConfigService } from '../app-config.service';
 import { AuthService } from '../auth/auth.service';
@@ -29,6 +29,13 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 
       <mat-icon aria-hidden="true" fontIcon="description" />
       <span class="hidden font-medium sm:inline" i18n>DMS</span>
+      @if (authEnabled && displayName(); as name) {
+        <span
+          data-testid="current-user"
+          class="hidden max-w-48 truncate text-(--mat-sys-on-surface-variant) sm:inline"
+          >{{ name }}</span
+        >
+      }
 
       <div class="flex-1"></div>
 
@@ -112,7 +119,17 @@ export class Toolbar {
   protected readonly theme = inject(ThemeService);
   protected readonly authEnabled = inject(AppConfigService).authEnabled;
   private readonly auth = inject(AuthService);
+
+  /** The first and last name, or the email for a user created before names existed. */
+  protected readonly displayName = computed(() => {
+    const user = this.auth.currentUser();
+    return user ? `${user.firstName} ${user.lastName}`.trim() || user.email : '';
+  });
   private readonly router = inject(Router);
+
+  constructor() {
+    if (this.authEnabled) void this.auth.loadCurrentUser();
+  }
 
   readonly menuOpen = input(false);
   readonly menuToggle = output<void>();
