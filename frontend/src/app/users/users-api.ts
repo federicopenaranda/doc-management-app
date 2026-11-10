@@ -20,6 +20,9 @@ export interface NewUser {
   password: string;
 }
 
+/** What the edit form changes: the password has no place here. */
+export type EditedUser = Omit<NewUser, 'password'>;
+
 @Service()
 export class UsersApi {
   private readonly http = inject(HttpClient);
@@ -27,6 +30,15 @@ export class UsersApi {
 
   list(): Promise<User[]> {
     return firstValueFrom(this.http.get<User[]>(`${this.apiUrl}/users`));
+  }
+
+  get(id: string): Promise<User> {
+    return firstValueFrom(this.http.get<User>(`${this.apiUrl}/users/${id}`));
+  }
+
+  /** Rejects with the HttpErrorResponse: a 409 means the email belongs to another user. */
+  update(id: string, user: EditedUser): Promise<User> {
+    return firstValueFrom(this.http.put<User>(`${this.apiUrl}/users/${id}`, user));
   }
 
   /** Rejects with the HttpErrorResponse: a 409 means the email is taken. */

@@ -69,6 +69,20 @@ describe('routes', () => {
     expect(harness.routeNativeElement?.querySelector('main form')).not.toBeNull();
   });
 
+  it('lazy loads the edit user form when the users flag is on', async () => {
+    const harness = await setup(false, false, true);
+
+    await harness.navigateByUrl('/users/u1/edit');
+
+    expect(harness.routeNativeElement?.querySelector('main section')).not.toBeNull();
+  });
+
+  it('has no edit user form while the users flag is off', async () => {
+    const harness = await setup(false, false, false);
+
+    await expect(harness.navigateByUrl('/users/u1/edit')).rejects.toThrow();
+  });
+
   it('has no users list while the users flag is off', async () => {
     const harness = await setup(false, false, false);
 

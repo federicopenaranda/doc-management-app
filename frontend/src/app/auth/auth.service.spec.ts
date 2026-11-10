@@ -260,3 +260,60 @@ describe('AuthService', () => {
     expect(auth.isAuthenticated()).toBe(false);
   });
 });
+
+describe('AuthService current user', () => {
+  const API = 'http://localhost:3000';
+  const me = { id: 'u1', email: 'ana@example.com', firstName: 'Ana', lastName: 'García' };
+  beforeEach(() => sessionStorage.clear());
+
+  it('has no current user until it is loaded', () => {
+    sessionStorage.setItem('dms.accessToken', 'access-1');
+
+    expect(setup().auth.currentUser()).toBeNull();
+  });
+
+  it('loadCurrentUser() GETs /auth/me and keeps who the user is', async () => {
+    sessionStorage.setItem('dms.accessToken', 'access-1');
+    const { auth, http } = setup();
+
+    const loading = auth.loadCurrentUser();
+
+    const req = http.expectOne(`${API}/auth/me`);
+    expect(req.request.method).toBe('GET');
+    req.flush(me);
+    await loading;
+    expect(auth.currentUser()).toEqual(me);
+  });
+
+  it('loadCurrentUser() asks nothing while logged out', async () => {
+    const { auth, http } = setup();
+
+    await auth.loadCurrentUser();
+
+    http.expectNone(`${API}/auth/me`);
+    expect(auth.currentUser()).toBeNull();
+  });
+
+  it('loadCurrentUser() leaves the current user empty when the server fails, without throwing', async () => {
+    sessionStorage.setItem('dms.accessToken', 'access-1');
+    const { auth, http } = setup();
+
+    const loading = auth.loadCurrentUser();
+    http.expectOne(`${API}/auth/me`).flush('boom', { status: 500, statusText: 'Server Error' });
+
+    await expect(loading).resolves.toBeUndefined();
+    expect(auth.currentUser()).toBeNull();
+  });
+
+  it('logout() forgets the current user', async () => {
+    sessionStorage.setItem('dms.accessToken', 'access-1');
+    const { auth, http } = setup();
+    const loading = auth.loadCurrentUser();
+    http.expectOne(`${API}/auth/me`).flush(me);
+    await loading;
+
+    auth.logout();
+
+    expect(auth.currentUser()).toBeNull();
+  });
+});

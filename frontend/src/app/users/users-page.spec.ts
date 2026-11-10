@@ -137,3 +137,28 @@ describe('UsersPage', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 });
+
+describe('UsersPage edit links', () => {
+  it('has an Edit link per user, named after the user, going to the edit form', async () => {
+    await setup(async () => [ana, admin]);
+
+    await screen.findByRole('table');
+
+    expect(screen.getByRole('link', { name: 'Edit Ana García' }).getAttribute('href')).toBe(
+      '/users/u1/edit',
+    );
+    expect(screen.getByRole('link', { name: 'Edit admin@example.com' }).getAttribute('href')).toBe(
+      '/users/u3/edit',
+    );
+  });
+
+  it('puts the Edit link before the Delete and Disable buttons', async () => {
+    await setup(async () => [ana]);
+    await screen.findByRole('table');
+
+    const edit = screen.getByRole('link', { name: 'Edit Ana García' });
+    const del = screen.getByRole('button', { name: 'Delete Ana García' });
+
+    expect(edit.compareDocumentPosition(del) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});

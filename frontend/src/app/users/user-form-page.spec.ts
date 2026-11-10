@@ -1,7 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/angular';
+import { AuthService } from '../auth/auth.service';
 import { UserFormPage } from './user-form-page';
 import { UsersApi, type NewUser, type User } from './users-api';
 
@@ -19,7 +20,11 @@ const GOOD = 'a long enough password';
 async function setup(create: (user: NewUser) => Promise<User> = async () => created) {
   const api = { create: vi.fn(create) };
   await render(UserFormPage, {
-    providers: [provideRouter([]), { provide: UsersApi, useValue: api }],
+    providers: [
+      provideRouter([]),
+      { provide: UsersApi, useValue: api },
+      { provide: AuthService, useValue: { loadCurrentUser: vi.fn() } },
+    ],
   });
   const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
   const type = (label: RegExp, value: string) =>
@@ -177,6 +182,130 @@ describe('UserFormPage', () => {
 
   it('has a Cancel link back to the list', async () => {
     await setup();
+
+    expect(screen.getByRole('link', { name: /cancel/i }).getAttribute('href')).toBe('/users');
+  });
+});
+
+describe('UserFormPage editing', () => {
+  const loadCurrentUser = vi.fn();
+
+  async function setupEdit(
+    get: () => Promise<User> = async () => created,
+    update: (id: string, edit: Omit<NewUser, 'password'>) => Promise<User> = async () => created,
+  ) {
+    loadCurrentUser.mockClear();
+    const api = { get: vi.fn(get), update: vi.fn(update), create: vi.fn() };
+    await render(UserFormPage, {
+      providers: [
+        provideRouter([]),
+        { provide: UsersApi, useValue: api },
+        { provide: AuthService, useValue: { loadCurrentUser } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ id: 'u1' }) } },
+        },
+      ],
+    });
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    const type = (label: RegExp, value: string) =>
+      fireEvent.input(screen.getByLabelText(label), { target: { value } });
+    const save = () => screen.getByRole('button', { name: /save changes/i }) as HTMLButtonElement;
+    return { api, navigate, type, save };
+  }
+
+  it('loads the user and fills the form, under an "Edit user" heading', async () => {
+    const { api } = await setupEdit();
+
+    expect(await screen.findByRole('heading', { name: /edit user/i })).toBeTruthy();
+    await waitFor(() =>
+      expect((screen.getByLabelText(/^first name/i) as HTMLInputElement).value).toBe('Ana'),
+    );
+    expect((screen.getByLabelText(/^last name/i) as HTMLInputElement).value).toBe('García');
+    expect((screen.getByLabelText(/^email/i) as HTMLInputElement).value).toBe('ana@example.com');
+    expect(api.get).toHaveBeenCalledWith('u1');
+  });
+
+  it('has no password fields: the password is not edited here', async () => {
+    await setupEdit();
+    await screen.findByLabelText(/^first name/i);
+
+    expect(screen.queryByLabelText(/password/i)).toBeNull();
+  });
+
+  it('says it is loading until the user arrives', async () => {
+    await setupEdit(() => new Promise<User>(() => undefined));
+
+    expect(screen.getByRole('status').textContent).toContain('Loading user');
+    expect(screen.queryByLabelText(/^first name/i)).toBeNull();
+  });
+
+  it('says it could not load the user, and retries on request', async () => {
+    let calls = 0;
+    const { api } = await setupEdit(async () => {
+      calls++;
+      if (calls === 1) throw new Error('boom');
+      return created;
+    });
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Could not load the user');
+    await fireEvent.click(screen.getByRole('button', { name: /try again/i }));
+
+    expect(await screen.findByLabelText(/^first name/i)).toBeTruthy();
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  it('says the user was not found on a 404', async () => {
+    await setupEdit(() => Promise.reject(new HttpErrorResponse({ status: 404 })));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('User not found');
+  });
+
+  it('saves the three fields, trimmed, refreshes the current user and goes back to the list', async () => {
+    const { api, navigate, type, save } = await setupEdit();
+    await waitFor(() => expect(save().disabled).toBe(false));
+
+    type(/^first name/i, '  Ana María ');
+    type(/^email/i, ' ana.garcia@example.com ');
+    await fireEvent.click(save());
+
+    await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/users'));
+    expect(api.update).toHaveBeenCalledWith('u1', {
+      firstName: 'Ana María',
+      lastName: 'García',
+      email: 'ana.garcia@example.com',
+    });
+    expect(loadCurrentUser).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Save disabled while a field is not valid', async () => {
+    const { type, save } = await setupEdit();
+    await waitFor(() => expect(save().disabled).toBe(false));
+
+    type(/^last name/i, '   ');
+
+    expect(save().disabled).toBe(true);
+  });
+
+  it('says a user with that email already exists on a 409, and does not leave', async () => {
+    const { navigate, save } = await setupEdit(
+      async () => created,
+      () => Promise.reject(new HttpErrorResponse({ status: 409 })),
+    );
+    await waitFor(() => expect(save().disabled).toBe(false));
+
+    await fireEvent.click(save());
+
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'A user with this email already exists',
+    );
+    expect(navigate).not.toHaveBeenCalled();
+    expect(loadCurrentUser).not.toHaveBeenCalled();
+  });
+
+  it('has a Cancel link back to the list', async () => {
+    await setupEdit();
+    await screen.findByLabelText(/^first name/i);
 
     expect(screen.getByRole('link', { name: /cancel/i }).getAttribute('href')).toBe('/users');
   });

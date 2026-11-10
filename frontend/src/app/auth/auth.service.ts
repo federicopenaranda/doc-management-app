@@ -7,6 +7,14 @@ import { AppConfigService } from '../app-config.service';
 const ACCESS_KEY = 'dms.accessToken';
 const REFRESH_KEY = 'dms.refreshToken';
 
+/** Who is logged in, as the toolbar shows it. */
+export interface CurrentUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+}
+
 const isText = (value: unknown): value is string => typeof value === 'string' && value !== '';
 
 /**
@@ -22,6 +30,19 @@ export class AuthService {
 
   readonly token = signal<string | null>(sessionStorage.getItem(ACCESS_KEY));
   readonly isAuthenticated = computed(() => this.token() !== null);
+  readonly currentUser = signal<CurrentUser | null>(null);
+
+  /** Asks the API who is logged in. Quiet on failure: the toolbar then just shows no name. */
+  async loadCurrentUser(): Promise<void> {
+    if (!this.isAuthenticated()) return;
+    try {
+      this.currentUser.set(
+        await firstValueFrom(this.http.get<CurrentUser>(`${this.apiUrl}/auth/me`)),
+      );
+    } catch {
+      // The interceptor already ends the session on a 401; any other failure only costs the name.
+    }
+  }
 
   /** True when a 401 can be answered with a refresh instead of ending the session. */
   canRefresh(): boolean {
@@ -100,5 +121,6 @@ export class AuthService {
     sessionStorage.removeItem(ACCESS_KEY);
     sessionStorage.removeItem(REFRESH_KEY);
     this.token.set(null);
+    this.currentUser.set(null);
   }
 }

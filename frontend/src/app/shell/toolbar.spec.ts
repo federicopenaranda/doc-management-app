@@ -1,18 +1,22 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { fireEvent, render, screen } from '@testing-library/angular';
 import { AppConfigService } from '../app-config.service';
-import { AuthService } from '../auth/auth.service';
+import { AuthService, type CurrentUser } from '../auth/auth.service';
 import { Toolbar } from './toolbar';
 
 const logout = vi.fn();
+const loadCurrentUser = vi.fn();
 
 function renderToolbar({
   authEnabled = false,
+  user = null,
   inputs,
   on,
 }: {
   authEnabled?: boolean;
+  user?: CurrentUser | null;
   inputs?: { menuOpen: boolean };
   on?: { menuToggle: () => void };
 } = {}) {
@@ -22,7 +26,7 @@ function renderToolbar({
     providers: [
       provideRouter([]),
       { provide: AppConfigService, useValue: { authEnabled } },
-      { provide: AuthService, useValue: { logout } },
+      { provide: AuthService, useValue: { logout, loadCurrentUser, currentUser: signal(user) } },
     ],
   });
 }
@@ -190,5 +194,50 @@ describe('Toolbar', () => {
       await screen.findAllByRole('menuitem');
       expect(screen.queryByRole('menuitem', { name: /log out/i })).toBeNull();
     });
+  });
+});
+
+describe('Toolbar current user', () => {
+  const ana: CurrentUser = {
+    id: 'u1',
+    email: 'ana@example.com',
+    firstName: 'Ana',
+    lastName: 'García',
+  };
+
+  beforeEach(() => loadCurrentUser.mockClear());
+
+  it('shows the first and last name right after "DMS", in the muted gray of the theme', async () => {
+    await renderToolbar({ authEnabled: true, user: ana });
+
+    const name = screen.getByTestId('current-user');
+    expect(name.textContent?.trim()).toBe('Ana García');
+    expect(follows(screen.getByText('DMS'), name)).toBe(true);
+    expect(name.className).toContain('text-(--mat-sys-on-surface-variant)');
+  });
+
+  it('shows the email for a user who has no name yet', async () => {
+    await renderToolbar({ authEnabled: true, user: { ...ana, firstName: '', lastName: '' } });
+
+    expect(screen.getByTestId('current-user').textContent?.trim()).toBe('ana@example.com');
+  });
+
+  it('shows nothing while the user is not known', async () => {
+    await renderToolbar({ authEnabled: true, user: null });
+
+    expect(screen.queryByTestId('current-user')).toBeNull();
+  });
+
+  it('asks for the current user when login is on', async () => {
+    await renderToolbar({ authEnabled: true });
+
+    expect(loadCurrentUser).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks for nothing and shows no name while login is off', async () => {
+    await renderToolbar({ authEnabled: false, user: ana });
+
+    expect(loadCurrentUser).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('current-user')).toBeNull();
   });
 });
