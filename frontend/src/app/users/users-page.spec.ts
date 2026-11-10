@@ -41,6 +41,7 @@ interface Options {
   /** What GET /users/archived answers; later calls see the state after archive and restore. */
   archived?: ArchivedUser[];
   restore?: (id: string) => Promise<void>;
+  setPassword?: (id: string, password: string) => Promise<void>;
   listArchived?: () => Promise<ArchivedUser[]>;
   setActive?: (id: string, isActive: boolean) => Promise<User>;
   archive?: (id: string) => Promise<void>;
@@ -56,6 +57,7 @@ async function setup(list: () => Promise<User[]>, options: Options = {}) {
   const api = {
     list: vi.fn(async () => (listed = (await list()).filter((u) => !gone.has(u.id)))),
     listArchived: vi.fn(options.listArchived ?? (async () => archived)),
+    setPassword: vi.fn(options.setPassword ?? (async () => undefined)),
     restore: vi.fn(
       options.restore ??
         (async (id: string) => {
@@ -451,5 +453,56 @@ describe('UsersPage archived users', () => {
     await setup(async () => [ana], { listArchived: () => Promise.reject(new Error('boom')) });
 
     expect((await screen.findByRole('alert')).textContent).toContain('Could not load the users');
+  });
+});
+
+describe('UsersPage change password', () => {
+  const NEW = 'a brand new password';
+
+  async function changePassword(name: string, password = NEW) {
+    await fireEvent.click(button(`Change password for ${name}`));
+    const dialog = await screen.findByRole('dialog');
+    await fireEvent.input(within(dialog).getByLabelText(/^new password/i), {
+      target: { value: password },
+    });
+    await fireEvent.input(within(dialog).getByLabelText(/^confirm password/i), {
+      target: { value: password },
+    });
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Change password' }));
+  }
+
+  it('has a button per user, active or disabled, named after the user, and none for archived users', async () => {
+    await setup(async () => [ana, luis], { archived: [archivedBea] });
+    await screen.findByRole('table', { name: /archived users/i });
+
+    expect(button('Change password for Ana García')).toBeTruthy();
+    expect(button('Change password for Luis Pérez')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /change password for bea/i })).toBeNull();
+  });
+
+  it('opens a dialog for that user, saves, and says the password was changed', async () => {
+    const { api } = await setup(async () => [ana]);
+    await screen.findByRole('table');
+
+    await changePassword('Ana García');
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(api.setPassword).toHaveBeenCalledWith('u1', NEW);
+    expect((await screen.findByRole('status')).textContent).toContain(
+      'Password changed for Ana García',
+    );
+  });
+
+  it('shows nothing when the dialog is cancelled', async () => {
+    const { api } = await setup(async () => [ana]);
+    await screen.findByRole('table');
+    await fireEvent.click(button('Change password for Ana García'));
+    const dialog = await screen.findByRole('dialog');
+
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(api.setPassword).not.toHaveBeenCalled();
+    expect(screen.queryByText(/password changed/i)).toBeNull();
   });
 });

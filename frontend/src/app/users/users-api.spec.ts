@@ -172,3 +172,26 @@ describe('UsersApi archived users', () => {
     await expect(result).rejects.toMatchObject({ status: 404 });
   });
 });
+
+describe('UsersApi setPassword', () => {
+  it('PUTs { password } to /users/:id/password and resolves with nothing', async () => {
+    const { api, http } = setup();
+
+    const result = api.setPassword('u1', 'a brand new password');
+
+    const req = http.expectOne(`${API}/users/u1/password`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ password: 'a brand new password' });
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    await expect(result).resolves.toBeUndefined();
+  });
+
+  it('rejects with the HTTP error', async () => {
+    const { api, http } = setup();
+
+    const result = api.setPassword('u1', 'a brand new password');
+    http.expectOne(`${API}/users/u1/password`).flush({}, { status: 404, statusText: 'Not Found' });
+
+    await expect(result).rejects.toMatchObject({ status: 404 });
+  });
+});
