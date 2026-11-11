@@ -38,7 +38,7 @@ async function start({ env = {}, secret } = {}) {
   const url = `http://127.0.0.1:${port}`;
   for (let attempt = 0; attempt < 40; attempt++) {
     try {
-      await fetch(url);
+      await fetch(url, { redirect: 'manual' });
       return url;
     } catch {
       await new Promise((resolve) => setTimeout(resolve, 250));
@@ -97,12 +97,8 @@ describe('frontend image', () => {
     ]) {
       const response = await fetch(`${url}${from}`, { redirect: 'manual' });
       assert.equal(response.status, 302, from);
-      assert.equal(
-        new URL(response.headers.get('location'), url).pathname +
-          new URL(response.headers.get('location'), url).search,
-        to,
-        from,
-      );
+      // Relative on purpose (absolute_redirect off): behind Cloud Run nginx does not know the public host or port.
+      assert.equal(response.headers.get('location'), to, from);
     }
   });
 
