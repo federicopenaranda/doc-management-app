@@ -49,7 +49,7 @@ Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live. *
 ## How we work (conventions)
 
 - TDD: write the failing test, watch it fail for the right reason, then implement.
-- One PR per change; **check the PR's own CI before asking to merge** (CI also runs `prettier --check .`, and the pre-commit hook only formats `*.ts`: run `npx prettier --write` on new `.mjs`/`.json`). **Merging runs a real deploy, so only merge when the owner says "merge" for that PR.**
+- One commit per task on a working branch; **the owner decides when the PR is opened (after several tasks) and when it is merged**, because every merge deploys. **Check the PR's own CI before asking to merge** (CI also runs `prettier --check .`, and the pre-commit hook only formats `*.ts`: run `npx prettier --write` on new `.mjs`/`.json`). **Merging runs a real deploy, so only merge when the owner says "merge" for that PR.**
 - Anything the backend needs in the database comes first: merge the schema PR, run `db:bootstrap` from `main` (no checkout step, check the `GRANT` lines first), then merge the code that uses it. A flag that is already on in a secret turns a missing table into a 500 on login.
 - Conventional Commits ending with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`. New commits use the GitHub noreply author address; never put the owner's real email in files, PR comments or CI output (the repo is public).
 - Husky hooks must pass (never `--no-verify`).
