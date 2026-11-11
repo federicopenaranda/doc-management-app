@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { API_URL } from './api-url';
 import { AppConfigService } from './app-config.service';
@@ -42,16 +42,14 @@ describe('routes', () => {
     expect(harness.routeNativeElement?.querySelector('[data-testid="drop-zone"]')).not.toBeNull();
   });
 
-  it('lazy loads the home page at the root', async () => {
+  it('lazy loads the home page at the root, the page after login', async () => {
     const harness = await setup();
 
     await harness.navigateByUrl('/');
 
-    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain(
-      'Hello, doc-management',
-    );
+    expect(TestBed.inject(Router).url).toBe('/');
+    expect(harness.routeNativeElement?.querySelector('main h1')?.textContent).toContain('Home');
   });
-
   it('renders pages inside the shell main landmark', async () => {
     const harness = await setup();
 

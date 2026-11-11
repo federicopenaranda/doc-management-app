@@ -19,16 +19,18 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  it('has no endpoint at / any more (the Hello test endpoint is gone)', () => {
     return request(app.getHttpServer())
       .get('/')
-      .expect(200)
-      .expect('Hello World!');
+      .expect(404)
+      .expect((res) => {
+        expect(res.body).toMatchObject({ statusCode: 404, path: '/' });
+      });
   });
 
   it('echoes a client x-correlation-id on successful responses', () => {
     return request(app.getHttpServer())
-      .get('/')
+      .get('/health')
       .set('x-correlation-id', 'client-id-1')
       .expect(200)
       .expect('x-correlation-id', 'client-id-1');
@@ -127,12 +129,13 @@ describe('AppController (e2e)', () => {
 
   describe('rate limiting', () => {
     it('allows 100 requests per minute per IP, then answers 429', async () => {
+      // /health is exempt from throttling on purpose; an answer of 401 still counts toward the limit.
       for (let i = 0; i < 100; i++) {
-        await request(app.getHttpServer()).get('/').expect(200);
+        await request(app.getHttpServer()).get('/auth/me').expect(401);
       }
 
       await request(app.getHttpServer())
-        .get('/')
+        .get('/auth/me')
         .expect(429)
         .expect((res) => {
           expect(res.body.errorCode).toBe('ERR_RATE_LIMITED');

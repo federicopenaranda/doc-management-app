@@ -96,10 +96,9 @@ after(() => {
 });
 
 describe('backend image', () => {
-  it('boots from the mounted secret alone and answers / and /health', async () => {
+  it('boots from the mounted secret alone and answers /health', async () => {
     const { url } = await start();
 
-    assert.equal(await (await fetch(`${url}/`)).text(), 'Hello World!');
     assert.equal((await (await fetch(`${url}/health`)).json()).status, 'ok');
   });
 

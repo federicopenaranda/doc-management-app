@@ -38,13 +38,31 @@ describe('LoginPage', () => {
     expect((screen.getByLabelText(/^password/i) as HTMLInputElement).type).toBe('text');
   });
 
-  it('signs in with the typed credentials and goes to the hello page', async () => {
+  it('signs in with the typed credentials and goes to the start page', async () => {
     const { spy, navigate, submit } = await setup(async () => true);
 
     submit();
 
     await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
     expect(spy).toHaveBeenCalledWith('me@example.com', 'a-long-password');
+  });
+
+  it('shows a spinner and "Signing in…" while the sign-in runs, then goes back to normal', async () => {
+    let finish!: (ok: boolean) => void;
+    const { submit } = await setup(() => new Promise<boolean>((resolve) => (finish = resolve)));
+
+    submit();
+
+    const busy = await screen.findByRole('button', { name: 'Signing in…' });
+    expect((busy as HTMLButtonElement).disabled).toBe(true);
+    expect(busy.getAttribute('aria-busy')).toBe('true');
+    expect(busy.querySelector('mat-progress-spinner')).not.toBeNull();
+
+    finish(false);
+
+    const idle = await screen.findByRole('button', { name: 'Sign in' });
+    expect((idle as HTMLButtonElement).disabled).toBe(false);
+    expect(idle.querySelector('mat-progress-spinner')).toBeNull();
   });
 
   it('says "Invalid email or password" without naming which one, and stays', async () => {

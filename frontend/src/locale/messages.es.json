@@ -6,10 +6,7 @@
     "1431416938026210429": "Contraseña",
     "4469513261081670706": "Correo electrónico o contraseña no válidos",
     "9081911249679339538": "No se pudo iniciar sesión, inténtalo de nuevo más tarde",
-    "3724591343089785757": "Hola, {$INTERPOLATION}",
-    "4593509628972058237": " Saluda a la API ",
     "3402055842664792382": "Subir documentos",
-    "home.api-unreachable": "No se pudo conectar con la API",
     "5554528553553249088": "Mostrar contraseña",
     "1446670643492611810": "Ocultar contraseña",
     "8951128623878467862": "Preferencias",
@@ -100,6 +97,7 @@
     "users.restore-aria": "Restaurar {$name}",
     "2149355141076567232": "¿Cambiar el idioma?",
     "4014619601742961900": " La página se recarga y las subidas que sigan en curso se cancelan. ",
-    "1210069423269934042": "Cambiar idioma"
+    "1210069423269934042": "Cambiar idioma",
+    "1041104936823929398": "Iniciando sesión…"
   }
 }

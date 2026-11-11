@@ -14,7 +14,7 @@ export const routes: Routes = [
       {
         path: '',
         pathMatch: 'full',
-        loadComponent: () => import('./hello/home-page').then((m) => m.HomePage),
+        loadComponent: () => import('./home/home-page').then((m) => m.HomePage),
       },
       {
         path: 'upload',

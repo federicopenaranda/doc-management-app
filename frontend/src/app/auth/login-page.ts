@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatFormField, MatLabel, MatSuffix } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatProgressSpinner } from '@angular/material/progress-spinner';
 import { Router } from '@angular/router';
 import { PasswordToggle } from '../shared/password-toggle';
 import { AuthService } from './auth.service';
@@ -10,7 +11,15 @@ type LoginError = 'invalid' | 'unavailable' | null;
 
 @Component({
   selector: 'dms-login-page',
-  imports: [MatButton, MatFormField, MatLabel, MatInput, MatSuffix, PasswordToggle],
+  imports: [
+    MatButton,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatProgressSpinner,
+    MatSuffix,
+    PasswordToggle,
+  ],
   template: `
     <main class="mx-auto flex max-w-sm flex-col gap-6 p-8">
       <h1 class="text-2xl font-medium" i18n>Sign in</h1>
@@ -55,7 +64,16 @@ type LoginError = 'invalid' | 'unavailable' | null;
           </p>
         }
 
-        <button matButton="filled" type="submit" [disabled]="busy()" i18n>Sign in</button>
+        <button matButton="filled" type="submit" [disabled]="busy()" [attr.aria-busy]="busy()">
+          @if (busy()) {
+            <span class="inline-flex items-center gap-2">
+              <mat-progress-spinner mode="indeterminate" diameter="16" aria-hidden="true" />
+              <ng-container i18n>Signing in…</ng-container>
+            </span>
+          } @else {
+            <ng-container i18n>Sign in</ng-container>
+          }
+        </button>
       </form>
     </main>
   `,
