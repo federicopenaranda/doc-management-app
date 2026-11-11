@@ -1,4 +1,4 @@
-import { inject, Service, signal } from '@angular/core';
+import { computed, inject, Service, signal } from '@angular/core';
 import { PUT_FILE, UploadApi } from './upload-api';
 
 export const MAX_FILE_BYTES = 100 * 1024 * 1024;
@@ -24,6 +24,11 @@ export class UploadStore {
   private nextId = 1;
 
   readonly items = signal<UploadItem[]>([]);
+
+  /** How many files are still waiting or uploading (what a page reload would cancel). */
+  readonly activeCount = computed(
+    () => this.items().filter((i) => i.status === 'queued' || i.status === 'uploading').length,
+  );
 
   /** Resolves when every accepted file has finished (done, exists or failed). */
   async add(files: File[]): Promise<void> {

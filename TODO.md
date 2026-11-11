@@ -28,12 +28,10 @@ Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live. *
 
 ## Smaller items
 
-- Line-ending noise: ~20 files show as modified on Windows (CRLF) and the backend dev server rewrites `backend/src/metadata.ts` and `docs/swagger.json`; both block branch switches. Consider a `.gitattributes` (`* text=auto eol=lf`) and not tracking the generated files.
-- Backend e2e tests time out at the default 5 s on a cold start when all files run in parallel; run with `--testTimeout=30000` or set it in `vitest.config.e2e.ts`.
 - `knip` warnings that were already there: unused type `UploadStatus`, unlisted `@angular-eslint/builder`.
 - Known shortcuts (`shortcut:` comments in code): users list has no paging; expired `refresh_tokens` rows are never cleaned; the JSON-schema forms rule of `CLAUDE.md` is not applied (forms use Reactive Forms).
-- **i18n follow-ups (SCRUM-32 review):** `start:es` should build with development options (`buildTarget: doc-management:build:development,es`); the image test should pin the relative `Location` of the redirect (`absolute_redirect off`); the CI smoke test should check `/es/config.json` and a 302 on `/`; `dms.language` is saved but never read (reading it would remove the brief `/es/` flash for English users); `/ES/users` (capital letters) shows a blank page; the language names in Preferences need a `lang` attribute; warn before a language switch if uploads are running; owner to review the Spanish wording ("Contraseña cambiada para", "Confirma la contraseña", "Archivos"); no browser test of the real two-copy flow.
-- Frontend security headers in `frontend/docker/nginx.conf` (CSP, frame options, referrer policy); Playwright e2e tests in CI.
+- **i18n follow-ups (SCRUM-32 review):** `/ES/users` (capital letters) shows a blank page; the language names in Preferences need a `lang` attribute; owner to review the Spanish wording ("Contraseña cambiada para", "Confirma la contraseña", "Archivos"); no browser test of the real two-copy flow.
+- Playwright e2e tests in CI (the frontend security headers are done: `frontend/docker/nginx.conf` plus `docker/40-app-config.sh`, with a CSP that allows only the page itself, its API origin and Google Cloud Storage; a new external host the app talks to must be added to `connect-src` there).
 - Blueprint (`blueprint/`) is out of date: pull scripts, config loader, Docker images, deploy workflows, dead-letter setup, auth.
 - **Duplicate file names (owner's rule):** uploading a file whose name already exists must notify the user and be prevented (GCS `ifGenerationMatch=0` is already used by the signed upload; the UI shows "already exists").
 - AI summary (`summary.md`) and Postgres writes for documents; the format will change for RiC / ISO 15489 / 30301.
@@ -49,7 +47,7 @@ Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live. *
 ## How we work (conventions)
 
 - TDD: write the failing test, watch it fail for the right reason, then implement.
-- One PR per change; **check the PR's own CI before asking to merge** (CI also runs `prettier --check .`, and the pre-commit hook only formats `*.ts`: run `npx prettier --write` on new `.mjs`/`.json`). **Merging runs a real deploy, so only merge when the owner says "merge" for that PR.**
+- One commit per task on a working branch; **the owner decides when the PR is opened (after several tasks) and when it is merged**, because every merge deploys. **Check the PR's own CI before asking to merge** (CI also runs `prettier --check .`, and the pre-commit hook only formats `*.ts`: run `npx prettier --write` on new `.mjs`/`.json`). **Merging runs a real deploy, so only merge when the owner says "merge" for that PR.**
 - Anything the backend needs in the database comes first: merge the schema PR, run `db:bootstrap` from `main` (no checkout step, check the `GRANT` lines first), then merge the code that uses it. A flag that is already on in a secret turns a missing table into a 500 on login.
 - Conventional Commits ending with `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`. New commits use the GitHub noreply author address; never put the owner's real email in files, PR comments or CI output (the repo is public).
 - Husky hooks must pass (never `--no-verify`).

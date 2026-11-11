@@ -33,7 +33,8 @@
 - **Conectividad Directa al Repositorio:** Claude Code tiene acceso operativo al repositorio de GitHub y está autorizado para:
   - Crear ramas temáticas (`feature/`, `fix/`).
   - Escribir código y ejecutar pruebas bajo la metodología TDD.
-  - Abrir Pull Requests (PRs) automáticos con descripciones detalladas de los cambios realizados.
+  - Hacer **un commit por tarea** en la rama de trabajo (se trabaja en muchas tareas pequeñas).
+- **Pull Requests y merge:** Claude Code **no abre PRs ni hace merge por cuenta propia**. El dueño decide cuándo se crea el PR (después de varias tareas) y cuándo se hace merge a `main`; cada merge despliega, y se quiere desplegar menos veces. Al abrir el PR, la descripción detalla los cambios realizados.
 - **Git Hooks (Husky + lint-staged):**
   - Bloquear commits automáticamente si el código no pasa el linter o presenta errores de formato.
 - **Convenciones:** Usar Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`).

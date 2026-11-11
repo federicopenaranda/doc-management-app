@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/ang
 import { MatDialogRef } from '@angular/material/dialog';
 import { AuthService, type CurrentUser } from '../auth/auth.service';
 import { LocaleService } from '../i18n/locale.service';
+import { UploadStore } from '../uploads/upload-store';
 import { PreferencesDialog } from './preferences-dialog';
 
 const ana: CurrentUser = {
@@ -16,14 +17,16 @@ const ana: CurrentUser = {
 async function setup(
   setLanguage: (language: string) => Promise<void> = () => Promise.resolve(),
   user: CurrentUser | null = ana,
+  { activeUploads = 0, willReload = false } = {},
 ) {
   const auth = { currentUser: signal<CurrentUser | null>(user), setLanguage: vi.fn(setLanguage) };
-  const locale = { current: 'es', switchTo: vi.fn() };
+  const locale = { current: 'es', switchTo: vi.fn(), wouldReload: vi.fn(() => willReload) };
   const ref = { close: vi.fn() };
   await render(PreferencesDialog, {
     providers: [
       { provide: AuthService, useValue: auth },
       { provide: LocaleService, useValue: locale },
+      { provide: UploadStore, useValue: { activeCount: signal(activeUploads) } },
       { provide: MatDialogRef, useValue: ref },
     ],
   });
@@ -88,5 +91,60 @@ describe('PreferencesDialog', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(ref.close).toHaveBeenCalled();
+  });
+
+  describe('when the language switch reloads the page', () => {
+    const pickSpanish = async () => {
+      await fireEvent.click(screen.getByRole('combobox', { name: 'Language' }));
+      await fireEvent.click(await screen.findByRole('option', { name: 'Español' }));
+    };
+
+    it('does not ask when no upload is in progress', async () => {
+      const { auth } = await setup(undefined, ana, { willReload: true });
+
+      await pickSpanish();
+
+      await waitFor(() => expect(auth.setLanguage).toHaveBeenCalledWith('es'));
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+    });
+
+    it('asks first when uploads are in progress, and switches only after the user confirms', async () => {
+      const { auth, locale } = await setup(undefined, ana, { activeUploads: 2, willReload: true });
+
+      await pickSpanish();
+
+      const question = await screen.findByRole('dialog', { name: 'Change the language?' });
+      expect(question.textContent).toContain('uploads');
+      expect(auth.setLanguage).not.toHaveBeenCalled();
+      await fireEvent.click(within(question).getByRole('button', { name: 'Change language' }));
+      await waitFor(() => expect(auth.setLanguage).toHaveBeenCalledWith('es'));
+      expect(locale.switchTo).toHaveBeenCalledExactlyOnceWith('es');
+    });
+
+    it('changes nothing when the user cancels, and shows the old language again', async () => {
+      const { auth, locale } = await setup(undefined, ana, { activeUploads: 1, willReload: true });
+
+      await pickSpanish();
+      const question = await screen.findByRole('dialog', { name: 'Change the language?' });
+      await fireEvent.click(within(question).getByRole('button', { name: 'Cancel' }));
+
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog', { name: 'Change the language?' })).toBeNull(),
+      );
+      expect(auth.setLanguage).not.toHaveBeenCalled();
+      expect(locale.switchTo).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(screen.getByRole('combobox', { name: 'Language' }).textContent).toContain('English'),
+      );
+    });
+
+    it('does not ask when nothing would reload (the dev server), even with uploads running', async () => {
+      const { auth } = await setup(undefined, ana, { activeUploads: 3, willReload: false });
+
+      await pickSpanish();
+
+      await waitFor(() => expect(auth.setLanguage).toHaveBeenCalledWith('es'));
+      expect(screen.queryByRole('dialog', { name: 'Change the language?' })).toBeNull();
+    });
   });
 });

@@ -16,11 +16,14 @@ export class LocaleService {
     return /^\/(?:en|es)\/$/.test(this.baseHref);
   }
 
+  /** True when switching to this language leaves the page (a full load into the other copy). */
+  wouldReload(language: Language): boolean {
+    return this.isLocalized() && language !== this.current;
+  }
+
   /** Opens the same page in the given language's copy; does nothing when already there. */
   switchTo(language: Language): void {
-    if (this.isLocalized() && language !== this.current) {
-      this.navigate(localizedUrl(language, window.location));
-    }
+    if (this.wouldReload(language)) this.navigate(localizedUrl(language, window.location));
   }
 
   redirectIfNeeded(language: Language): void {

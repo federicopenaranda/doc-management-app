@@ -63,4 +63,12 @@ describe('LocaleService', () => {
 
     expect(navigate).toHaveBeenCalledExactlyOnceWith('/es/upload');
   });
+
+  it('says a switch would reload the page only under a language prefix and to the other language', () => {
+    const { locale } = setup('es', '/es/');
+    expect(locale.wouldReload('en')).toBe(true);
+    expect(locale.wouldReload('es')).toBe(false);
+    TestBed.resetTestingModule();
+    expect(setup('en-US', '/').locale.wouldReload('es')).toBe(false);
+  });
 });

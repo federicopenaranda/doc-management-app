@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { inlineScriptHashes } from './csp-hashes.mjs';
 
 const frontendDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const image = process.env.FRONTEND_IMAGE ?? 'dms-frontend-image-test';
@@ -37,7 +38,7 @@ async function start({ env = {}, secret } = {}) {
   const url = `http://127.0.0.1:${port}`;
   for (let attempt = 0; attempt < 40; attempt++) {
     try {
-      await fetch(url);
+      await fetch(url, { redirect: 'manual' });
       return url;
     } catch {
       await new Promise((resolve) => setTimeout(resolve, 250));
@@ -96,12 +97,8 @@ describe('frontend image', () => {
     ]) {
       const response = await fetch(`${url}${from}`, { redirect: 'manual' });
       assert.equal(response.status, 302, from);
-      assert.equal(
-        new URL(response.headers.get('location'), url).pathname +
-          new URL(response.headers.get('location'), url).search,
-        to,
-        from,
-      );
+      // Relative on purpose (absolute_redirect off): behind Cloud Run nginx does not know the public host or port.
+      assert.equal(response.headers.get('location'), to, from);
     }
   });
 
@@ -134,6 +131,54 @@ describe('frontend image', () => {
       assert.match(response.headers.get('cache-control'), /no-store/, path);
       assert.deepEqual(await response.json(), { apiUrl: 'https://api.example.com' }, path);
     }
+  });
+
+  it('sends the security headers on pages, config.json and scripts', async () => {
+    const url = await start({ env: { API_URL: 'https://api.example.com/v1' } });
+    const html = await (await fetch(`${url}/es/`)).text();
+    const script = html.match(/src="([^"]+\.js)"/)?.[1];
+    assert.ok(script, 'the Spanish index.html loads a script');
+
+    for (const path of [
+      '/es/',
+      '/en/some/route',
+      '/config.json',
+      '/es/config.json',
+      `/es/${script}`,
+    ]) {
+      const { headers } = await fetch(`${url}${path}`);
+      assert.equal(headers.get('x-content-type-options'), 'nosniff', path);
+      assert.equal(headers.get('x-frame-options'), 'DENY', path);
+      assert.equal(headers.get('referrer-policy'), 'strict-origin-when-cross-origin', path);
+      assert.match(headers.get('permissions-policy'), /camera=\(\)/, path);
+      assert.match(headers.get('strict-transport-security'), /max-age=31536000/, path);
+      assert.match(headers.get('content-security-policy'), /frame-ancestors 'none'/, path);
+    }
+  });
+
+  it('lets the page reach its own API and Google Cloud Storage, and nothing else', async () => {
+    const url = await start({ env: { API_URL: 'https://api.example.com/v1' } });
+
+    const csp = (await fetch(`${url}/es/`)).headers.get('content-security-policy');
+
+    assert.match(
+      csp,
+      /connect-src 'self' https:\/\/api\.example\.com https:\/\/storage\.googleapis\.com(;|$)/,
+    );
+    assert.match(csp, /default-src 'self'/);
+    assert.match(csp, /object-src 'none'/);
+    assert.doesNotMatch(csp, /script-src[^;]*'unsafe-inline'/);
+  });
+
+  it('lets the inline scripts of index.html run, by their hashes', async () => {
+    const url = await start({ env: { API_URL: 'https://api.example.com' } });
+    const response = await fetch(`${url}/es/`);
+    const csp = response.headers.get('content-security-policy');
+    const hashes = inlineScriptHashes(await response.text());
+    assert.ok(hashes.length > 0, 'index.html has inline scripts');
+
+    const scriptSrc = csp.match(/script-src ([^;]*)/)?.[1] ?? '';
+    for (const hash of hashes) assert.ok(scriptSrc.includes(hash), `script-src has ${hash}`);
   });
 
   it('caches the hashed scripts of each copy for a year', async () => {

@@ -97,6 +97,9 @@
     "users.archive-aria": "Archivar {$name}",
     "users.disable-aria": "Deshabilitar {$name}",
     "users.enable-aria": "Habilitar {$name}",
-    "users.restore-aria": "Restaurar {$name}"
+    "users.restore-aria": "Restaurar {$name}",
+    "2149355141076567232": "¿Cambiar el idioma?",
+    "4014619601742961900": " La página se recarga y las subidas que sigan en curso se cancelan. ",
+    "1210069423269934042": "Cambiar idioma"
   }
 }
