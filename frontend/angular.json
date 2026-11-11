@@ -49,7 +49,7 @@
               ],
               "outputHashing": "all",
               "localize": true,
-              "i18nMissingTranslation": "warning"
+              "i18nMissingTranslation": "error"
             },
             "development": {
               "optimization": false,

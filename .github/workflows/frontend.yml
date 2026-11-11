@@ -83,5 +83,5 @@ jobs:
       - name: Smoke test the deployed service
         run: |
           url=$(gcloud run services describe frontend --region "${{ vars.GCP_REGION }}" --project "${{ vars.GCP_PROJECT_ID }}" --format='value(status.url)')
-          curl -fsS "$url/" | grep -q '<dms-root'
+          curl -fsS "$url/es/" | grep -q '<dms-root'
           curl -fsS "$url/config.json" | jq -e '.apiUrl | startswith("https://backend-")'

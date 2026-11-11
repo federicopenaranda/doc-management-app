@@ -74,14 +74,78 @@ after(() => {
 });
 
 describe('frontend image', () => {
-  it('serves the Angular app and falls back to index.html for client-side routes', async () => {
+  it('serves each language copy and falls back to its index.html for client-side routes', async () => {
     const url = await start({ env: { API_URL: 'https://api.example.com' } });
 
-    for (const path of ['/', '/some/deep/route']) {
+    for (const path of ['/es/', '/en/', '/es/some/deep/route', '/en/users/1/edit']) {
       const response = await fetch(`${url}${path}`);
       assert.equal(response.status, 200, path);
-      assert.match(await response.text(), /<dms-root/, path);
+      const html = await response.text();
+      assert.match(html, /<dms-root/, path);
+      assert.match(html, new RegExp(`<base href="/${path.slice(1, 3)}/"`), path);
     }
+  });
+
+  it('sends addresses without a language prefix to the Spanish copy, keeping the route', async () => {
+    const url = await start({ env: { API_URL: 'https://api.example.com' } });
+
+    for (const [from, to] of [
+      ['/', '/es/'],
+      ['/users', '/es/users'],
+      ['/login?next=1', '/es/login?next=1'],
+    ]) {
+      const response = await fetch(`${url}${from}`, { redirect: 'manual' });
+      assert.equal(response.status, 302, from);
+      assert.equal(
+        new URL(response.headers.get('location'), url).pathname +
+          new URL(response.headers.get('location'), url).search,
+        to,
+        from,
+      );
+    }
+  });
+
+  it('translates the Spanish copy and leaves the English one in English', () => {
+    // Lazy chunks are not listed in index.html, so look at the files inside the image.
+    const has = (language, text) =>
+      spawnSync('docker', [
+        'run',
+        '--rm',
+        '--entrypoint',
+        'grep',
+        image,
+        '-rlF',
+        text,
+        `/usr/share/nginx/html/${language}`,
+      ]).status === 0;
+
+    assert.ok(has('es', 'Iniciar sesi'), 'the Spanish copy has the Spanish text');
+    assert.ok(!has('en', 'Iniciar sesi'), 'the English copy has none of it');
+    assert.ok(has('en', 'Sign in'), 'the English copy keeps the source text');
+    assert.ok(!has('es', 'Sign in'), 'the Spanish copy has no English login text');
+  });
+
+  it('serves config.json under each language prefix, never cached', async () => {
+    const url = await start({ env: { API_URL: 'https://api.example.com' } });
+
+    for (const path of ['/config.json', '/es/config.json', '/en/config.json']) {
+      const response = await fetch(`${url}${path}`);
+      assert.equal(response.status, 200, path);
+      assert.match(response.headers.get('cache-control'), /no-store/, path);
+      assert.deepEqual(await response.json(), { apiUrl: 'https://api.example.com' }, path);
+    }
+  });
+
+  it('caches the hashed scripts of each copy for a year', async () => {
+    const url = await start({ env: { API_URL: 'https://api.example.com' } });
+    const html = await (await fetch(`${url}/es/`)).text();
+    const script = html.match(/src="([^"]+\.js)"/)?.[1];
+    assert.ok(script, 'the Spanish index.html loads a script');
+
+    const response = await fetch(new URL(script, `${url}/es/`));
+
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('cache-control'), /max-age=31536000/);
   });
 
   it('writes config.json from API_URL and never lets it be cached', async () => {
