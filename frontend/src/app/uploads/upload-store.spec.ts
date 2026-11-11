@@ -186,4 +186,19 @@ describe('UploadStore', () => {
     puts[0]!.resolve(200);
     await finished;
   });
+
+  it('counts the files that are still waiting or uploading', async () => {
+    const { store, puts, files } = setup();
+    expect(store.activeCount()).toBe(0);
+
+    const finished = store.add(files('a.txt', 'b.txt'));
+    await vi.waitFor(() => expect(puts).toHaveLength(2));
+    expect(store.activeCount()).toBe(2);
+
+    puts[0]!.resolve(200);
+    await vi.waitFor(() => expect(store.activeCount()).toBe(1));
+    puts[1]!.resolve(200);
+    await finished;
+    expect(store.activeCount()).toBe(0);
+  });
 });

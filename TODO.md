@@ -30,7 +30,7 @@ Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live. *
 
 - `knip` warnings that were already there: unused type `UploadStatus`, unlisted `@angular-eslint/builder`.
 - Known shortcuts (`shortcut:` comments in code): users list has no paging; expired `refresh_tokens` rows are never cleaned; the JSON-schema forms rule of `CLAUDE.md` is not applied (forms use Reactive Forms).
-- **i18n follow-ups (SCRUM-32 review):** `/ES/users` (capital letters) shows a blank page; the language names in Preferences need a `lang` attribute; warn before a language switch if uploads are running; owner to review the Spanish wording ("Contraseña cambiada para", "Confirma la contraseña", "Archivos"); no browser test of the real two-copy flow.
+- **i18n follow-ups (SCRUM-32 review):** `/ES/users` (capital letters) shows a blank page; the language names in Preferences need a `lang` attribute; owner to review the Spanish wording ("Contraseña cambiada para", "Confirma la contraseña", "Archivos"); no browser test of the real two-copy flow.
 - Playwright e2e tests in CI (the frontend security headers are done: `frontend/docker/nginx.conf` plus `docker/40-app-config.sh`, with a CSP that allows only the page itself, its API origin and Google Cloud Storage; a new external host the app talks to must be added to `connect-src` there).
 - Blueprint (`blueprint/`) is out of date: pull scripts, config loader, Docker images, deploy workflows, dead-letter setup, auth.
 - **Duplicate file names (owner's rule):** uploading a file whose name already exists must notify the user and be prevented (GCS `ifGenerationMatch=0` is already used by the signed upload; the UI shows "already exists").
