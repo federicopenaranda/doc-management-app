@@ -10,13 +10,11 @@ const logout = vi.fn();
 const loadCurrentUser = vi.fn();
 
 function renderToolbar({
-  authEnabled = false,
   preferencesEnabled = false,
   user = null,
   inputs,
   on,
 }: {
-  authEnabled?: boolean;
   preferencesEnabled?: boolean;
   user?: CurrentUser | null;
   inputs?: { menuOpen: boolean };
@@ -27,7 +25,7 @@ function renderToolbar({
     on,
     providers: [
       provideRouter([]),
-      { provide: AppConfigService, useValue: { authEnabled, preferencesEnabled } },
+      { provide: AppConfigService, useValue: { preferencesEnabled } },
       {
         provide: AuthService,
         useValue: { logout, loadCurrentUser, currentUser: signal(user), setLanguage: vi.fn() },
@@ -182,7 +180,7 @@ describe('Toolbar', () => {
     beforeEach(() => logout.mockClear());
 
     it('is the last item of the menu', async () => {
-      await renderToolbar({ authEnabled: true });
+      await renderToolbar();
 
       await openUserMenu();
 
@@ -191,7 +189,7 @@ describe('Toolbar', () => {
     });
 
     it('forgets the session and goes to /login when clicked', async () => {
-      await renderToolbar({ authEnabled: true });
+      await renderToolbar();
       const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
       await openUserMenu();
 
@@ -200,15 +198,6 @@ describe('Toolbar', () => {
       expect(logout).toHaveBeenCalledTimes(1);
       expect(navigate).toHaveBeenCalledWith('/login');
     });
-
-    it('is not there while the auth flag is off', async () => {
-      await renderToolbar({ authEnabled: false });
-
-      await openUserMenu();
-
-      await screen.findAllByRole('menuitem');
-      expect(screen.queryByRole('menuitem', { name: /log out/i })).toBeNull();
-    });
   });
 });
 
@@ -216,7 +205,7 @@ describe('Toolbar preferences', () => {
   const openUserMenu = () => fireEvent.click(screen.getByRole('button', { name: /user menu/i }));
 
   it('opens the preferences dialog from the user menu', async () => {
-    await renderToolbar({ authEnabled: true, preferencesEnabled: true });
+    await renderToolbar({ preferencesEnabled: true });
     await openUserMenu();
 
     await fireEvent.click(await screen.findByRole('menuitem', { name: 'Preferences' }));
@@ -224,19 +213,13 @@ describe('Toolbar preferences', () => {
     expect(await screen.findByRole('dialog')).toBeTruthy();
   });
 
-  it.each([
-    [false, true],
-    [true, false],
-  ])(
-    'is not in the menu with auth %s and preferences %s',
-    async (authEnabled, preferencesEnabled) => {
-      await renderToolbar({ authEnabled, preferencesEnabled });
-      await openUserMenu();
+  it('is not in the menu while the preferences flag is off', async () => {
+    await renderToolbar({ preferencesEnabled: false });
+    await openUserMenu();
 
-      await screen.findAllByRole('menuitem');
-      expect(screen.queryByRole('menuitem', { name: 'Preferences' })).toBeNull();
-    },
-  );
+    await screen.findAllByRole('menuitem');
+    expect(screen.queryByRole('menuitem', { name: 'Preferences' })).toBeNull();
+  });
 });
 
 describe('Toolbar current user', () => {
@@ -251,7 +234,7 @@ describe('Toolbar current user', () => {
   beforeEach(() => loadCurrentUser.mockClear());
 
   it('shows the first and last name right after "DMS", in the muted gray of the theme', async () => {
-    await renderToolbar({ authEnabled: true, user: ana });
+    await renderToolbar({ user: ana });
 
     const name = screen.getByTestId('current-user');
     expect(name.textContent?.trim()).toBe('Ana García');
@@ -260,27 +243,20 @@ describe('Toolbar current user', () => {
   });
 
   it('shows the email for a user who has no name yet', async () => {
-    await renderToolbar({ authEnabled: true, user: { ...ana, firstName: '', lastName: '' } });
+    await renderToolbar({ user: { ...ana, firstName: '', lastName: '' } });
 
     expect(screen.getByTestId('current-user').textContent?.trim()).toBe('ana@example.com');
   });
 
   it('shows nothing while the user is not known', async () => {
-    await renderToolbar({ authEnabled: true, user: null });
+    await renderToolbar({ user: null });
 
     expect(screen.queryByTestId('current-user')).toBeNull();
   });
 
-  it('asks for the current user when login is on', async () => {
-    await renderToolbar({ authEnabled: true });
+  it('asks for the current user', async () => {
+    await renderToolbar();
 
     expect(loadCurrentUser).toHaveBeenCalledTimes(1);
-  });
-
-  it('asks for nothing and shows no name while login is off', async () => {
-    await renderToolbar({ authEnabled: false, user: ana });
-
-    expect(loadCurrentUser).not.toHaveBeenCalled();
-    expect(screen.queryByTestId('current-user')).toBeNull();
   });
 });

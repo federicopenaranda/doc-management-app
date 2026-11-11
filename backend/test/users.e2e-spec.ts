@@ -23,10 +23,8 @@ const newUser = {
 
 // ConfigModule.forRoot() validates the environment when AppModule is first imported,
 // so each case re-imports the app after setting the flags.
-async function createApp(usersEnabled: boolean) {
-  process.env.AUTH_ENABLED = 'true';
+async function createApp() {
   process.env.DATABASE_ENABLED = 'true';
-  process.env.USERS_ENABLED = String(usersEnabled);
   vi.resetModules();
   const { AppModule } = await import('./../src/app.module.js');
   const { setupApp } = await import('./../src/app.setup.js');
@@ -153,31 +151,12 @@ const authed = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 describe('users (e2e)', () => {
   afterEach(() => {
-    delete process.env.AUTH_ENABLED;
     delete process.env.DATABASE_ENABLED;
-    delete process.env.USERS_ENABLED;
-  });
-
-  describe('while the feature flag is off', () => {
-    it('does not exist, even for a logged-in user or without a token', async () => {
-      const { app, token } = await createApp(false);
-      const server = app.getHttpServer();
-
-      await request(server).get('/users').expect(404);
-      await request(server).post('/users').send(newUser).expect(404);
-      await request(server).get('/users').set(authed(token)).expect(404);
-      await request(server)
-        .post('/users')
-        .set(authed(token))
-        .send(newUser)
-        .expect(404);
-      await app.close();
-    });
   });
 
   describe('without a login token', () => {
     it('answers 401 to the list and to creating a user', async () => {
-      const { app } = await createApp(true);
+      const { app } = await createApp();
       const server = app.getHttpServer();
 
       await request(server).get('/users').expect(401);
@@ -192,7 +171,7 @@ describe('users (e2e)', () => {
 
   describe('POST /users', () => {
     it('creates a user, answers 201 without the password or its hash, and the user shows in the list', async () => {
-      const { app, token, stored } = await createApp(true);
+      const { app, token, stored } = await createApp();
       const server = app.getHttpServer();
 
       const response = await request(server)
@@ -222,7 +201,7 @@ describe('users (e2e)', () => {
     });
 
     it('trims the names and the email', async () => {
-      const { app, token, stored } = await createApp(true);
+      const { app, token, stored } = await createApp();
 
       await request(app.getHttpServer())
         .post('/users')
@@ -244,7 +223,7 @@ describe('users (e2e)', () => {
     });
 
     it('answers 409 when the email exists, whatever its letter case', async () => {
-      const { app, token } = await createApp(true);
+      const { app, token } = await createApp();
       const server = app.getHttpServer();
       await request(server)
         .post('/users')
@@ -281,7 +260,7 @@ describe('users (e2e)', () => {
       ],
       ['a non-string password', { ...newUser, password: 123456789012 }],
     ])('answers 400 for %s', async (_label, body) => {
-      const { app, token } = await createApp(true);
+      const { app, token } = await createApp();
 
       await request(app.getHttpServer())
         .post('/users')
@@ -292,7 +271,7 @@ describe('users (e2e)', () => {
     });
 
     it('limits creation: the eleventh within a minute is refused', async () => {
-      const { app, token } = await createApp(true);
+      const { app, token } = await createApp();
       const server = app.getHttpServer();
 
       for (let i = 0; i < 10; i++) {
@@ -313,7 +292,7 @@ describe('users (e2e)', () => {
 
   describe('GET /users', () => {
     it('returns an empty list when there are no users', async () => {
-      const { app, token } = await createApp(true);
+      const { app, token } = await createApp();
 
       const response = await request(app.getHttpServer())
         .get('/users')
@@ -328,16 +307,14 @@ describe('users (e2e)', () => {
 
 describe('users by id (e2e)', () => {
   afterEach(() => {
-    delete process.env.AUTH_ENABLED;
     delete process.env.DATABASE_ENABLED;
-    delete process.env.USERS_ENABLED;
   });
 
   const FIRST = '00000000-0000-4000-8000-000000000001';
   const UNKNOWN = '00000000-0000-4000-8000-0000000000ff';
 
   async function appWithAna() {
-    const ctx = await createApp(true);
+    const ctx = await createApp();
     await request(ctx.app.getHttpServer())
       .post('/users')
       .set(authed(ctx.token))
@@ -346,17 +323,9 @@ describe('users by id (e2e)', () => {
     return ctx;
   }
 
-  describe('while the feature flag is off or without a token', () => {
-    it('is 404 with the flag off, and 401 without a token', async () => {
-      const off = await createApp(false);
-      await request(off.app.getHttpServer()).get(`/users/${FIRST}`).expect(404);
-      await request(off.app.getHttpServer())
-        .put(`/users/${FIRST}`)
-        .send(newUser)
-        .expect(404);
-      await off.app.close();
-
-      const on = await createApp(true);
+  describe('without a login token', () => {
+    it('answers 401 without a token', async () => {
+      const on = await createApp();
       await request(on.app.getHttpServer()).get(`/users/${FIRST}`).expect(401);
       await request(on.app.getHttpServer())
         .put(`/users/${FIRST}`)
@@ -512,16 +481,14 @@ describe('users by id (e2e)', () => {
 
 describe('users status and archive (e2e)', () => {
   afterEach(() => {
-    delete process.env.AUTH_ENABLED;
     delete process.env.DATABASE_ENABLED;
-    delete process.env.USERS_ENABLED;
   });
 
   const FIRST = '00000000-0000-4000-8000-000000000001';
   const UNKNOWN = '00000000-0000-4000-8000-0000000000ff';
 
   async function appWithAna() {
-    const ctx = await createApp(true);
+    const ctx = await createApp();
     await request(ctx.app.getHttpServer())
       .post('/users')
       .set(authed(ctx.token))
@@ -530,18 +497,9 @@ describe('users status and archive (e2e)', () => {
     return ctx;
   }
 
-  describe('while the feature flag is off or without a token', () => {
-    it('is 404 with the flag off, and 401 without a token', async () => {
-      const off = await createApp(false);
-      const offServer = off.app.getHttpServer();
-      await request(offServer)
-        .put(`/users/${FIRST}/active`)
-        .send({ isActive: false })
-        .expect(404);
-      await request(offServer).post(`/users/${FIRST}/archive`).expect(404);
-      await off.app.close();
-
-      const on = await createApp(true);
+  describe('without a login token', () => {
+    it('answers 401 without a token', async () => {
+      const on = await createApp();
       const onServer = on.app.getHttpServer();
       await request(onServer)
         .put(`/users/${FIRST}/active`)
@@ -801,11 +759,8 @@ describe('users status and archive (e2e)', () => {
       await app.close();
     });
 
-    it('needs the flag and a token', async () => {
-      const off = await createApp(false);
-      await request(off.app.getHttpServer()).get('/users/archived').expect(404);
-      await off.app.close();
-      const on = await createApp(true);
+    it('needs a token', async () => {
+      const on = await createApp();
       await request(on.app.getHttpServer()).get('/users/archived').expect(401);
       await request(on.app.getHttpServer())
         .post(`/users/${FIRST}/restore`)
@@ -903,14 +858,8 @@ describe('users status and archive (e2e)', () => {
       await app.close();
     });
 
-    it('needs the flag and a token', async () => {
-      const off = await createApp(false);
-      await request(off.app.getHttpServer())
-        .put(`/users/${FIRST}/password`)
-        .send({ password: NEW_PASSWORD })
-        .expect(404);
-      await off.app.close();
-      const on = await createApp(true);
+    it('needs a token', async () => {
+      const on = await createApp();
       await request(on.app.getHttpServer())
         .put(`/users/${FIRST}/password`)
         .send({ password: NEW_PASSWORD })

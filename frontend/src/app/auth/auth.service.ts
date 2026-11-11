@@ -2,7 +2,6 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { computed, inject, Service, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../api-url';
-import { AppConfigService } from '../app-config.service';
 import { LocaleService } from '../i18n/locale.service';
 
 const ACCESS_KEY = 'dms.accessToken';
@@ -30,7 +29,6 @@ const isText = (value: unknown): value is string => typeof value === 'string' &&
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = inject(API_URL);
-  private readonly config = inject(AppConfigService);
   private readonly locale = inject(LocaleService);
   private pendingRefresh: Promise<boolean> | null = null;
 
@@ -62,14 +60,14 @@ export class AuthService {
 
   /** True when a 401 can be answered with a refresh instead of ending the session. */
   canRefresh(): boolean {
-    return this.config.refreshEnabled && sessionStorage.getItem(REFRESH_KEY) !== null;
+    return sessionStorage.getItem(REFRESH_KEY) !== null;
   }
 
   /** Forgets the session here and asks the server to revoke the refresh token (best effort). */
   logout(): void {
     const refreshToken = sessionStorage.getItem(REFRESH_KEY);
     this.forget();
-    if (refreshToken && this.config.refreshEnabled) {
+    if (refreshToken) {
       this.http
         .post(`${this.apiUrl}/auth/logout`, { refreshToken })
         .subscribe({ error: () => undefined });
@@ -86,10 +84,7 @@ export class AuthService {
         ),
       );
       if (!isText(accessToken)) throw new Error('The API returned no access token');
-      this.store(
-        accessToken,
-        this.config.refreshEnabled && isText(refreshToken) ? refreshToken : null,
-      );
+      this.store(accessToken, isText(refreshToken) ? refreshToken : null);
       return true;
     } catch (error) {
       if (error instanceof HttpErrorResponse && error.status === 401) return false;
@@ -108,7 +103,7 @@ export class AuthService {
 
   private async requestRefresh(): Promise<boolean> {
     const refreshToken = sessionStorage.getItem(REFRESH_KEY);
-    if (!refreshToken || !this.config.refreshEnabled) return false;
+    if (!refreshToken) return false;
     try {
       const response = await firstValueFrom(
         this.http.post<{ accessToken?: unknown; refreshToken?: unknown }>(

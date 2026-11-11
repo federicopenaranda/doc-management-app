@@ -2,13 +2,10 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
-  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
-import type { Env } from '../config/env.validation.js';
 import { UsersRepository } from './users.repository.js';
 
 export interface AuthenticatedUser {
@@ -23,15 +20,10 @@ export type AuthenticatedRequest = Request & { user: AuthenticatedUser };
 export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwt: JwtService,
-    private readonly config: ConfigService<Env, true>,
     private readonly users: UsersRepository,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // A disabled feature does not exist as far as clients can tell.
-    if (!this.config.get('AUTH_ENABLED', { infer: true })) {
-      throw new NotFoundException();
-    }
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const [scheme, token] = (request.headers.authorization ?? '').split(' ');
     if (scheme !== 'Bearer' || !token) throw new UnauthorizedException();

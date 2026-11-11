@@ -19,7 +19,6 @@ import {
   type AuthenticatedRequest,
 } from '../auth/jwt-auth.guard.js';
 import type { ArchivedUser, UserSummary } from '../auth/users.repository.js';
-import { UsersEnabledGuard } from './users-enabled.guard.js';
 import { UsersService } from './users.service.js';
 
 const name = z.string().trim().min(1).max(100);
@@ -63,11 +62,10 @@ function userId(id: string): string {
 
 /**
  * Any logged-in user can list and create users until roles exist (SCRUM-17).
- * Remove UsersEnabledGuard with the flag, two weeks after it is in use.
  */
 @ApiExcludeController()
 @Controller('users')
-@UseGuards(UsersEnabledGuard, JwtAuthGuard)
+@UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private readonly users: UsersService) {}
 

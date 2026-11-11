@@ -61,51 +61,6 @@ describe('AppConfigService', () => {
 
   it.each([
     [{ apiUrl: 'http://localhost:3000' }, false],
-    [{ apiUrl: 'http://localhost:3000', authEnabled: true }, true],
-    [{ apiUrl: 'http://localhost:3000', authEnabled: 'true' }, true],
-    [{ apiUrl: 'http://localhost:3000', authEnabled: 'false' }, false],
-  ])('reads the auth flag from %j as %s (off when absent)', async (body, expected) => {
-    const { service, http } = setup();
-
-    const loading = service.load();
-    http.expectOne('config.json').flush(body);
-    await loading;
-
-    expect(service.authEnabled).toBe(expected);
-  });
-
-  it.each([
-    [{ apiUrl: 'http://localhost:3000' }, false],
-    [{ apiUrl: 'http://localhost:3000', refreshEnabled: true }, true],
-    [{ apiUrl: 'http://localhost:3000', refreshEnabled: 'true' }, true],
-    [{ apiUrl: 'http://localhost:3000', refreshEnabled: 'false' }, false],
-  ])('reads the refresh flag from %j as %s (off when absent)', async (body, expected) => {
-    const { service, http } = setup();
-
-    const loading = service.load();
-    http.expectOne('config.json').flush(body);
-    await loading;
-
-    expect(service.refreshEnabled).toBe(expected);
-  });
-
-  it.each([
-    [{ apiUrl: 'http://localhost:3000' }, false],
-    [{ apiUrl: 'http://localhost:3000', usersEnabled: true }, true],
-    [{ apiUrl: 'http://localhost:3000', usersEnabled: 'true' }, true],
-    [{ apiUrl: 'http://localhost:3000', usersEnabled: 'false' }, false],
-  ])('reads the users flag from %j as %s (off when absent)', async (body, expected) => {
-    const { service, http } = setup();
-
-    const loading = service.load();
-    http.expectOne('config.json').flush(body);
-    await loading;
-
-    expect(service.usersEnabled).toBe(expected);
-  });
-
-  it.each([
-    [{ apiUrl: 'http://localhost:3000' }, false],
     [{ apiUrl: 'http://localhost:3000', preferencesEnabled: true }, true],
     [{ apiUrl: 'http://localhost:3000', preferencesEnabled: 'true' }, true],
   ])('reads the preferences flag from %j as %s (off when absent)', async (body, expected) => {
@@ -118,13 +73,30 @@ describe('AppConfigService', () => {
     expect(service.preferencesEnabled).toBe(expected);
   });
 
+  it('ignores the flags that were removed and may still be in the secret', async () => {
+    const { service, http } = setup();
+
+    const loading = service.load();
+    http.expectOne('config.json').flush({
+      apiUrl: 'http://localhost:3000',
+      authEnabled: 'yes',
+      refreshEnabled: true,
+      usersEnabled: false,
+    });
+    await loading;
+
+    expect(service.apiUrl).toBe('http://localhost:3000');
+  });
+
   it('rejects a flag that is not a boolean, naming the key', async () => {
     const { service, http } = setup();
 
     const loading = service.load();
-    http.expectOne('config.json').flush({ apiUrl: 'http://localhost:3000', authEnabled: 'yes' });
+    http
+      .expectOne('config.json')
+      .flush({ apiUrl: 'http://localhost:3000', preferencesEnabled: 'yes' });
 
-    await expect(loading).rejects.toThrow('"authEnabled" must be true or false');
+    await expect(loading).rejects.toThrow('"preferencesEnabled" must be true or false');
   });
 
   it('throws when apiUrl is read before the config is loaded', () => {

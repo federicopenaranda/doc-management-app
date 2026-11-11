@@ -152,25 +152,26 @@ read -rs -p "Password for the new user (12+ characters): " USER_PASSWORD; export
 DB_ADMIN_PASSWORD="$PW" npm run users:create -- --instance $P:us-west1:dms-postgres --email you@example.com
 ```
 
-It leaves an existing email untouched. Then `POST /auth/login` with `{ "email", "password" }` returns `{ accessToken, expiresIn: 3600 }`, and
-`GET /auth/me` with `Authorization: Bearer <accessToken>` returns who you are. The backend service gets the flag `AUTH_ENABLED` (needs
-`DATABASE_ENABLED`); the tokens are signed with `JWT_SECRET` from the backend secret.
+It leaves an existing email untouched. Then `POST /auth/login` with `{ "email", "password" }` returns `{ accessToken, expiresIn: 3600, refreshToken }`, and
+`GET /auth/me` with `Authorization: Bearer <accessToken>` returns who you are. Login needs `DATABASE_ENABLED` (users live in the
+database); the tokens are signed with `JWT_SECRET` from the backend secret. There is no login flag any more: the frontend asks for a login on every
+page except `/login`.
 
 To change a forgotten or mistyped password, add `--reset` to the `users:create` command.
 
 ### Refresh tokens
 
-With the flag `REFRESH_ENABLED` (backend secret, needs `AUTH_ENABLED`) login also returns a `refreshToken`, valid 7 days. `POST /auth/refresh`
+Login also returns a `refreshToken`, valid 7 days. `POST /auth/refresh`
 with `{ "refreshToken" }` swaps it for a new access token and a new refresh token; each token works once, and using an old one again revokes all
 of that user's refresh tokens. `POST /auth/logout` with the token revokes it (204). Only a SHA-256 hash is stored, in the `refresh_tokens` table
 that `db:bootstrap` creates (the backend identity may read, add and update it, never delete).
 
-**Run `db:bootstrap` (steps above) before deploying a backend with `REFRESH_ENABLED` on**, or every login fails: it tries to store the token in a
-table that does not exist yet. The frontend flag is `refreshEnabled` in the `frontend-sandbox` secret.
+**Run `db:bootstrap` (steps above) before deploying a backend that issues refresh tokens**, or every login fails: it tries to store the token in a
+table that does not exist yet.
 
 ### User management
 
-With the flag `USERS_ENABLED` (backend secret, needs `AUTH_ENABLED`) any logged-in user can call `GET /users` (the list, never with password
+Any logged-in user can call `GET /users` (the list, never with password
 hashes) and `POST /users` with `{ firstName, lastName, email, password }` (password 12 to 200 characters; 201 with the new user, 409 when the
 email exists). `GET /users/:id` returns one user and `PUT /users/:id` changes the email and the names (`{ firstName, lastName, email }`; 404 for an
 unknown user, 409 when another user has that email); passwords are not edited there. `GET /auth/me` returns `{ id, email, firstName, lastName }`
@@ -184,8 +185,8 @@ active (one query), so they are locked out at once and not when their access tok
 Users are archived, never deleted: `db:bootstrap` adds `archived_at` and `archived_by` to `users`, and the backend identity has no `DELETE` right on
 any table. An archived user disappears from the list, cannot log in, and keeps their row, their email and their history.
 
-**Run `db:bootstrap` (steps above) before deploying a backend with `USERS_ENABLED` on**, or the list and the creation fail with a database
-error. The frontend flag is `usersEnabled` in the `frontend-sandbox` secret.
+**Run `db:bootstrap` (steps above) before deploying a backend with the user routes**, or the list and the creation fail with a database
+error.
 
 ## Dead-lettered messages
 

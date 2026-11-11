@@ -7,7 +7,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
-import { AuthIfEnabledGuard } from '../auth/auth-if-enabled.guard.js';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { signRequestSchema } from './uploads.schema.js';
 import { UploadsService, type SignedUpload } from './uploads.service.js';
 
@@ -17,7 +17,7 @@ export class UploadsController {
   constructor(private readonly uploads: UploadsService) {}
 
   @Post('sign')
-  @UseGuards(AuthIfEnabledGuard)
+  @UseGuards(JwtAuthGuard)
   @HttpCode(200)
   async sign(@Body() body: unknown): Promise<{ uploads: SignedUpload[] }> {
     const parsed = signRequestSchema.safeParse(body);

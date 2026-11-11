@@ -9,10 +9,8 @@ const USER_ID = '6f1e0f0e-5d3c-4b7a-9d52-0a1f3c2b7e11';
 
 // ConfigModule.forRoot() validates the environment when AppModule is first imported,
 // so each case re-imports the app after setting the flags.
-async function createApp(authEnabled: boolean, refreshEnabled = false) {
-  process.env.AUTH_ENABLED = String(authEnabled);
-  process.env.DATABASE_ENABLED = String(authEnabled);
-  process.env.REFRESH_ENABLED = String(refreshEnabled);
+async function createApp() {
+  process.env.DATABASE_ENABLED = 'true';
   vi.resetModules();
   const { AppModule } = await import('./../src/app.module.js');
   const { setupApp } = await import('./../src/app.setup.js');
@@ -102,7 +100,7 @@ async function createApp(authEnabled: boolean, refreshEnabled = false) {
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(DatabaseService)
-    .useValue(authEnabled ? { pool: { query } } : null)
+    .useValue({ pool: { query } })
     .compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>();
   setupApp(app);
@@ -115,29 +113,15 @@ const login = (app: NestExpressApplication, email: string, password: string) =>
 
 describe('auth (e2e)', () => {
   afterEach(() => {
-    delete process.env.AUTH_ENABLED;
     delete process.env.DATABASE_ENABLED;
-    delete process.env.REFRESH_ENABLED;
   });
 
   describe('refresh tokens', () => {
     const post = (app: NestExpressApplication, path: string, body: object) =>
       request(app.getHttpServer()).post(path).send(body);
 
-    it('are off by default: no refresh token at login, and no /auth/refresh or /auth/logout', async () => {
-      const app = await createApp(true);
-
-      const { body } = await login(app, 'ana@example.com', PASSWORD).expect(
-        200,
-      );
-      expect(body.refreshToken).toBeUndefined();
-      await post(app, '/auth/refresh', { refreshToken: 'x' }).expect(404);
-      await post(app, '/auth/logout', { refreshToken: 'x' }).expect(404);
-      await app.close();
-    });
-
     it('log in with a refresh token, which swaps once for a new pair', async () => {
-      const app = await createApp(true, true);
+      const app = await createApp();
       const first = (await login(app, 'ana@example.com', PASSWORD).expect(200))
         .body;
       expect(first.refreshToken).toEqual(expect.any(String));
@@ -162,7 +146,7 @@ describe('auth (e2e)', () => {
     });
 
     it('answers 401 when an old token is used again, and that also kills the new one', async () => {
-      const app = await createApp(true, true);
+      const app = await createApp();
       const first = (await login(app, 'ana@example.com', PASSWORD).expect(200))
         .body;
       const second = (
@@ -181,14 +165,14 @@ describe('auth (e2e)', () => {
     });
 
     it('answers 401 for a token the server never issued', async () => {
-      const app = await createApp(true, true);
+      const app = await createApp();
 
       await post(app, '/auth/refresh', { refreshToken: 'made-up' }).expect(401);
       await app.close();
     });
 
     it('answers 400 without a refresh token', async () => {
-      const app = await createApp(true, true);
+      const app = await createApp();
 
       await post(app, '/auth/refresh', {}).expect(400);
       await post(app, '/auth/logout', { refreshToken: 5 }).expect(400);
@@ -196,7 +180,7 @@ describe('auth (e2e)', () => {
     });
 
     it('stop working after logout', async () => {
-      const app = await createApp(true, true);
+      const app = await createApp();
       const { body } = await login(app, 'ana@example.com', PASSWORD).expect(
         200,
       );
@@ -212,19 +196,9 @@ describe('auth (e2e)', () => {
     });
   });
 
-  describe('while the feature flag is off', () => {
-    it('has no login and no /auth/me', async () => {
-      const app = await createApp(false);
-
-      await login(app, 'ana@example.com', PASSWORD).expect(404);
-      await request(app.getHttpServer()).get('/auth/me').expect(404);
-      await app.close();
-    });
-  });
-
   describe('POST /auth/login', () => {
     it('returns an access token for the right credentials, ignoring email case', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
 
       const response = await login(app, 'Ana@Example.com', PASSWORD).expect(
         200,
@@ -233,13 +207,14 @@ describe('auth (e2e)', () => {
       expect(response.body).toEqual({
         accessToken: expect.any(String),
         expiresIn: 3600,
+        refreshToken: expect.any(String),
       });
       expect(JSON.stringify(response.body)).not.toContain('scrypt');
       await app.close();
     });
 
     it('accepts an email pasted with surrounding spaces', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
 
       await login(app, '  ana@example.com  ', PASSWORD).expect(200);
       await app.close();
@@ -252,7 +227,7 @@ describe('auth (e2e)', () => {
     ])(
       'answers 401 with the same message for %s',
       async (_label, email, password) => {
-        const app = await createApp(true);
+        const app = await createApp();
 
         const response = await login(app, email, password).expect(401);
 
@@ -267,7 +242,7 @@ describe('auth (e2e)', () => {
       ['an empty password', { email: 'ana@example.com', password: '' }],
       ['a non-string password', { email: 'ana@example.com', password: 12345 }],
     ])('answers 400 for %s', async (_label, body) => {
-      const app = await createApp(true);
+      const app = await createApp();
 
       await request(app.getHttpServer())
         .post('/auth/login')
@@ -277,7 +252,7 @@ describe('auth (e2e)', () => {
     });
 
     it('limits login attempts: the sixth within a minute is refused', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
 
       for (let i = 0; i < 5; i++) {
         await login(app, 'ana@example.com', 'wrong password!!').expect(401);
@@ -289,7 +264,7 @@ describe('auth (e2e)', () => {
 
   describe('PUT /auth/me/language', () => {
     it('saves the language and /auth/me then shows it', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
       const { body } = await login(app, 'ana@example.com', PASSWORD).expect(
         200,
       );
@@ -310,7 +285,7 @@ describe('auth (e2e)', () => {
     });
 
     it('answers 400 for a language that is not offered', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
       const { body } = await login(app, 'ana@example.com', PASSWORD).expect(
         200,
       );
@@ -324,7 +299,7 @@ describe('auth (e2e)', () => {
     });
 
     it('answers 401 without a token', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
 
       await request(app.getHttpServer())
         .put('/auth/me/language')
@@ -343,7 +318,7 @@ describe('auth (e2e)', () => {
     };
 
     it('returns who the token belongs to', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
       const { body } = await login(app, 'ana@example.com', PASSWORD).expect(
         200,
       );
@@ -361,7 +336,7 @@ describe('auth (e2e)', () => {
     });
 
     it('answers 401 for a valid token whose user does not exist any more', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
       const jwt = new JwtService({ secret: SECRET });
 
       await me(
@@ -372,14 +347,14 @@ describe('auth (e2e)', () => {
     });
 
     it('answers 401 without a token', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
 
       await me(app).expect(401);
       await app.close();
     });
 
     it('answers 401 for a token that is not a Bearer token', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
       const { body } = await login(app, 'ana@example.com', PASSWORD).expect(
         200,
       );
@@ -392,7 +367,7 @@ describe('auth (e2e)', () => {
     });
 
     it('answers 401 for a tampered token', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
       const { body } = await login(app, 'ana@example.com', PASSWORD).expect(
         200,
       );
@@ -414,7 +389,7 @@ describe('auth (e2e)', () => {
     });
 
     it('answers 401 for a token signed with another secret', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
       const other = new JwtService({
         secret: 'another-secret-another-secret-12345',
       });
@@ -427,7 +402,7 @@ describe('auth (e2e)', () => {
     });
 
     it('answers 401 for an expired token', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
       const jwt = new JwtService({ secret: SECRET });
 
       await me(
@@ -441,7 +416,7 @@ describe('auth (e2e)', () => {
     });
 
     it('answers 401 for an unsigned token (alg none)', async () => {
-      const app = await createApp(true);
+      const app = await createApp();
       const part = (value: object) =>
         Buffer.from(JSON.stringify(value)).toString('base64url');
 

@@ -1,20 +1,31 @@
 import { provideHttpClient } from '@angular/common/http';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { API_URL } from './api-url';
 import { AppConfigService } from './app-config.service';
 import { routes } from './app.routes';
+import { AuthService } from './auth/auth.service';
 import { UploadApi } from './uploads/upload-api';
 import { UsersApi } from './users/users-api';
 
-function setup(usersEnabled = false) {
+function setup() {
   TestBed.configureTestingModule({
     providers: [
       provideRouter(routes),
       provideHttpClient(),
       { provide: API_URL, useValue: 'http://localhost:3000' },
-      { provide: AppConfigService, useValue: { usersEnabled, authEnabled: false } },
+      { provide: AppConfigService, useValue: { preferencesEnabled: false } },
+      {
+        provide: AuthService,
+        useValue: {
+          isAuthenticated: () => true,
+          currentUser: signal(null),
+          loadCurrentUser: vi.fn(),
+          logout: vi.fn(),
+        },
+      },
       { provide: UploadApi, useValue: { sign: vi.fn() } },
       { provide: UsersApi, useValue: { list: vi.fn().mockResolvedValue([]), create: vi.fn() } },
     ],
@@ -51,8 +62,8 @@ describe('routes', () => {
     ).not.toBeNull();
   });
 
-  it('lazy loads the users list when the users flag is on', async () => {
-    const harness = await setup(true);
+  it('lazy loads the users list', async () => {
+    const harness = await setup();
 
     await harness.navigateByUrl('/users');
 
@@ -61,37 +72,19 @@ describe('routes', () => {
     );
   });
 
-  it('lazy loads the new user form when the users flag is on', async () => {
-    const harness = await setup(true);
+  it('lazy loads the new user form', async () => {
+    const harness = await setup();
 
     await harness.navigateByUrl('/users/new');
 
     expect(harness.routeNativeElement?.querySelector('main form')).not.toBeNull();
   });
 
-  it('lazy loads the edit user form when the users flag is on', async () => {
-    const harness = await setup(true);
+  it('lazy loads the edit user form', async () => {
+    const harness = await setup();
 
     await harness.navigateByUrl('/users/u1/edit');
 
     expect(harness.routeNativeElement?.querySelector('main section')).not.toBeNull();
-  });
-
-  it('has no edit user form while the users flag is off', async () => {
-    const harness = await setup();
-
-    await expect(harness.navigateByUrl('/users/u1/edit')).rejects.toThrow();
-  });
-
-  it('has no users list while the users flag is off', async () => {
-    const harness = await setup();
-
-    await expect(harness.navigateByUrl('/users')).rejects.toThrow();
-  });
-
-  it('has no new user form while the users flag is off', async () => {
-    const harness = await setup();
-
-    await expect(harness.navigateByUrl('/users/new')).rejects.toThrow();
   });
 });
