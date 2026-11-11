@@ -42,15 +42,14 @@ describe('routes', () => {
     expect(harness.routeNativeElement?.querySelector('[data-testid="drop-zone"]')).not.toBeNull();
   });
 
-  it('sends the root to the upload page, the only real page for now', async () => {
+  it('lazy loads the home page at the root, the page after login', async () => {
     const harness = await setup();
 
     await harness.navigateByUrl('/');
 
-    expect(TestBed.inject(Router).url).toBe('/upload');
-    expect(harness.routeNativeElement?.querySelector('[data-testid="drop-zone"]')).not.toBeNull();
+    expect(TestBed.inject(Router).url).toBe('/');
+    expect(harness.routeNativeElement?.querySelector('main h1')?.textContent).toContain('Home');
   });
-
   it('renders pages inside the shell main landmark', async () => {
     const harness = await setup();
 

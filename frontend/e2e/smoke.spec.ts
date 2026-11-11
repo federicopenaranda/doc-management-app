@@ -40,14 +40,15 @@ test('the app loads and asks for a sign-in', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
 });
 
-test('signing in leads to the upload page, which is the start page for now', async ({ page }) => {
+test('signing in leads to the blank home page', async ({ page }) => {
   await mockApi(page, 'http://localhost:3000');
   await page.goto('/');
 
   await signIn(page);
 
-  await expect(page).toHaveURL(/\/upload$/);
-  await expect(page.getByRole('heading', { name: 'Upload documents' })).toBeVisible();
+  await expect(page).toHaveURL(/localhost:4200\/$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Home' })).toBeAttached();
+  await expect(page.getByRole('main').getByRole('link')).toHaveCount(0);
 });
 
 test('the API URL comes from config.json, not from the build', async ({ page }) => {

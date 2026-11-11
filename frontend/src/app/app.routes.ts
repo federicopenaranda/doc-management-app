@@ -11,8 +11,11 @@ export const routes: Routes = [
     canMatch: [authGuard],
     loadComponent: () => import('./shell/shell').then((m) => m.Shell),
     children: [
-      // No home page yet: the root goes to the one real page.
-      { path: '', pathMatch: 'full', redirectTo: 'upload' },
+      {
+        path: '',
+        pathMatch: 'full',
+        loadComponent: () => import('./home/home-page').then((m) => m.HomePage),
+      },
       {
         path: 'upload',
         loadComponent: () => import('./uploads/upload-page').then((m) => m.UploadPage),
