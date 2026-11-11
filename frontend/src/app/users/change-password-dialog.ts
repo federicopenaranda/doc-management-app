@@ -46,7 +46,7 @@ const showWhenTyped: ErrorStateMatcher = {
     ReactiveFormsModule,
   ],
   template: `
-    <h2 mat-dialog-title><ng-container i18n>Change password for</ng-container> {{ data.name }}</h2>
+    <h2 mat-dialog-title i18n>Change password for {{ data.name }}</h2>
     <form [formGroup]="form" (ngSubmit)="save()" novalidate>
       <mat-dialog-content class="flex flex-col gap-2">
         <mat-form-field>

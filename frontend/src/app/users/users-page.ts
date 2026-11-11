@@ -91,14 +91,14 @@ type ActionError = 'update' | 'archive' | 'restore' | null;
                   <a
                     matIconButton
                     [routerLink]="['/users', user.id, 'edit']"
-                    [attr.aria-label]="'Edit ' + label(user)"
+                    [attr.aria-label]="editLabel(user)"
                   >
                     <mat-icon fontIcon="edit" />
                   </a>
                   <button
                     matIconButton
                     type="button"
-                    [attr.aria-label]="'Change password for ' + label(user)"
+                    [attr.aria-label]="changePasswordLabel(user)"
                     (click)="changePassword(user)"
                   >
                     <mat-icon fontIcon="key" />
@@ -107,7 +107,7 @@ type ActionError = 'update' | 'archive' | 'restore' | null;
                     matIconButton
                     type="button"
                     [disabled]="actionsLocked(user)"
-                    [attr.aria-label]="'Archive ' + label(user)"
+                    [attr.aria-label]="archiveLabel(user)"
                     (click)="archive(user)"
                   >
                     <mat-icon fontIcon="archive" />
@@ -116,7 +116,7 @@ type ActionError = 'update' | 'archive' | 'restore' | null;
                     matIconButton
                     type="button"
                     [disabled]="actionsLocked(user)"
-                    [attr.aria-label]="(user.isActive ? 'Disable ' : 'Enable ') + label(user)"
+                    [attr.aria-label]="toggleLabel(user)"
                     (click)="toggleActive(user)"
                   >
                     <mat-icon [fontIcon]="user.isActive ? 'block' : 'check_circle'" />
@@ -167,7 +167,7 @@ type ActionError = 'update' | 'archive' | 'restore' | null;
                     matIconButton
                     type="button"
                     [disabled]="busy()"
-                    [attr.aria-label]="'Restore ' + label(user)"
+                    [attr.aria-label]="restoreLabel(user)"
                     (click)="restore(user)"
                   >
                     <mat-icon fontIcon="unarchive" />
@@ -286,6 +286,28 @@ export class UsersPage {
   }
 
   /** Who the buttons are about, for screen readers: the name, or the email for a user without one. */
+  protected editLabel(user: User): string {
+    return $localize`:@@users.edit-aria:Edit ${this.label(user)}:name:`;
+  }
+
+  protected changePasswordLabel(user: User): string {
+    return $localize`:@@users.change-password-aria:Change password for ${this.label(user)}:name:`;
+  }
+
+  protected archiveLabel(user: User): string {
+    return $localize`:@@users.archive-aria:Archive ${this.label(user)}:name:`;
+  }
+
+  protected toggleLabel(user: User): string {
+    return user.isActive
+      ? $localize`:@@users.disable-aria:Disable ${this.label(user)}:name:`
+      : $localize`:@@users.enable-aria:Enable ${this.label(user)}:name:`;
+  }
+
+  protected restoreLabel(user: User): string {
+    return $localize`:@@users.restore-aria:Restore ${this.label(user)}:name:`;
+  }
+
   protected label(user: User): string {
     return `${user.firstName} ${user.lastName}`.trim() || user.email;
   }

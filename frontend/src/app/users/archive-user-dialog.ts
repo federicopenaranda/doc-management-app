@@ -13,7 +13,7 @@ import {
   selector: 'dms-archive-user-dialog',
   imports: [MatButton, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
   template: `
-    <h2 mat-dialog-title><ng-container i18n>Archive</ng-container> {{ data.name }}?</h2>
+    <h2 mat-dialog-title i18n>Archive {{ data.name }}?</h2>
     <mat-dialog-content i18n>
       They will not be able to sign in and will disappear from this list. Their history is kept.
     </mat-dialog-content>
