@@ -657,6 +657,32 @@ describe('users status and archive (e2e)', () => {
       await app.close();
     });
 
+    it('ends the whole path: an archived user can no longer log in, and the token they had stops working', async () => {
+      const { app, token } = await appWithAna();
+      const server = app.getHttpServer();
+      const login = () =>
+        request(server)
+          .post('/auth/login')
+          .send({ email: 'ana@example.com', password: PASSWORD });
+      const { body } = await login().expect(200);
+      await request(server)
+        .get('/users')
+        .set(authed(body.accessToken))
+        .expect(200);
+
+      await request(server)
+        .post(`/users/${FIRST}/archive`)
+        .set(authed(token))
+        .expect(204);
+
+      await login().expect(401);
+      await request(server)
+        .get('/users')
+        .set(authed(body.accessToken))
+        .expect(401);
+      await app.close();
+    });
+
     it('keeps the email reserved, so the history stays unambiguous', async () => {
       const { app, token } = await appWithAna();
       const server = app.getHttpServer();
