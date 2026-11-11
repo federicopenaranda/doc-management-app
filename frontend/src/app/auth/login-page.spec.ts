@@ -38,7 +38,7 @@ describe('LoginPage', () => {
     expect((screen.getByLabelText(/^password/i) as HTMLInputElement).type).toBe('text');
   });
 
-  it('signs in with the typed credentials and goes to the hello page', async () => {
+  it('signs in with the typed credentials and goes to the start page', async () => {
     const { spy, navigate, submit } = await setup(async () => true);
 
     submit();

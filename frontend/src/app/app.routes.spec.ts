@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { API_URL } from './api-url';
 import { AppConfigService } from './app-config.service';
@@ -42,14 +42,13 @@ describe('routes', () => {
     expect(harness.routeNativeElement?.querySelector('[data-testid="drop-zone"]')).not.toBeNull();
   });
 
-  it('lazy loads the home page at the root', async () => {
+  it('sends the root to the upload page, the only real page for now', async () => {
     const harness = await setup();
 
     await harness.navigateByUrl('/');
 
-    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toContain(
-      'Hello, doc-management',
-    );
+    expect(TestBed.inject(Router).url).toBe('/upload');
+    expect(harness.routeNativeElement?.querySelector('[data-testid="drop-zone"]')).not.toBeNull();
   });
 
   it('renders pages inside the shell main landmark', async () => {
