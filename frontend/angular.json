@@ -72,7 +72,7 @@
               "buildTarget": "doc-management:build:development"
             },
             "es": {
-              "buildTarget": "doc-management:build:es"
+              "buildTarget": "doc-management:build:development,es"
             }
           },
           "defaultConfiguration": "development"
