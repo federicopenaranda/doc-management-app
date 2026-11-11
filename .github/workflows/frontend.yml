@@ -84,4 +84,7 @@ jobs:
         run: |
           url=$(gcloud run services describe frontend --region "${{ vars.GCP_REGION }}" --project "${{ vars.GCP_PROJECT_ID }}" --format='value(status.url)')
           curl -fsS "$url/es/" | grep -q '<dms-root'
-          curl -fsS "$url/config.json" | jq -e '.apiUrl | startswith("https://backend-")'
+          # The app asks for config.json relative to its language prefix, so check that path.
+          curl -fsS "$url/es/config.json" | jq -e '.apiUrl | startswith("https://backend-")'
+          # An address without a language goes to the Spanish copy.
+          test "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$url/")" = "302 $url/es/"
