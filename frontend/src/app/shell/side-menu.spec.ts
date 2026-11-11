@@ -1,18 +1,14 @@
 import { provideRouter } from '@angular/router';
 import { fireEvent, render, screen } from '@testing-library/angular';
-import { AppConfigService } from '../app-config.service';
 import { SideMenu } from './side-menu';
 
-async function setup(open: boolean, usersEnabled = false) {
+async function setup(open: boolean) {
   const closed = vi.fn();
   await render(SideMenu, {
     inputs: { open },
     on: { closed },
     // A catch-all route, so clicking a link has somewhere to go.
-    providers: [
-      provideRouter([{ path: '**', children: [] }]),
-      { provide: AppConfigService, useValue: { usersEnabled } },
-    ],
+    providers: [provideRouter([{ path: '**', children: [] }])],
   });
   return { closed };
 }
@@ -35,21 +31,15 @@ describe('SideMenu', () => {
     }
   });
 
-  it('has a Users entry linking to /users only while the users flag is on', async () => {
-    await setup(true, true);
+  it('has a Users entry linking to /users', async () => {
+    await setup(true);
 
     const link = screen.getByRole('link', { name: 'Users' });
     expect(link.getAttribute('href')).toBe('/users');
   });
 
-  it('has no Users entry while the users flag is off', async () => {
-    await setup(true, false);
-
-    expect(screen.queryByRole('link', { name: 'Users' })).toBeNull();
-  });
-
   it('emits closed when the Users entry is clicked', async () => {
-    const { closed } = await setup(true, true);
+    const { closed } = await setup(true);
 
     await fireEvent.click(screen.getByRole('link', { name: 'Users' }));
 

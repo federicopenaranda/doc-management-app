@@ -1,8 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import type { Env } from '../config/env.validation.js';
 import { hashPassword, verifyPassword } from './password.js';
 import { RefreshTokensRepository } from './refresh-tokens.repository.js';
 import {
@@ -34,8 +32,7 @@ export interface Profile {
 export interface LoginResult {
   accessToken: string;
   expiresIn: number;
-  /** Only while the REFRESH_ENABLED flag is on. */
-  refreshToken?: string;
+  refreshToken: string;
 }
 
 /** The database keeps this, never the token itself. SHA-256 is enough: the token is 256 random bits. */
@@ -48,7 +45,6 @@ export class AuthService {
     private readonly users: UsersRepository,
     private readonly jwt: JwtService,
     private readonly refreshTokens: RefreshTokensRepository,
-    private readonly config: ConfigService<Env, true>,
   ) {}
 
   async login(email: string, password: string): Promise<LoginResult> {
@@ -110,19 +106,12 @@ export class AuthService {
       { sub: user.id, email: user.email },
       { expiresIn: ACCESS_TOKEN_SECONDS },
     );
-    const result: LoginResult = {
-      accessToken,
-      expiresIn: ACCESS_TOKEN_SECONDS,
-    };
-    if (this.config.get('REFRESH_ENABLED', { infer: true })) {
-      const refreshToken = randomBytes(32).toString('base64url');
-      await this.refreshTokens.insert(
-        user.id,
-        hashToken(refreshToken),
-        new Date(Date.now() + REFRESH_TOKEN_MS),
-      );
-      result.refreshToken = refreshToken;
-    }
-    return result;
+    const refreshToken = randomBytes(32).toString('base64url');
+    await this.refreshTokens.insert(
+      user.id,
+      hashToken(refreshToken),
+      new Date(Date.now() + REFRESH_TOKEN_MS),
+    );
+    return { accessToken, expiresIn: ACCESS_TOKEN_SECONDS, refreshToken };
   }
 }

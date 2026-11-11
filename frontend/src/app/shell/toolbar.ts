@@ -42,7 +42,7 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
         <mat-icon aria-hidden="true" fontIcon="description" />
         <span class="hidden font-medium sm:inline" aria-hidden="true" i18n>DMS</span>
       </a>
-      @if (authEnabled && displayName(); as name) {
+      @if (displayName(); as name) {
         <span
           data-testid="current-user"
           class="hidden max-w-48 truncate text-(--mat-sys-on-surface-variant) sm:inline"
@@ -118,22 +118,19 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
         <button mat-menu-item type="button" i18n>Profile</button>
         <button mat-menu-item type="button" i18n>Documents</button>
         <button mat-menu-item type="button" i18n>Settings</button>
-        @if (authEnabled && preferencesEnabled) {
+        @if (preferencesEnabled) {
           <button mat-menu-item type="button" (click)="openPreferences()" i18n>Preferences</button>
         }
-        @if (authEnabled) {
-          <button mat-menu-item type="button" (click)="logout()">
-            <mat-icon fontIcon="logout" />
-            <span i18n>Log out</span>
-          </button>
-        }
+        <button mat-menu-item type="button" (click)="logout()">
+          <mat-icon fontIcon="logout" />
+          <span i18n>Log out</span>
+        </button>
       </mat-menu>
     </header>
   `,
 })
 export class Toolbar {
   protected readonly theme = inject(ThemeService);
-  protected readonly authEnabled = inject(AppConfigService).authEnabled;
   protected readonly preferencesEnabled = inject(AppConfigService).preferencesEnabled;
   private readonly dialog = inject(MatDialog);
   private readonly auth = inject(AuthService);
@@ -146,7 +143,7 @@ export class Toolbar {
   private readonly router = inject(Router);
 
   constructor() {
-    if (this.authEnabled) void this.auth.loadCurrentUser();
+    void this.auth.loadCurrentUser();
   }
 
   readonly menuOpen = input(false);

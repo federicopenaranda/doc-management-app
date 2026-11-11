@@ -124,11 +124,6 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "DB_USER"
         value = google_sql_user.backend.name
       }
-      # Feature flag for login and JWT authentication (needs the database): remove two weeks after it is on in use.
-      env {
-        name  = "AUTH_ENABLED"
-        value = "true"
-      }
       env {
         name  = "APP_CONFIG_FILE"
         value = local.config_path

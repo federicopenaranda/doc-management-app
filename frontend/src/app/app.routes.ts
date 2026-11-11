@@ -1,13 +1,9 @@
-import { inject } from '@angular/core';
 import { Routes } from '@angular/router';
-import { AppConfigService } from './app-config.service';
 import { authGuard } from './auth/auth.guard';
 
 export const routes: Routes = [
   {
     path: 'login',
-    // Feature flag (config.json "authEnabled"): without it the route does not exist.
-    canMatch: [() => inject(AppConfigService).authEnabled],
     loadComponent: () => import('./auth/login-page').then((m) => m.LoginPage),
   },
   {
@@ -26,8 +22,6 @@ export const routes: Routes = [
       },
       {
         path: 'users',
-        // Feature flag (config.json "usersEnabled"): without it the routes do not exist.
-        canMatch: [() => inject(AppConfigService).usersEnabled],
         children: [
           {
             path: '',

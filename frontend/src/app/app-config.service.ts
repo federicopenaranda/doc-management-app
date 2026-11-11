@@ -4,12 +4,6 @@ import { firstValueFrom } from 'rxjs';
 
 interface AppConfig {
   apiUrl: string;
-  /** Feature flag for login (SCRUM-16): remove it two weeks after it is on in use. */
-  authEnabled: boolean;
-  /** Feature flag for token refresh (SCRUM-16): remove it two weeks after it is on in use. */
-  refreshEnabled: boolean;
-  /** Feature flag for the user screens (SCRUM-18): remove it two weeks after it is on in use. */
-  usersEnabled: boolean;
   /** Feature flag for the Preferences dialog (SCRUM-19): remove it two weeks after it is on in use. */
   preferencesEnabled: boolean;
 }
@@ -42,15 +36,9 @@ function parseConfig(raw: unknown): AppConfig {
   if (typeof apiUrl !== 'string' || !isHttpUrl(apiUrl)) {
     throw new Error('config.json: "apiUrl" must be an absolute http(s) URL');
   }
-  const authEnabled = parseFlag(object, 'authEnabled');
-  const refreshEnabled = parseFlag(object, 'refreshEnabled');
-  const usersEnabled = parseFlag(object, 'usersEnabled');
   const preferencesEnabled = parseFlag(object, 'preferencesEnabled');
   return {
     apiUrl: apiUrl.replace(/\/+$/, ''),
-    authEnabled,
-    refreshEnabled,
-    usersEnabled,
     preferencesEnabled,
   };
 }
@@ -64,21 +52,6 @@ export class AppConfigService {
   get apiUrl(): string {
     if (!this.config) throw new Error('config.json has not been loaded');
     return this.config.apiUrl;
-  }
-
-  get authEnabled(): boolean {
-    if (!this.config) throw new Error('config.json has not been loaded');
-    return this.config.authEnabled;
-  }
-
-  get refreshEnabled(): boolean {
-    if (!this.config) throw new Error('config.json has not been loaded');
-    return this.config.refreshEnabled;
-  }
-
-  get usersEnabled(): boolean {
-    if (!this.config) throw new Error('config.json has not been loaded');
-    return this.config.usersEnabled;
   }
 
   get preferencesEnabled(): boolean {

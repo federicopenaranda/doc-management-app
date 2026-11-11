@@ -2,18 +2,16 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_URL } from '../api-url';
-import { AppConfigService } from '../app-config.service';
 import { LocaleService } from '../i18n/locale.service';
 import { AuthService } from './auth.service';
 
-function setup(refreshEnabled = false) {
+function setup() {
   const locale = { redirectIfNeeded: vi.fn() };
   TestBed.configureTestingModule({
     providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
       { provide: API_URL, useValue: 'http://localhost:3000' },
-      { provide: AppConfigService, useValue: { refreshEnabled } },
       { provide: LocaleService, useValue: locale },
     ],
   });
@@ -28,8 +26,8 @@ describe('AuthService with refresh tokens', () => {
   const API = 'http://localhost:3000';
   beforeEach(() => sessionStorage.clear());
 
-  async function loggedIn(refreshEnabled = true) {
-    const ctx = setup(refreshEnabled);
+  async function loggedIn() {
+    const ctx = setup();
     const result = ctx.auth.login('me@example.com', 'a-long-password');
     ctx.http
       .expectOne(`${API}/auth/login`)
@@ -38,16 +36,10 @@ describe('AuthService with refresh tokens', () => {
     return ctx;
   }
 
-  it('keeps the refresh token from login in sessionStorage while the flag is on', async () => {
-    await loggedIn(true);
+  it('keeps the refresh token from login in sessionStorage', async () => {
+    await loggedIn();
 
     expect(sessionStorage.getItem('dms.refreshToken')).toBe('refresh-1');
-  });
-
-  it('ignores the refresh token while the flag is off', async () => {
-    await loggedIn(false);
-
-    expect(sessionStorage.getItem('dms.refreshToken')).toBeNull();
   });
 
   it('refresh() swaps the refresh token for a new pair and keeps both', async () => {
@@ -92,33 +84,18 @@ describe('AuthService with refresh tokens', () => {
     await expect(second).resolves.toBe(true);
   });
 
-  it('canRefresh() is true with the flag on and a refresh token', async () => {
-    const { auth } = await loggedIn(true);
+  it('canRefresh() is true with a refresh token', async () => {
+    const { auth } = await loggedIn();
 
     expect(auth.canRefresh()).toBe(true);
   });
 
-  it('canRefresh() is false while the flag is off, even with a refresh token saved', () => {
-    sessionStorage.setItem('dms.refreshToken', 'refresh-1');
-
-    expect(setup(false).auth.canRefresh()).toBe(false);
-  });
-
   it('canRefresh() is false without a refresh token', () => {
-    expect(setup(true).auth.canRefresh()).toBe(false);
+    expect(setup().auth.canRefresh()).toBe(false);
   });
 
   it('refresh() resolves false without a request when there is no refresh token', async () => {
-    const { auth, http } = setup(true);
-
-    await expect(auth.refresh()).resolves.toBe(false);
-
-    http.expectNone(`${API}/auth/refresh`);
-  });
-
-  it('refresh() resolves false without a request while the flag is off', async () => {
-    sessionStorage.setItem('dms.refreshToken', 'refresh-1');
-    const { auth, http } = setup(false);
+    const { auth, http } = setup();
 
     await expect(auth.refresh()).resolves.toBe(false);
 
@@ -169,7 +146,10 @@ describe('AuthService with refresh tokens', () => {
   });
 
   it('logout() sends nothing when there is no refresh token', async () => {
-    const { auth, http } = await loggedIn(false);
+    const { auth, http } = setup();
+    const result = auth.login('me@example.com', 'a-long-password');
+    http.expectOne(`${API}/auth/login`).flush({ accessToken: 'access-1', expiresIn: 3600 });
+    await result;
 
     auth.logout();
 

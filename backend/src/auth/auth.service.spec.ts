@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { UnauthorizedException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import type { Env } from '../config/env.validation.js';
 import { AuthService } from './auth.service.js';
 import { hashPassword, verifyPassword } from './password.js';
 import type {
@@ -31,10 +30,7 @@ const sha256 = (value: string) =>
 
 async function setup(
   overrides: Partial<UserRecord> = {},
-  {
-    refreshEnabled = false,
-    consume = { status: 'invalid' } as ConsumeResult,
-  } = {},
+  { consume = { status: 'invalid' } as ConsumeResult } = {},
 ) {
   const user: UserRecord = {
     id: '6f1e0f0e-5d3c-4b7a-9d52-0a1f3c2b7e11',
@@ -72,9 +68,6 @@ async function setup(
     revoke: vi.fn().mockResolvedValue(undefined),
     revokeAllForUser: vi.fn().mockResolvedValue(undefined),
   };
-  const config = {
-    get: () => refreshEnabled,
-  } as unknown as ConfigService<Env, true>;
   const users = {
     findByEmail,
     findById,
@@ -86,7 +79,6 @@ async function setup(
     users as unknown as UsersRepository,
     jwt,
     refreshTokens as unknown as RefreshTokensRepository,
-    config,
   );
   return {
     service,
@@ -186,20 +178,8 @@ describe('AuthService.login', () => {
 });
 
 describe('AuthService.login with refresh tokens', () => {
-  it('returns no refresh token and stores nothing while the flag is off', async () => {
-    const { service, refreshTokens, user } = await setup();
-
-    const result = await service.login(user.email, 'correct horse battery');
-
-    expect(result.refreshToken).toBeUndefined();
-    expect(refreshTokens.insert).not.toHaveBeenCalled();
-  });
-
   it('returns a refresh token and stores only its hash, valid for 7 days', async () => {
-    const { service, refreshTokens, user } = await setup(
-      {},
-      { refreshEnabled: true },
-    );
+    const { service, refreshTokens, user } = await setup({}, {});
     const before = Date.now();
 
     const result = await service.login(user.email, 'correct horse battery');
@@ -219,7 +199,7 @@ describe('AuthService.login with refresh tokens', () => {
   });
 
   it('gives a different refresh token on every login', async () => {
-    const { service, user } = await setup({}, { refreshEnabled: true });
+    const { service, user } = await setup({}, {});
 
     const first = await service.login(user.email, 'correct horse battery');
     const second = await service.login(user.email, 'correct horse battery');
@@ -230,7 +210,6 @@ describe('AuthService.login with refresh tokens', () => {
 
 describe('AuthService.refresh', () => {
   const good = {
-    refreshEnabled: true,
     consume: { status: 'ok', userId: USER_ID },
   } as const;
 
@@ -255,7 +234,7 @@ describe('AuthService.refresh', () => {
   it('rejects an unknown or expired token and issues nothing', async () => {
     const { service, refreshTokens } = await setup(
       {},
-      { refreshEnabled: true, consume: { status: 'invalid' } },
+      { consume: { status: 'invalid' } },
     );
 
     await messageOf(service.refresh('nope'));
@@ -267,7 +246,7 @@ describe('AuthService.refresh', () => {
   it('treats a token that is used again as theft: revokes every token of that user and rejects', async () => {
     const { service, refreshTokens, user } = await setup(
       {},
-      { refreshEnabled: true, consume: { status: 'reused', userId: USER_ID } },
+      { consume: { status: 'reused', userId: USER_ID } },
     );
 
     await messageOf(service.refresh('stolen'));
@@ -288,7 +267,6 @@ describe('AuthService.refresh', () => {
     const { service } = await setup(
       {},
       {
-        refreshEnabled: true,
         consume: { status: 'ok', userId: 'deleted-user' },
       },
     );
@@ -297,7 +275,7 @@ describe('AuthService.refresh', () => {
   });
 
   it('gives the same message for every failure', async () => {
-    const invalid = await setup({}, { refreshEnabled: true });
+    const invalid = await setup({}, {});
     const inactive = await setup({ isActive: false }, good);
 
     const messages = await Promise.all([
@@ -311,10 +289,7 @@ describe('AuthService.refresh', () => {
 
 describe('AuthService.logout', () => {
   it('revokes the token by its hash', async () => {
-    const { service, refreshTokens } = await setup(
-      {},
-      { refreshEnabled: true },
-    );
+    const { service, refreshTokens } = await setup({}, {});
 
     await service.logout('my-refresh-token');
 

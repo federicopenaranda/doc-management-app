@@ -1,14 +1,5 @@
-import {
-  afterRenderEffect,
-  Component,
-  ElementRef,
-  inject,
-  input,
-  output,
-  viewChild,
-} from '@angular/core';
+import { afterRenderEffect, Component, ElementRef, input, output, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AppConfigService } from '../app-config.service';
 
 @Component({
   imports: [RouterLink],
@@ -53,15 +44,13 @@ import { AppConfigService } from '../app-config.service';
         >
           Shared
         </button>
-        @if (usersEnabled) {
-          <a
-            routerLink="/users"
-            (click)="closed.emit()"
-            class="rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
-            i18n
-            >Users</a
-          >
-        }
+        <a
+          routerLink="/users"
+          (click)="closed.emit()"
+          class="rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
+          i18n
+          >Users</a
+        >
         <button
           type="button"
           (click)="closed.emit()"
@@ -77,8 +66,6 @@ import { AppConfigService } from '../app-config.service';
 export class SideMenu {
   readonly open = input.required<boolean>();
   readonly closed = output<void>();
-
-  protected readonly usersEnabled = inject(AppConfigService).usersEnabled;
 
   private readonly first = viewChild<ElementRef<HTMLElement>>('first');
 

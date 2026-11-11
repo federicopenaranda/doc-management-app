@@ -4,17 +4,14 @@ import {
   Controller,
   Get,
   HttpCode,
-  NotFoundException,
   Post,
   Put,
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
-import type { Env } from '../config/env.validation.js';
 import { AuthService, type LoginResult, type Profile } from './auth.service.js';
 import { JwtAuthGuard, type AuthenticatedRequest } from './jwt-auth.guard.js';
 
@@ -47,20 +44,13 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
 @ApiExcludeController()
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private readonly config: ConfigService<Env, true>,
-    private readonly auth: AuthService,
-  ) {}
+  constructor(private readonly auth: AuthService) {}
 
   /** Five attempts per minute per IP, on top of the global limit: this route is the one to guess against. */
   @Post('login')
   @HttpCode(200)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async login(@Body() body: unknown): Promise<LoginResult> {
-    // A disabled feature does not exist as far as clients can tell.
-    if (!this.config.get('AUTH_ENABLED', { infer: true })) {
-      throw new NotFoundException();
-    }
     const { email, password } = parse(loginSchema, body);
     return this.auth.login(email, password);
   }
@@ -70,7 +60,6 @@ export class AuthController {
   @HttpCode(200)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async refresh(@Body() body: unknown): Promise<LoginResult> {
-    this.requireRefreshEnabled();
     return this.auth.refresh(parse(refreshSchema, body).refreshToken);
   }
 
@@ -78,15 +67,7 @@ export class AuthController {
   @HttpCode(204)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async logout(@Body() body: unknown): Promise<void> {
-    this.requireRefreshEnabled();
     await this.auth.logout(parse(refreshSchema, body).refreshToken);
-  }
-
-  // A disabled feature does not exist as far as clients can tell.
-  private requireRefreshEnabled(): void {
-    if (!this.config.get('REFRESH_ENABLED', { infer: true })) {
-      throw new NotFoundException();
-    }
   }
 
   @Get('me')

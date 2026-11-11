@@ -24,9 +24,6 @@ describe('validateEnv', () => {
       LOG_LEVEL: 'info',
       PORT: 3000,
       DATABASE_ENABLED: false,
-      AUTH_ENABLED: false,
-      REFRESH_ENABLED: false,
-      USERS_ENABLED: false,
     });
   });
 
@@ -126,73 +123,4 @@ describe('validateEnv: database', () => {
       );
     },
   );
-});
-
-describe('validateEnv: auth', () => {
-  it('is off by default', () => {
-    expect(validateEnv(valid).AUTH_ENABLED).toBe(false);
-  });
-
-  it('needs the database feature, because users live in the database', () => {
-    expect(() => validateEnv({ ...valid, AUTH_ENABLED: 'true' })).toThrow(
-      'AUTH_ENABLED',
-    );
-  });
-
-  it('is accepted together with the database feature', () => {
-    const env = validateEnv({
-      ...valid,
-      AUTH_ENABLED: 'true',
-      DATABASE_ENABLED: 'true',
-    });
-
-    expect(env.AUTH_ENABLED).toBe(true);
-  });
-});
-
-describe('validateEnv: refresh tokens', () => {
-  const withAuth = {
-    ...valid,
-    AUTH_ENABLED: 'true',
-    DATABASE_ENABLED: 'true',
-  };
-
-  it('is off by default', () => {
-    expect(validateEnv(withAuth).REFRESH_ENABLED).toBe(false);
-  });
-
-  it('needs login, because a refresh token is issued at login', () => {
-    expect(() => validateEnv({ ...valid, REFRESH_ENABLED: 'true' })).toThrow(
-      'REFRESH_ENABLED',
-    );
-  });
-
-  it('is accepted together with login', () => {
-    expect(
-      validateEnv({ ...withAuth, REFRESH_ENABLED: 'true' }).REFRESH_ENABLED,
-    ).toBe(true);
-  });
-});
-
-describe('validateEnv: users', () => {
-  it('is off by default', () => {
-    expect(validateEnv(valid).USERS_ENABLED).toBe(false);
-  });
-
-  it('needs login, because only a logged-in user can manage users', () => {
-    expect(() => validateEnv({ ...valid, USERS_ENABLED: 'true' })).toThrow(
-      'USERS_ENABLED',
-    );
-  });
-
-  it('is accepted together with login', () => {
-    const env = validateEnv({
-      ...valid,
-      AUTH_ENABLED: 'true',
-      DATABASE_ENABLED: 'true',
-      USERS_ENABLED: 'true',
-    });
-
-    expect(env.USERS_ENABLED).toBe(true);
-  });
 });

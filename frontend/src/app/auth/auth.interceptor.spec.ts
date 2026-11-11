@@ -3,7 +3,6 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { API_URL } from '../api-url';
-import { AppConfigService } from '../app-config.service';
 import { authInterceptor } from './auth.interceptor';
 import { AuthService } from './auth.service';
 
@@ -19,7 +18,6 @@ function setup(token: string | null = 'jwt-1', refreshToken: string | null = nul
       provideHttpClientTesting(),
       provideRouter([]),
       { provide: API_URL, useValue: API },
-      { provide: AppConfigService, useValue: { refreshEnabled: true } },
     ],
   });
   return {

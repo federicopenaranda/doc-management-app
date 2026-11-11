@@ -132,18 +132,6 @@ run "backend_gets_the_database_settings" {
   }
 }
 
-run "auth_flag_is_on_for_the_backend" {
-  command = plan
-
-  assert {
-    condition = anytrue([
-      for env in google_cloud_run_v2_service.backend.template[0].containers[0].env :
-      env.name == "AUTH_ENABLED" && env.value == "true"
-    ])
-    error_message = "the login feature flag is on for the backend"
-  }
-}
-
 run "backend_has_room_for_password_hashing" {
   command = plan
 
