@@ -1,40 +1,38 @@
 # TODO
 
-Last updated: 2026-11-10. Written so a fresh session can continue without the chat history.
+Last updated: 2026-11-11. Written so a fresh session can continue without the chat history.
 
 ## Where things stand
 
-Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live. **Cloud SQL `dms-postgres` is STOPPED** (stopped on 2026-11-10 to save money): login and the users screens fail until it runs again (see "Tomorrow, first").
+Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live. **Cloud SQL `dms-postgres` was RUNNING on 2026-11-11** (started to run `db:bootstrap`); it costs money while running, so stop it when it is not needed (see "Right now"). Login and the users screens fail while it is stopped.
 
 - **Terraform** (`infrastructure/`): applied by CI. A PR touching `infrastructure/**` shows a plan; merging to `main` runs `apply`. Details in `infrastructure/README.md`.
 - **Cloud Run:** `frontend` and `backend` (public), `tika` (private). Frontend https://frontend-193663799936.us-west1.run.app, backend https://backend-193663799936.us-west1.run.app. Both deploy from `main` (`.github/workflows/`), and a deploy only runs after `verify` passes.
 - **Document worker** (2026-11-05): upload -> Pub/Sub -> `POST /pubsub/documents` -> Tika -> `document.md` in the processed bucket. Multi-file upload page `/upload`, `POST /uploads/sign`. Their flags (`DOCUMENT_PROCESSING_ENABLED`, `UPLOADS_ENABLED`, `uploadsEnabled`, `shellEnabled`) were removed; the four worker settings (`TIKA_URL`, `PROCESSED_BUCKET`, `BACKEND_URL`, `PUBSUB_PUSH_SA_EMAIL`) are now always required.
 - **Database** (2026-11-08): Cloud SQL, IAM login for `backend-run`. `npm run db:bootstrap` (as the `postgres` admin with a temporary password, steps in `infrastructure/README.md`) creates the tables: `users` (names, `is_active`, `archived_at`, `archived_by`), `refresh_tokens`, `prueba`. The backend identity may read/add/update users and refresh tokens and has **no DELETE right anywhere**.
 - **Login (SCRUM-16, done):** `POST /auth/login`, access token 1 h, refresh token 7 days (single use, reuse revokes all), `GET /auth/me`, logout. Frontend `/login`, token interceptor with silent refresh, user name in the toolbar. Flags `AUTH_ENABLED`/`authEnabled`, `REFRESH_ENABLED`/`refreshEnabled`.
-- **Users (SCRUM-18, built, not yet tried by the owner in the browser):** menu "Users" -> Material table, Add user (with confirm password), Edit (names + email), Disable/Enable, Archive (confirmation dialog). **Users are archived, never deleted: history is very important in this app.** Nobody can disable/archive themselves; disabling/archiving cuts sessions at once (every authenticated request checks `is_active`). Any logged-in user can manage users until roles exist. Flags `USERS_ENABLED`/`usersEnabled`.
+- **Users (SCRUM-18, built; the owner confirmed create and edit, the rest still to try in the browser):** menu "Users" -> Material table, Add user (with confirm password), Edit (names + email), Disable/Enable, Archive (confirmation dialog), Change password (admin sets a new one), an "Archived users" table with Restore. **Users are archived, never deleted: history is very important in this app.** Nobody can disable/archive themselves; disabling/archiving cuts sessions at once (every authenticated request checks `is_active`). Any logged-in user can manage users until roles exist. Flags `USERS_ENABLED`/`usersEnabled`.
 - **Spanish / English UI (SCRUM-32, built 2026-11-11):** two build copies `/en/` and `/es/` (Angular i18n), nginx sends `/` to `/es/`, login and Preferences move the user to the copy of their saved language; new users default to `es` (`db:bootstrap` adds the default; run it **before** merging). How to add a language: `frontend/README.md`. No feature flag.
 - **Secrets** (Secret Manager, JSON, values added by the owner): `backend-sandbox` and `frontend-sandbox` must hold the flags. The frontend container reads its secret **only at start**: after adding a version run `gcloud run services update frontend --region us-west1 --project doc-management-sandbox --update-labels redeploy=$(date +%s)`.
 
-## Tomorrow, first
+## Right now
 
-1. Start the database and wait for `RUNNABLE`: `gcloud sql instances patch dms-postgres --activation-policy=ALWAYS --project doc-management-sandbox`, then `gcloud sql instances describe dms-postgres --project doc-management-sandbox --format="value(state)"`.
-2. The owner tries the Users screens in the browser (create, edit, disable/enable, archive a test user, own row locked) and reports; check the backend logs for any 500 (`gcloud logging read ... severity>=ERROR`).
+1. The database: start it with `gcloud sql instances patch dms-postgres --activation-policy=ALWAYS --project doc-management-sandbox` and wait for `RUNNABLE` (`gcloud sql instances describe dms-postgres --project doc-management-sandbox --format="value(state)"`); stop it with `--activation-policy=NEVER`.
+2. The owner tries the Users screens (disable/enable, archive, restore, change password) and the Spanish/English switch in the sandbox browser and reports; check the backend logs for any 500 (`gcloud logging read ... severity>=ERROR`).
 
 ## Next up (suggested order)
 
-1. Backend e2e test: archive a user, then logging in as them fails (each piece is tested alone, not the whole path).
-2. **Activity log (audit trail):** who created, edited, disabled or archived whom, and when. Use the brainstorming skill first. This is where the "history is very important" requirement lands.
-3. Screen for archived users, with restore (restoring must also reopen the reserved email).
-4. Change a user's password (admin sets a new one; revoke their refresh tokens).
-5. **Roles and permissions (SCRUM-17):** decides who may create/edit/disable/archive users (today any logged-in user can).
-6. **Remove the feature flags around 2026-11-23** (two weeks after use, per `CLAUDE.md`): `AUTH_ENABLED`/`authEnabled`, `REFRESH_ENABLED`/`refreshEnabled`, `USERS_ENABLED`/`usersEnabled`, `AuthIfEnabledGuard`, `UsersEnabledGuard`, and the keys in both secrets.
+1. **Activity log (audit trail):** who created, edited, disabled, archived or restored whom, and when. Use the brainstorming skill first. This is where the "history is very important" requirement lands.
+2. **Roles and permissions (SCRUM-17):** decides who may create/edit/disable/archive users (today any logged-in user can).
+3. **Remove the feature flags around 2026-11-23** (two weeks after use, per `CLAUDE.md`): `AUTH_ENABLED`/`authEnabled`, `REFRESH_ENABLED`/`refreshEnabled`, `USERS_ENABLED`/`usersEnabled`, `AuthIfEnabledGuard`, `UsersEnabledGuard`, and the keys in both secrets. `preferencesEnabled` goes around 2026-11-24. The language switch (SCRUM-32) has no flag.
 
 ## Smaller items
 
 - Line-ending noise: ~20 files show as modified on Windows (CRLF) and the backend dev server rewrites `backend/src/metadata.ts` and `docs/swagger.json`; both block branch switches. Consider a `.gitattributes` (`* text=auto eol=lf`) and not tracking the generated files.
 - Backend e2e tests time out at the default 5 s on a cold start when all files run in parallel; run with `--testTimeout=30000` or set it in `vitest.config.e2e.ts`.
 - `knip` warnings that were already there: unused type `UploadStatus`, unlisted `@angular-eslint/builder`.
-- Known shortcuts (`shortcut:` comments in code): users list has no paging; expired `refresh_tokens` rows are never cleaned; dynamic `aria-label`s are not translated; the JSON-schema forms rule of `CLAUDE.md` is not applied (forms use Reactive Forms).
+- Known shortcuts (`shortcut:` comments in code): users list has no paging; expired `refresh_tokens` rows are never cleaned; the JSON-schema forms rule of `CLAUDE.md` is not applied (forms use Reactive Forms).
+- **i18n follow-ups (SCRUM-32 review):** `start:es` should build with development options (`buildTarget: doc-management:build:development,es`); the image test should pin the relative `Location` of the redirect (`absolute_redirect off`); the CI smoke test should check `/es/config.json` and a 302 on `/`; `dms.language` is saved but never read (reading it would remove the brief `/es/` flash for English users); `/ES/users` (capital letters) shows a blank page; the language names in Preferences need a `lang` attribute; warn before a language switch if uploads are running; owner to review the Spanish wording ("Contraseña cambiada para", "Confirma la contraseña", "Archivos"); no browser test of the real two-copy flow.
 - Frontend security headers in `frontend/docker/nginx.conf` (CSP, frame options, referrer policy); Playwright e2e tests in CI.
 - Blueprint (`blueprint/`) is out of date: pull scripts, config loader, Docker images, deploy workflows, dead-letter setup, auth.
 - **Duplicate file names (owner's rule):** uploading a file whose name already exists must notify the user and be prevented (GCS `ifGenerationMatch=0` is already used by the signed upload; the UI shows "already exists").
