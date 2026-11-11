@@ -28,7 +28,6 @@ Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live. *
 
 ## Smaller items
 
-- Backend e2e tests time out at the default 5 s on a cold start when all files run in parallel; run with `--testTimeout=30000` or set it in `vitest.config.e2e.ts`.
 - `knip` warnings that were already there: unused type `UploadStatus`, unlisted `@angular-eslint/builder`.
 - Known shortcuts (`shortcut:` comments in code): users list has no paging; expired `refresh_tokens` rows are never cleaned; the JSON-schema forms rule of `CLAUDE.md` is not applied (forms use Reactive Forms).
 - **i18n follow-ups (SCRUM-32 review):** `start:es` should build with development options (`buildTarget: doc-management:build:development,es`); the image test should pin the relative `Location` of the redirect (`absolute_redirect off`); the CI smoke test should check `/es/config.json` and a 302 on `/`; `dms.language` is saved but never read (reading it would remove the brief `/es/` flash for English users); `/ES/users` (capital letters) shows a blank page; the language names in Preferences need a `lang` attribute; warn before a language switch if uploads are running; owner to review the Spanish wording ("Contraseña cambiada para", "Confirma la contraseña", "Archivos"); no browser test of the real two-copy flow.

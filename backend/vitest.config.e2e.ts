@@ -6,6 +6,8 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.e2e-spec.ts'],
+    // Each case boots the whole app; on a cold start with every file running in parallel that can pass 5 seconds.
+    testTimeout: 30_000,
     env: {
       NODE_ENV: 'test',
       LOG_LEVEL: 'silent',
