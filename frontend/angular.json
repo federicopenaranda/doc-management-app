@@ -47,12 +47,17 @@
                   "maximumError": "8kB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "localize": true,
+              "i18nMissingTranslation": "warning"
             },
             "development": {
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "es": {
+              "localize": ["es"]
             }
           },
           "defaultConfiguration": "production"
@@ -65,6 +70,9 @@
             },
             "development": {
               "buildTarget": "doc-management:build:development"
+            },
+            "es": {
+              "buildTarget": "doc-management:build:es"
             }
           },
           "defaultConfiguration": "development"
@@ -77,6 +85,12 @@
           "options": {
             "lintFilePatterns": ["src/**/*.ts", "src/**/*.html"]
           }
+        }
+      },
+      "i18n": {
+        "sourceLocale": "en",
+        "locales": {
+          "es": "src/locale/messages.es.json"
         }
       }
     }
