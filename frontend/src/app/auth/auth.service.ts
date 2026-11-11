@@ -3,6 +3,7 @@ import { computed, inject, Service, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../api-url';
 import { AppConfigService } from '../app-config.service';
+import { LocaleService } from '../i18n/locale.service';
 
 const ACCESS_KEY = 'dms.accessToken';
 const REFRESH_KEY = 'dms.refreshToken';
@@ -30,6 +31,7 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = inject(API_URL);
   private readonly config = inject(AppConfigService);
+  private readonly locale = inject(LocaleService);
   private pendingRefresh: Promise<boolean> | null = null;
 
   readonly token = signal<string | null>(sessionStorage.getItem(ACCESS_KEY));
@@ -43,6 +45,7 @@ export class AuthService {
       const user = await firstValueFrom(this.http.get<CurrentUser>(`${this.apiUrl}/auth/me`));
       this.currentUser.set(user);
       sessionStorage.setItem(LANGUAGE_KEY, user.language);
+      this.locale.redirectIfNeeded(user.language);
     } catch {
       // The interceptor already ends the session on a 401; any other failure only costs the name.
     }

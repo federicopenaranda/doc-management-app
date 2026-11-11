@@ -9,6 +9,7 @@ import {
 import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatOption, MatSelect } from '@angular/material/select';
 import { AuthService, type Language } from '../auth/auth.service';
+import { LocaleService } from '../i18n/locale.service';
 
 /** The user's preferences; for now only the language, saved as soon as it is picked. */
 @Component({
@@ -45,14 +46,18 @@ import { AuthService, type Language } from '../auth/auth.service';
 export class PreferencesDialog {
   protected readonly ref = inject<MatDialogRef<PreferencesDialog>>(MatDialogRef);
   private readonly auth = inject(AuthService);
+  private readonly locale = inject(LocaleService);
 
-  protected readonly language = computed(() => this.auth.currentUser()?.language ?? 'en');
+  protected readonly language = computed(
+    () => this.auth.currentUser()?.language ?? this.locale.current,
+  );
   protected readonly failed = signal(false);
 
   protected async save(language: Language): Promise<void> {
     this.failed.set(false);
     try {
       await this.auth.setLanguage(language);
+      this.locale.switchTo(language);
     } catch {
       this.failed.set(true);
     }
