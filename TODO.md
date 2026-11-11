@@ -28,7 +28,6 @@ Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live. *
 
 ## Smaller items
 
-- Line-ending noise: ~20 files show as modified on Windows (CRLF) and the backend dev server rewrites `backend/src/metadata.ts` and `docs/swagger.json`; both block branch switches. Consider a `.gitattributes` (`* text=auto eol=lf`) and not tracking the generated files.
 - Backend e2e tests time out at the default 5 s on a cold start when all files run in parallel; run with `--testTimeout=30000` or set it in `vitest.config.e2e.ts`.
 - `knip` warnings that were already there: unused type `UploadStatus`, unlisted `@angular-eslint/builder`.
 - Known shortcuts (`shortcut:` comments in code): users list has no paging; expired `refresh_tokens` rows are never cleaned; the JSON-schema forms rule of `CLAUDE.md` is not applied (forms use Reactive Forms).
