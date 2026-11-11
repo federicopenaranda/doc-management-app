@@ -17,6 +17,23 @@
       rel="stylesheet"
     />
     <script>
+      // A logged-in user whose saved language is the other copy's (/en/ or /es/) is sent there before anything
+      // loads. Same key as AuthService. The dev server has no prefix, so it never moves.
+      try {
+        var language = sessionStorage.getItem('dms.language');
+        var copy = location.pathname.match(/^\/(en|es)(?=\/|$)/);
+        if ((language === 'en' || language === 'es') && copy && copy[1] !== language) {
+          location.replace(
+            '/' +
+              language +
+              location.pathname.slice(copy[0].length) +
+              location.search +
+              location.hash,
+          );
+        }
+      } catch (e) {}
+    </script>
+    <script>
       // Apply the saved light/dark choice before first paint (same key as ThemeService).
       try {
         var t = localStorage.getItem('dms-theme');
