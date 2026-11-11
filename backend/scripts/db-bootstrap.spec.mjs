@@ -83,6 +83,20 @@ describe('bootstrapStatements', () => {
     );
   });
 
+  it('makes Spanish the default language of new users (SCRUM-32) and leaves existing rows alone', () => {
+    const setDefault = sql.find((s) =>
+      s.includes('ALTER COLUMN language SET DEFAULT'),
+    );
+
+    expect(setDefault).toBe(
+      "ALTER TABLE users ALTER COLUMN language SET DEFAULT 'es'",
+    );
+    expect(sql.indexOf(setDefault)).toBeGreaterThan(
+      sql.findIndex((s) => s.includes('ADD COLUMN IF NOT EXISTS language')),
+    );
+    expect(sql.filter((s) => /^UPDATE users/i.test(s))).toEqual([]);
+  });
+
   it('never gives the backend identity the right to delete rows (users are archived, not deleted)', () => {
     expect(sql.filter((s) => /DELETE/i.test(s))).toEqual([]);
   });

@@ -3,18 +3,25 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { API_URL } from '../api-url';
 import { AppConfigService } from '../app-config.service';
+import { LocaleService } from '../i18n/locale.service';
 import { AuthService } from './auth.service';
 
 function setup(refreshEnabled = false) {
+  const locale = { redirectIfNeeded: vi.fn() };
   TestBed.configureTestingModule({
     providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
       { provide: API_URL, useValue: 'http://localhost:3000' },
       { provide: AppConfigService, useValue: { refreshEnabled } },
+      { provide: LocaleService, useValue: locale },
     ],
   });
-  return { auth: TestBed.inject(AuthService), http: TestBed.inject(HttpTestingController) };
+  return {
+    auth: TestBed.inject(AuthService),
+    http: TestBed.inject(HttpTestingController),
+    locale,
+  };
 }
 
 describe('AuthService with refresh tokens', () => {
@@ -332,6 +339,28 @@ describe('AuthService current user', () => {
     await loading;
 
     expect(sessionStorage.getItem('dms.language')).toBe('es');
+  });
+
+  it("loadCurrentUser() asks the locale service to open the user's language", async () => {
+    sessionStorage.setItem('dms.accessToken', 'access-1');
+    const { auth, http, locale } = setup();
+
+    const loading = auth.loadCurrentUser();
+    http.expectOne(`${API}/auth/me`).flush({ ...me, language: 'en' });
+    await loading;
+
+    expect(locale.redirectIfNeeded).toHaveBeenCalledExactlyOnceWith('en');
+  });
+
+  it('loadCurrentUser() does not redirect when the request fails', async () => {
+    sessionStorage.setItem('dms.accessToken', 'access-1');
+    const { auth, http, locale } = setup();
+
+    const loading = auth.loadCurrentUser();
+    http.expectOne(`${API}/auth/me`).flush('boom', { status: 500, statusText: 'Server Error' });
+    await loading;
+
+    expect(locale.redirectIfNeeded).not.toHaveBeenCalled();
   });
 
   it('setLanguage() PUTs it, then keeps it in sessionStorage and on the current user', async () => {

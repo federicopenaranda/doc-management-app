@@ -26,7 +26,7 @@ export class HomePage {
         this.loading.set(false);
       },
       error: () => {
-        this.error.set('Could not reach the API');
+        this.error.set($localize`:@@home.api-unreachable:Could not reach the API`);
         this.loading.set(false);
       },
     });

@@ -4,6 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "start:es": "ng serve --configuration development,es",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
@@ -11,7 +12,8 @@
     "e2e": "playwright test",
     "test:scripts": "node --test \"scripts/**/*.spec.mjs\"",
     "config:pull": "node scripts/pull-config.mjs",
-    "test:image": "node --test docker/image.spec.mjs"
+    "test:image": "node --test docker/image.spec.mjs",
+    "i18n:extract": "ng extract-i18n --format json --output-path src/locale --out-file messages.source.json"
   },
   "private": true,
   "packageManager": "npm@11.19.1",

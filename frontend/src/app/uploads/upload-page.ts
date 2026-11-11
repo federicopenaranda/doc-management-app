@@ -95,7 +95,7 @@ import { UploadStore } from './upload-store';
                     <button
                       matButton
                       type="button"
-                      [attr.aria-label]="'Retry ' + item.file.name"
+                      [attr.aria-label]="retryLabel(item.file.name)"
                       (click)="retry(item.id)"
                       i18n
                     >
@@ -135,6 +135,10 @@ export class UploadPage {
   protected onPick(input: HTMLInputElement): void {
     void this.store.add(Array.from(input.files ?? []));
     input.value = ''; // lets the same file be picked again
+  }
+
+  protected retryLabel(name: string): string {
+    return $localize`:@@upload.retry-aria:Retry ${name}:name:`;
   }
 
   protected retry(id: number): void {
