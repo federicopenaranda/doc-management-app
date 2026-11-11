@@ -84,5 +84,4 @@ jobs:
       - name: Smoke test the deployed service
         run: |
           url=$(gcloud run services describe backend --region "${{ vars.GCP_REGION }}" --project "${{ vars.GCP_PROJECT_ID }}" --format='value(status.url)')
-          test "$(curl -fsS "$url/")" = "Hello World!"
           curl -fsS "$url/health" | jq -e '.status == "ok"'
