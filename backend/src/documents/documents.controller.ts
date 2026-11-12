@@ -1,3 +1,4 @@
+import { SkipEnvelope } from '../common/api-response.js';
 import {
   Body,
   Controller,
@@ -23,6 +24,8 @@ const gcsEvent = z.object({
 
 @ApiExcludeController()
 @Controller('pubsub')
+// Pub/Sub reads only the status code of its push.
+@SkipEnvelope()
 export class DocumentsController {
   private readonly logger = new Logger(DocumentsController.name);
 

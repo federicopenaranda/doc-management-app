@@ -59,7 +59,7 @@ describe('GET /health/database (e2e)', () => {
       .expect(503);
 
     // The uniform error filter reshapes Terminus's body; the status code is the signal.
-    expect(response.body.statusCode).toBe(503);
+    expect(response.body.code).toBe(503);
     await app.close();
   });
 

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -19,6 +18,7 @@ import {
   type AuthenticatedRequest,
 } from '../auth/jwt-auth.guard.js';
 import type { ArchivedUser, UserSummary } from '../auth/users.repository.js';
+import { parseBody } from '../common/validation.js';
 import { UsersService } from './users.service.js';
 
 const name = z.string().trim().min(1).max(100);
@@ -39,18 +39,6 @@ const passwordSchema = z.object({ password });
 const activeSchema = z.object({ isActive: z.boolean() });
 
 const idSchema = z.uuid();
-
-function parse<T>(schema: z.ZodType<T>, body: unknown): T {
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    throw new BadRequestException(
-      parsed.error.issues
-        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-        .join('; '),
-    );
-  }
-  return parsed.data;
-}
 
 /** Something that is not an id cannot be a user: 404, not a database error. */
 function userId(id: string): string {
@@ -90,7 +78,7 @@ export class UsersController {
   @HttpCode(201)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   create(@Body() body: unknown): Promise<UserSummary> {
-    return this.users.create(parse(createUserSchema, body));
+    return this.users.create(parseBody(createUserSchema, body));
   }
 
   /** Turns a user on or off. Nobody can disable themselves; turning a user off ends their sessions at once. */
@@ -103,13 +91,13 @@ export class UsersController {
     return this.users.setActive(
       request.user.id,
       userId(id),
-      parse(activeSchema, body).isActive,
+      parseBody(activeSchema, body).isActive,
     );
   }
 
   /** Users are archived, never deleted: they leave the list and cannot sign in, and their history stays. */
   @Post(':id/archive')
-  @HttpCode(204)
+  @HttpCode(200)
   archive(
     @Req() request: AuthenticatedRequest,
     @Param('id') id: string,
@@ -119,18 +107,18 @@ export class UsersController {
 
   /** An admin sets a new password. Hashing is slow on purpose, so it has the same tighter limit as creating. */
   @Put(':id/password')
-  @HttpCode(204)
+  @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   setPassword(@Param('id') id: string, @Body() body: unknown): Promise<void> {
     return this.users.setPassword(
       userId(id),
-      parse(passwordSchema, body).password,
+      parseBody(passwordSchema, body).password,
     );
   }
 
   /** Brings an archived user back, switched off. */
   @Post(':id/restore')
-  @HttpCode(204)
+  @HttpCode(200)
   restore(@Param('id') id: string): Promise<void> {
     return this.users.restore(userId(id));
   }
@@ -138,6 +126,6 @@ export class UsersController {
   /** The email and the names. Changing a password is a separate feature. */
   @Put(':id')
   update(@Param('id') id: string, @Body() body: unknown): Promise<UserSummary> {
-    return this.users.update(userId(id), parse(editUserSchema, body));
+    return this.users.update(userId(id), parseBody(editUserSchema, body));
   }
 }

@@ -86,7 +86,7 @@ describe('POST /uploads/sign (e2e)', () => {
       .send(body)
       .expect(200);
 
-    expect(response.body).toEqual({
+    expect(response.body.data).toEqual({
       uploads: [
         {
           name: 'a.pdf',

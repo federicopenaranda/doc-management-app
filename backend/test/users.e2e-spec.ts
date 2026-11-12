@@ -180,7 +180,17 @@ describe('users (e2e)', () => {
         .send(newUser)
         .expect(201);
 
-      expect(response.body).toEqual({
+      // The whole response has the standard shape, with the status in it.
+      expect(response.body).toMatchObject({
+        success: true,
+        code: 201,
+        errors: [],
+        meta: {
+          correlationId: expect.any(String),
+          timestamp: expect.any(String),
+        },
+      });
+      expect(response.body.data).toEqual({
         id: '00000000-0000-4000-8000-000000000001',
         email: 'ana@example.com',
         firstName: 'Ana',
@@ -188,7 +198,9 @@ describe('users (e2e)', () => {
         isActive: true,
         createdAt: '2026-11-09T12:00:00.000Z',
       });
-      expect(JSON.stringify(response.body)).not.toMatch(/scrypt|password/i);
+      expect(JSON.stringify(response.body.data)).not.toMatch(
+        /scrypt|password/i,
+      );
       expect(stored[0][3]).toMatch(/^scrypt\$/);
       expect(JSON.stringify(stored)).not.toContain(PASSWORD);
 
@@ -196,7 +208,7 @@ describe('users (e2e)', () => {
         .get('/users')
         .set(authed(token))
         .expect(200);
-      expect(list.body).toEqual([response.body]);
+      expect(list.body.data).toEqual([response.body.data]);
       await app.close();
     });
 
@@ -237,9 +249,9 @@ describe('users (e2e)', () => {
         .send({ ...newUser, email: 'ANA@Example.com' })
         .expect(409);
 
-      expect(response.body.message).toEqual([
-        'A user with this email already exists',
-      ]);
+      expect(
+        response.body.errors.map((e: { message: string }) => e.message),
+      ).toEqual(['A user with this email already exists']);
       await app.close();
     });
 
@@ -299,7 +311,7 @@ describe('users (e2e)', () => {
         .set(authed(token))
         .expect(200);
 
-      expect(response.body).toEqual([]);
+      expect(response.body.data).toEqual([]);
       await app.close();
     });
   });
@@ -344,7 +356,7 @@ describe('users by id (e2e)', () => {
         .set(authed(token))
         .expect(200);
 
-      expect(response.body).toEqual({
+      expect(response.body.data).toEqual({
         id: FIRST,
         email: 'ana@example.com',
         firstName: 'Ana',
@@ -390,14 +402,16 @@ describe('users by id (e2e)', () => {
         })
         .expect(200);
 
-      expect(response.body).toMatchObject(edit);
-      expect(response.body.id).toBe(FIRST);
-      expect(JSON.stringify(response.body)).not.toMatch(/scrypt|password/i);
+      expect(response.body.data).toMatchObject(edit);
+      expect(response.body.data.id).toBe(FIRST);
+      expect(JSON.stringify(response.body.data)).not.toMatch(
+        /scrypt|password/i,
+      );
       const list = await request(server)
         .get('/users')
         .set(authed(token))
         .expect(200);
-      expect(list.body).toEqual([response.body]);
+      expect(list.body.data).toEqual([response.body.data]);
       await app.close();
     });
 
@@ -427,9 +441,9 @@ describe('users by id (e2e)', () => {
         .send({ ...edit, email: 'LUIS@example.com' })
         .expect(409);
 
-      expect(response.body.message).toEqual([
-        'A user with this email already exists',
-      ]);
+      expect(
+        response.body.errors.map((e: { message: string }) => e.message),
+      ).toEqual(['A user with this email already exists']);
       await app.close();
     });
 
@@ -520,7 +534,7 @@ describe('users status and archive (e2e)', () => {
         .set(authed(token))
         .send({ isActive: false })
         .expect(200);
-      expect(off.body).toMatchObject({ id: FIRST, isActive: false });
+      expect(off.body.data).toMatchObject({ id: FIRST, isActive: false });
       expect(revoked).toEqual([FIRST]);
 
       const on = await request(server)
@@ -528,13 +542,13 @@ describe('users status and archive (e2e)', () => {
         .set(authed(token))
         .send({ isActive: true })
         .expect(200);
-      expect(on.body).toMatchObject({ id: FIRST, isActive: true });
+      expect(on.body.data).toMatchObject({ id: FIRST, isActive: true });
       expect(revoked).toEqual([FIRST]);
       const list = await request(server)
         .get('/users')
         .set(authed(token))
         .expect(200);
-      expect(list.body[0].isActive).toBe(true);
+      expect(list.body.data[0].isActive).toBe(true);
       await app.close();
     });
 
@@ -547,9 +561,9 @@ describe('users status and archive (e2e)', () => {
         .send({ isActive: false })
         .expect(409);
 
-      expect(response.body.message).toEqual([
-        'You cannot disable your own user',
-      ]);
+      expect(
+        response.body.errors.map((e: { message: string }) => e.message),
+      ).toEqual(['You cannot disable your own user']);
       await app.close();
     });
 
@@ -584,21 +598,21 @@ describe('users status and archive (e2e)', () => {
   });
 
   describe('POST /users/:id/archive', () => {
-    it('archives the user: 204, gone from the list and from by-id reads, sessions ended', async () => {
+    it('archives the user: 200 with no data, gone from the list and from by-id reads, sessions ended', async () => {
       const { app, token, revoked } = await appWithAna();
       const server = app.getHttpServer();
 
       await request(server)
         .post(`/users/${FIRST}/archive`)
         .set(authed(token))
-        .expect(204);
+        .expect(200);
 
       expect(revoked).toEqual([FIRST]);
       const list = await request(server)
         .get('/users')
         .set(authed(token))
         .expect(200);
-      expect(list.body).toEqual([]);
+      expect(list.body.data).toEqual([]);
       await request(server)
         .get(`/users/${FIRST}`)
         .set(authed(token))
@@ -625,18 +639,18 @@ describe('users status and archive (e2e)', () => {
       const { body } = await login().expect(200);
       await request(server)
         .get('/users')
-        .set(authed(body.accessToken))
+        .set(authed(body.data.accessToken))
         .expect(200);
 
       await request(server)
         .post(`/users/${FIRST}/archive`)
         .set(authed(token))
-        .expect(204);
+        .expect(200);
 
       await login().expect(401);
       await request(server)
         .get('/users')
-        .set(authed(body.accessToken))
+        .set(authed(body.data.accessToken))
         .expect(401);
       await app.close();
     });
@@ -647,7 +661,7 @@ describe('users status and archive (e2e)', () => {
       await request(server)
         .post(`/users/${FIRST}/archive`)
         .set(authed(token))
-        .expect(204);
+        .expect(200);
 
       const response = await request(server)
         .post('/users')
@@ -655,9 +669,9 @@ describe('users status and archive (e2e)', () => {
         .send(newUser)
         .expect(409);
 
-      expect(response.body.message).toEqual([
-        'A user with this email already exists',
-      ]);
+      expect(
+        response.body.errors.map((e: { message: string }) => e.message),
+      ).toEqual(['A user with this email already exists']);
       await app.close();
     });
 
@@ -667,7 +681,7 @@ describe('users status and archive (e2e)', () => {
       await request(server)
         .post(`/users/${FIRST}/archive`)
         .set(authed(token))
-        .expect(204);
+        .expect(200);
 
       await request(server)
         .post(`/users/${FIRST}/archive`)
@@ -677,7 +691,9 @@ describe('users status and archive (e2e)', () => {
         .post(`/users/${ADMIN_ID}/archive`)
         .set(authed(token))
         .expect(409);
-      expect(self.body.message).toEqual(['You cannot archive your own user']);
+      expect(
+        self.body.errors.map((e: { message: string }) => e.message),
+      ).toEqual(['You cannot archive your own user']);
       await app.close();
     });
 
@@ -705,42 +721,42 @@ describe('users status and archive (e2e)', () => {
         .get('/users/archived')
         .set(authed(token))
         .expect(200);
-      expect(empty.body).toEqual([]);
+      expect(empty.body.data).toEqual([]);
       await request(server)
         .post(`/users/${FIRST}/archive`)
         .set(authed(token))
-        .expect(204);
+        .expect(200);
 
       const archived = await request(server)
         .get('/users/archived')
         .set(authed(token))
         .expect(200);
-      expect(archived.body).toEqual([
+      expect(archived.body.data).toEqual([
         expect.objectContaining({
           id: FIRST,
           email: 'ana@example.com',
           archivedAt: expect.any(String),
         }),
       ]);
-      expect(JSON.stringify(archived.body)).not.toContain('password');
+      expect(JSON.stringify(archived.body.data)).not.toContain('password');
 
       await request(server)
         .post(`/users/${FIRST}/restore`)
         .set(authed(token))
-        .expect(204);
+        .expect(200);
 
       const list = await request(server)
         .get('/users')
         .set(authed(token))
         .expect(200);
-      expect(list.body).toEqual([
+      expect(list.body.data).toEqual([
         expect.objectContaining({ id: FIRST, isActive: false }),
       ]);
       const after = await request(server)
         .get('/users/archived')
         .set(authed(token))
         .expect(200);
-      expect(after.body).toEqual([]);
+      expect(after.body.data).toEqual([]);
       await app.close();
     });
 
@@ -780,7 +796,7 @@ describe('users status and archive (e2e)', () => {
         .post('/auth/login')
         .send({ email: newUser.email, password });
 
-    it('sets the new password: 204, the old one stops working, their refresh tokens are revoked', async () => {
+    it('sets the new password: 200 with no data, the old one stops working, their refresh tokens are revoked', async () => {
       const { app, token, revoked } = await appWithAna();
       const server = app.getHttpServer();
 
@@ -788,9 +804,9 @@ describe('users status and archive (e2e)', () => {
         .put(`/users/${FIRST}/password`)
         .set(authed(token))
         .send({ password: NEW_PASSWORD })
-        .expect(204);
+        .expect(200);
 
-      expect(response.text).toBe('');
+      expect(response.body.data).toBeNull();
       expect(revoked).toEqual([FIRST]);
       await loginAs(server, PASSWORD).expect(401);
       await loginAs(server, NEW_PASSWORD).expect(200);
@@ -810,7 +826,7 @@ describe('users status and archive (e2e)', () => {
         .put(`/users/${FIRST}/password`)
         .set(authed(token))
         .send({ password: NEW_PASSWORD })
-        .expect(204);
+        .expect(200);
 
       await loginAs(server, NEW_PASSWORD).expect(401);
       await app.close();
@@ -842,7 +858,7 @@ describe('users status and archive (e2e)', () => {
       await request(server)
         .post(`/users/${FIRST}/archive`)
         .set(authed(token))
-        .expect(204);
+        .expect(200);
 
       for (const id of [
         FIRST,
@@ -900,7 +916,7 @@ describe('users status and archive (e2e)', () => {
       await request(server)
         .post(`/users/${FIRST}/archive`)
         .set(authed(token))
-        .expect(204);
+        .expect(200);
 
       await request(server).get('/users').set(authed(anasToken)).expect(401);
       await app.close();
@@ -918,7 +934,7 @@ describe('users status and archive (e2e)', () => {
       await request(server)
         .post(`/users/${FIRST}/archive`)
         .set(authed(token))
-        .expect(204);
+        .expect(200);
 
       await login().expect(401);
       await app.close();

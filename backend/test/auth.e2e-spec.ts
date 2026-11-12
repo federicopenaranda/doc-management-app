@@ -123,14 +123,14 @@ describe('auth (e2e)', () => {
     it('log in with a refresh token, which swaps once for a new pair', async () => {
       const app = await createApp();
       const first = (await login(app, 'ana@example.com', PASSWORD).expect(200))
-        .body;
+        .body.data;
       expect(first.refreshToken).toEqual(expect.any(String));
 
       const second = (
         await post(app, '/auth/refresh', {
           refreshToken: first.refreshToken,
         }).expect(200)
-      ).body;
+      ).body.data;
 
       expect(second).toEqual({
         accessToken: expect.any(String),
@@ -148,12 +148,12 @@ describe('auth (e2e)', () => {
     it('answers 401 when an old token is used again, and that also kills the new one', async () => {
       const app = await createApp();
       const first = (await login(app, 'ana@example.com', PASSWORD).expect(200))
-        .body;
+        .body.data;
       const second = (
         await post(app, '/auth/refresh', {
           refreshToken: first.refreshToken,
         }).expect(200)
-      ).body;
+      ).body.data;
 
       await post(app, '/auth/refresh', {
         refreshToken: first.refreshToken,
@@ -186,11 +186,11 @@ describe('auth (e2e)', () => {
       );
 
       await post(app, '/auth/logout', {
-        refreshToken: body.refreshToken,
-      }).expect(204);
+        refreshToken: body.data.refreshToken,
+      }).expect(200);
 
       await post(app, '/auth/refresh', {
-        refreshToken: body.refreshToken,
+        refreshToken: body.data.refreshToken,
       }).expect(401);
       await app.close();
     });
@@ -204,12 +204,12 @@ describe('auth (e2e)', () => {
         200,
       );
 
-      expect(response.body).toEqual({
+      expect(response.body.data).toEqual({
         accessToken: expect.any(String),
         expiresIn: 3600,
         refreshToken: expect.any(String),
       });
-      expect(JSON.stringify(response.body)).not.toContain('scrypt');
+      expect(JSON.stringify(response.body.data)).not.toContain('scrypt');
       await app.close();
     });
 
@@ -231,7 +231,9 @@ describe('auth (e2e)', () => {
 
         const response = await login(app, email, password).expect(401);
 
-        expect(response.body.message).toEqual(['Invalid email or password']);
+        expect(
+          response.body.errors.map((e: { message: string }) => e.message),
+        ).toEqual(['Invalid email or password']);
         await app.close();
       },
     );
@@ -268,7 +270,7 @@ describe('auth (e2e)', () => {
       const { body } = await login(app, 'ana@example.com', PASSWORD).expect(
         200,
       );
-      const auth = { Authorization: `Bearer ${body.accessToken}` };
+      const auth = { Authorization: `Bearer ${body.data.accessToken}` };
 
       await request(app.getHttpServer())
         .put('/auth/me/language')
@@ -280,7 +282,7 @@ describe('auth (e2e)', () => {
         .get('/auth/me')
         .set(auth)
         .expect(200);
-      expect(me.body.language).toBe('es');
+      expect(me.body.data.language).toBe('es');
       await app.close();
     });
 
@@ -292,7 +294,7 @@ describe('auth (e2e)', () => {
 
       await request(app.getHttpServer())
         .put('/auth/me/language')
-        .set('Authorization', `Bearer ${body.accessToken}`)
+        .set('Authorization', `Bearer ${body.data.accessToken}`)
         .send({ language: 'fr' })
         .expect(400);
       await app.close();
@@ -323,9 +325,9 @@ describe('auth (e2e)', () => {
         200,
       );
 
-      const response = await me(app, body.accessToken).expect(200);
+      const response = await me(app, body.data.accessToken).expect(200);
 
-      expect(response.body).toEqual({
+      expect(response.body.data).toEqual({
         id: USER_ID,
         email: 'ana@example.com',
         firstName: 'Ana',
@@ -361,7 +363,7 @@ describe('auth (e2e)', () => {
 
       await request(app.getHttpServer())
         .get('/auth/me')
-        .set('Authorization', `Basic ${body.accessToken}`)
+        .set('Authorization', `Basic ${body.data.accessToken}`)
         .expect(401);
       await app.close();
     });
@@ -371,7 +373,7 @@ describe('auth (e2e)', () => {
       const { body } = await login(app, 'ana@example.com', PASSWORD).expect(
         200,
       );
-      const [header, payload] = body.accessToken.split('.');
+      const [header, payload] = body.data.accessToken.split('.');
       const forged = Buffer.from(
         JSON.stringify({
           sub: 'someone-else',
@@ -382,7 +384,7 @@ describe('auth (e2e)', () => {
 
       await me(
         app,
-        `${header}.${forged}.${body.accessToken.split('.')[2]}`,
+        `${header}.${forged}.${body.data.accessToken.split('.')[2]}`,
       ).expect(401);
       expect(payload).not.toBe(forged);
       await app.close();

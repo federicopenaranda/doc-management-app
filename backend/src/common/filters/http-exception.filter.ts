@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   ArgumentsHost,
   Catch,
@@ -8,6 +7,11 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import {
+  correlationIdOf,
+  type ApiErrorItem,
+  type ApiFailure,
+} from '../api-response.js';
 
 const ERROR_CODES: Record<number, string> = {
   [HttpStatus.BAD_REQUEST]: 'ERR_INVALID_PAYLOAD',
@@ -22,8 +26,13 @@ const ERROR_CODES: Record<number, string> = {
 interface HttpExceptionBody {
   errorCode?: string;
   message?: string | string[];
+  /** The input every message is about. */
+  field?: string;
+  /** Structured errors, each with its own field. */
+  errors?: { message: string; field?: string; errorCode?: string }[];
 }
 
+/** Turns every error into the standard response shape; unexpected errors never leak their cause. */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
@@ -32,25 +41,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const req = ctx.getRequest<Request>();
     const res = ctx.getResponse<Response>();
-
-    // req.id is set by pino-http (same id as the request log); the rest is a fallback.
-    const header = req.headers['x-correlation-id'];
-    const correlationId =
-      (typeof req.id === 'string' && req.id) ||
-      (typeof header === 'string' && header) ||
-      randomUUID();
+    const correlationId = correlationIdOf(req);
 
     let statusCode: number = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message: string[] = ['Internal server error'];
-    let errorCode: string | undefined;
+    let errors: ApiErrorItem[] = [
+      {
+        errorCode: ERROR_CODES[HttpStatus.INTERNAL_SERVER_ERROR]!,
+        message: 'Internal server error',
+      },
+    ];
 
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
-      const response = exception.getResponse();
-      const body: HttpExceptionBody =
-        typeof response === 'string' ? { message: response } : response;
-      message = [body.message ?? exception.message].flat();
-      errorCode = body.errorCode;
+      errors = this.errorsOf(exception, statusCode);
     } else {
       // Unexpected error: log the real cause, never send it to the client.
       this.logger.error(
@@ -59,15 +62,44 @@ export class HttpExceptionFilter implements ExceptionFilter {
       );
     }
 
+    const body: ApiFailure = {
+      success: false,
+      code: statusCode,
+      data: null,
+      errors,
+      meta: {
+        correlationId,
+        timestamp: new Date().toISOString(),
+        path: req.path,
+      },
+    };
     res.setHeader('x-correlation-id', correlationId);
-    res.status(statusCode).json({
-      statusCode,
-      timestamp: new Date().toISOString(),
-      path: req.path,
-      errorCode:
-        errorCode ?? ERROR_CODES[statusCode] ?? `ERR_HTTP_${statusCode}`,
+    res.status(statusCode).json(body);
+  }
+
+  private errorsOf(
+    exception: HttpException,
+    statusCode: number,
+  ): ApiErrorItem[] {
+    const response = exception.getResponse();
+    const body: HttpExceptionBody =
+      typeof response === 'string' ? { message: response } : response;
+    const errorCode =
+      body.errorCode ?? ERROR_CODES[statusCode] ?? `ERR_HTTP_${statusCode}`;
+    const item = (message: string, field?: string): ApiErrorItem => ({
+      errorCode,
       message,
-      correlationId,
+      ...(field ? { field } : {}),
     });
+
+    if (Array.isArray(body.errors) && body.errors.length > 0) {
+      return body.errors.map((error) => ({
+        ...item(error.message, error.field),
+        errorCode: error.errorCode ?? errorCode,
+      }));
+    }
+    return [body.message ?? exception.message]
+      .flat()
+      .map((message) => item(message, body.field));
   }
 }

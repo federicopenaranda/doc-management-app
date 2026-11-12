@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -12,6 +11,7 @@ import {
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
+import { parseBody } from '../common/validation.js';
 import { AuthService, type LoginResult, type Profile } from './auth.service.js';
 import { JwtAuthGuard, type AuthenticatedRequest } from './jwt-auth.guard.js';
 
@@ -29,18 +29,6 @@ const refreshSchema = z.object({
 
 const languageSchema = z.object({ language: z.enum(['en', 'es']) });
 
-function parse<T>(schema: z.ZodType<T>, body: unknown): T {
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    throw new BadRequestException(
-      parsed.error.issues
-        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-        .join('; '),
-    );
-  }
-  return parsed.data;
-}
-
 @ApiExcludeController()
 @Controller('auth')
 export class AuthController {
@@ -51,7 +39,7 @@ export class AuthController {
   @HttpCode(200)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async login(@Body() body: unknown): Promise<LoginResult> {
-    const { email, password } = parse(loginSchema, body);
+    const { email, password } = parseBody(loginSchema, body);
     return this.auth.login(email, password);
   }
 
@@ -60,14 +48,14 @@ export class AuthController {
   @HttpCode(200)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async refresh(@Body() body: unknown): Promise<LoginResult> {
-    return this.auth.refresh(parse(refreshSchema, body).refreshToken);
+    return this.auth.refresh(parseBody(refreshSchema, body).refreshToken);
   }
 
   @Post('logout')
-  @HttpCode(204)
+  @HttpCode(200)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   async logout(@Body() body: unknown): Promise<void> {
-    await this.auth.logout(parse(refreshSchema, body).refreshToken);
+    await this.auth.logout(parseBody(refreshSchema, body).refreshToken);
   }
 
   @Get('me')
@@ -84,7 +72,7 @@ export class AuthController {
   ): Promise<Profile> {
     return this.auth.setLanguage(
       request.user.id,
-      parse(languageSchema, body).language,
+      parseBody(languageSchema, body).language,
     );
   }
 }
