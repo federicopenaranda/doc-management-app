@@ -64,7 +64,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
     if (result.status === 'email-taken')
-      throw new ConflictException(EMAIL_TAKEN);
+      throw new ConflictException({ message: EMAIL_TAKEN, field: 'email' });
     return result.user;
   }
 
@@ -103,7 +103,7 @@ export class UsersService {
       passwordHash: await hashPassword(password),
     });
     if (!created) {
-      throw new ConflictException(EMAIL_TAKEN);
+      throw new ConflictException({ message: EMAIL_TAKEN, field: 'email' });
     }
     return created;
   }

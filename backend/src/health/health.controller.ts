@@ -5,6 +5,7 @@ import {
   HealthIndicatorService,
 } from '@nestjs/terminus';
 import { SkipThrottle } from '@nestjs/throttler';
+import { SkipEnvelope } from '../common/api-response.js';
 import { DatabaseService } from '../database/database.service.js';
 
 // TODO: enable the checks below once the GCS bucket and Apache Tika exist.
@@ -12,6 +13,8 @@ import { DatabaseService } from '../database/database.service.js';
 //        3) uncomment the imports/constructor param/checks and inject the clients (storage).
 
 @Controller('health')
+// Probes and the deploy smoke test read the health shape as it is.
+@SkipEnvelope()
 // Probes (Cloud Run / App Engine) hit this often; they must never get a 429.
 @SkipThrottle()
 export class HealthController {

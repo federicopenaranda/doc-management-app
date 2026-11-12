@@ -24,7 +24,11 @@ describe('AppController (e2e)', () => {
       .get('/')
       .expect(404)
       .expect((res) => {
-        expect(res.body).toMatchObject({ statusCode: 404, path: '/' });
+        expect(res.body).toMatchObject({
+          success: false,
+          code: 404,
+          meta: { path: '/' },
+        });
       });
   });
 
@@ -36,17 +40,22 @@ describe('AppController (e2e)', () => {
       .expect('x-correlation-id', 'client-id-1');
   });
 
-  it('unknown route returns the uniform error schema', () => {
+  it('unknown route returns the standard error shape', () => {
     return request(app.getHttpServer())
       .get('/does-not-exist')
       .expect(404)
       .expect((res) => {
-        expect(res.body).toMatchObject({
-          statusCode: 404,
-          path: '/does-not-exist',
-          errorCode: 'ERR_NOT_FOUND',
+        expect(res.body).toEqual({
+          success: false,
+          code: 404,
+          data: null,
+          errors: [{ errorCode: 'ERR_NOT_FOUND', message: expect.any(String) }],
+          meta: {
+            correlationId: res.headers['x-correlation-id'],
+            timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T.*Z$/),
+            path: '/does-not-exist',
+          },
         });
-        expect(res.body.correlationId).toBe(res.headers['x-correlation-id']);
       });
   });
 
@@ -138,7 +147,7 @@ describe('AppController (e2e)', () => {
         .get('/auth/me')
         .expect(429)
         .expect((res) => {
-          expect(res.body.errorCode).toBe('ERR_RATE_LIMITED');
+          expect(res.body.errors[0].errorCode).toBe('ERR_RATE_LIMITED');
         });
     });
   });

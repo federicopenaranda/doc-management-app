@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import { UnauthorizedException } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service.js';
 import { hashPassword, verifyPassword } from './password.js';

@@ -8,6 +8,16 @@ const ME = {
   language: 'en',
 };
 
+/** Every response of the API has the same shape (SCRUM-20): data on success, errors on failure. */
+const ok = (data: unknown) =>
+  JSON.stringify({
+    success: true,
+    code: 200,
+    data,
+    errors: [],
+    meta: { correlationId: 'test', timestamp: new Date().toISOString() },
+  });
+
 /** The API is mocked, so these tests only need the frontend dev server. */
 async function mockApi(page: Page, apiUrl: string) {
   await page.route('**/config.json', (route) =>
@@ -16,11 +26,11 @@ async function mockApi(page: Page, apiUrl: string) {
   await page.route(`${apiUrl}/auth/login`, (route) =>
     route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify({ accessToken: 'jwt-1', expiresIn: 3600, refreshToken: 'refresh-1' }),
+      body: ok({ accessToken: 'jwt-1', expiresIn: 3600, refreshToken: 'refresh-1' }),
     }),
   );
   await page.route(`${apiUrl}/auth/me`, (route) =>
-    route.fulfill({ contentType: 'application/json', body: JSON.stringify(ME) }),
+    route.fulfill({ contentType: 'application/json', body: ok(ME) }),
   );
 }
 

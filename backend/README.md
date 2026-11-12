@@ -70,6 +70,24 @@ $ mau deploy
 
 With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 
+## API response shape
+
+Every response of the API has the same shape, success or error (SCRUM-20):
+
+```json
+{ "success": true, "code": 200, "data": { }, "errors": [],
+  "meta": { "correlationId": "…", "timestamp": "…" } }
+
+{ "success": false, "code": 409, "data": null,
+  "errors": [{ "errorCode": "ERR_CONFLICT", "message": "…", "field": "email" }],
+  "meta": { "correlationId": "…", "timestamp": "…", "path": "/users" } }
+```
+
+- `code` is the HTTP status; `data` is `null` on errors and when there is nothing to return (archive, restore, password, logout answer `200` with `data: null`, never `204`).
+- `errors[].field` names the input an error is about (`email`, `files.0.name`); `errorCode` is a stable code the frontend can branch on.
+- `ResponseEnvelopeInterceptor` wraps success responses and `HttpExceptionFilter` shapes errors. Both are global. Add `@SkipEnvelope()` to a route only when its caller needs its own shape: `GET /health` and the Pub/Sub push do.
+- Validate a body with `parseBody(schema, body)` (`src/common/validation.ts`): it throws a 400 with one error per problem, each with its `field`.
+
 ## Observability
 
 In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
