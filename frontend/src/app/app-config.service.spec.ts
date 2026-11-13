@@ -73,6 +73,20 @@ describe('AppConfigService', () => {
     expect(service.preferencesEnabled).toBe(expected);
   });
 
+  it.each([
+    [{ apiUrl: 'http://localhost:3000' }, false],
+    [{ apiUrl: 'http://localhost:3000', clientsEnabled: true }, true],
+    [{ apiUrl: 'http://localhost:3000', clientsEnabled: 'true' }, true],
+  ])('reads the clients flag from %j as %s (off when absent)', async (body, expected) => {
+    const { service, http } = setup();
+
+    const loading = service.load();
+    http.expectOne('config.json').flush(body);
+    await loading;
+
+    expect(service.clientsEnabled).toBe(expected);
+  });
+
   it('ignores the flags that were removed and may still be in the secret', async () => {
     const { service, http } = setup();
 

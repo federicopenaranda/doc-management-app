@@ -7,16 +7,17 @@ import { API_URL } from './api-url';
 import { AppConfigService } from './app-config.service';
 import { routes } from './app.routes';
 import { AuthService } from './auth/auth.service';
+import { ClientsApi } from './clients/clients-api';
 import { UploadApi } from './uploads/upload-api';
 import { UsersApi } from './users/users-api';
 
-function setup() {
+function setup(clientsEnabled = false) {
   TestBed.configureTestingModule({
     providers: [
       provideRouter(routes),
       provideHttpClient(),
       { provide: API_URL, useValue: 'http://localhost:3000' },
-      { provide: AppConfigService, useValue: { preferencesEnabled: false } },
+      { provide: AppConfigService, useValue: { preferencesEnabled: false, clientsEnabled } },
       {
         provide: AuthService,
         useValue: {
@@ -27,6 +28,7 @@ function setup() {
         },
       },
       { provide: UploadApi, useValue: { sign: vi.fn() } },
+      { provide: ClientsApi, useValue: { list: vi.fn().mockResolvedValue([]) } },
       { provide: UsersApi, useValue: { list: vi.fn().mockResolvedValue([]), create: vi.fn() } },
     ],
   });
@@ -84,5 +86,24 @@ describe('routes', () => {
     await harness.navigateByUrl('/users/u1/edit');
 
     expect(harness.routeNativeElement?.querySelector('main section')).not.toBeNull();
+  });
+
+  it('lazy loads the clients list and the client forms while the clients flag is on', async () => {
+    const harness = await setup(true);
+
+    await harness.navigateByUrl('/clients');
+    expect(harness.routeNativeElement?.querySelector('main h2')?.textContent).toContain('Clients');
+
+    await harness.navigateByUrl('/clients/new');
+    expect(harness.routeNativeElement?.querySelector('main form')).not.toBeNull();
+
+    await harness.navigateByUrl('/clients/c1/edit');
+    expect(harness.routeNativeElement?.querySelector('main section')).not.toBeNull();
+  });
+
+  it('has no clients routes while the clients flag is off', async () => {
+    const harness = await setup(false);
+
+    await expect(harness.navigateByUrl('/clients')).rejects.toThrow();
   });
 });

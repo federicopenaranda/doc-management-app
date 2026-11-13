@@ -1,4 +1,6 @@
 import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { AppConfigService } from './app-config.service';
 import { authGuard } from './auth/auth.guard';
 
 export const routes: Routes = [
@@ -19,6 +21,26 @@ export const routes: Routes = [
       {
         path: 'upload',
         loadComponent: () => import('./uploads/upload-page').then((m) => m.UploadPage),
+      },
+      {
+        path: 'clients',
+        // Feature flag: while it is off the routes do not exist.
+        canMatch: [() => inject(AppConfigService).clientsEnabled],
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            loadComponent: () => import('./clients/clients-page').then((m) => m.ClientsPage),
+          },
+          {
+            path: 'new',
+            loadComponent: () => import('./clients/client-form-page').then((m) => m.ClientFormPage),
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () => import('./clients/client-form-page').then((m) => m.ClientFormPage),
+          },
+        ],
       },
       {
         path: 'users',

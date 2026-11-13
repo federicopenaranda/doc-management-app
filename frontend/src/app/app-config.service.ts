@@ -6,6 +6,8 @@ interface AppConfig {
   apiUrl: string;
   /** Feature flag for the Preferences dialog (SCRUM-19): remove it two weeks after it is on in use. */
   preferencesEnabled: boolean;
+  /** Feature flag for the Clients screens: remove it two weeks after it is on in use. */
+  clientsEnabled: boolean;
 }
 
 function isHttpUrl(value: string): boolean {
@@ -40,6 +42,7 @@ function parseConfig(raw: unknown): AppConfig {
   return {
     apiUrl: apiUrl.replace(/\/+$/, ''),
     preferencesEnabled,
+    clientsEnabled: parseFlag(object, 'clientsEnabled'),
   };
 }
 
@@ -57,6 +60,11 @@ export class AppConfigService {
   get preferencesEnabled(): boolean {
     if (!this.config) throw new Error('config.json has not been loaded');
     return this.config.preferencesEnabled;
+  }
+
+  get clientsEnabled(): boolean {
+    if (!this.config) throw new Error('config.json has not been loaded');
+    return this.config.clientsEnabled;
   }
 
   /** Relative URL, so the app also works when served from a sub-path. */
