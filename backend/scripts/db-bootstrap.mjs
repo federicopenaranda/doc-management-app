@@ -68,6 +68,20 @@ export function bootstrapStatements(iamUser) {
   created_at timestamptz NOT NULL DEFAULT now()
 )`,
     `GRANT SELECT, INSERT, UPDATE ON refresh_tokens TO ${quoteIdent(iamUser)}`,
+    // Clients: a client is disabled (disabled_at set), never deleted. The code is optional, but unique when present.
+    `CREATE TABLE IF NOT EXISTS clients (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  address text,
+  code text,
+  phone text,
+  email text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  disabled_at timestamptz
+)`,
+    'CREATE UNIQUE INDEX IF NOT EXISTS clients_code_lower_key ON clients (lower(code)) WHERE code IS NOT NULL',
+    `GRANT SELECT, INSERT, UPDATE ON clients TO ${quoteIdent(iamUser)}`,
     `INSERT INTO prueba (mensaje) SELECT 'hola desde db:bootstrap' WHERE NOT EXISTS (SELECT 1 FROM prueba)`,
   ];
 }

@@ -140,6 +140,41 @@ describe('bootstrapStatements', () => {
     });
   });
 
+  describe('clients', () => {
+    const clients = sql.find((s) =>
+      s.includes('CREATE TABLE IF NOT EXISTS clients'),
+    );
+
+    it('has a uuid id, a required name, optional contact fields and creation, update and disable times', () => {
+      expect(clients).toMatch(
+        /id uuid PRIMARY KEY DEFAULT gen_random_uuid\(\)/,
+      );
+      expect(clients).toMatch(/name text NOT NULL/);
+      for (const column of ['address', 'code', 'phone', 'email']) {
+        expect(clients).toMatch(new RegExp(`${column} text(?! NOT NULL)`));
+      }
+      expect(clients).toMatch(
+        /created_at timestamptz NOT NULL DEFAULT now\(\)/,
+      );
+      expect(clients).toMatch(
+        /updated_at timestamptz NOT NULL DEFAULT now\(\)/,
+      );
+      expect(clients).toMatch(/disabled_at timestamptz(?! NOT NULL)/);
+    });
+
+    it('keeps a code unique ignoring letter case, only when there is one', () => {
+      expect(sql).toContain(
+        'CREATE UNIQUE INDEX IF NOT EXISTS clients_code_lower_key ON clients (lower(code)) WHERE code IS NOT NULL',
+      );
+    });
+
+    it('lets the backend identity read, add and update clients, never delete them', () => {
+      expect(sql).toContain(
+        `GRANT SELECT, INSERT, UPDATE ON clients TO "${iamUser}"`,
+      );
+    });
+  });
+
   it('inserts one starter row only when the table is empty', () => {
     const insert = sql.find((s) => s.startsWith('INSERT'));
 

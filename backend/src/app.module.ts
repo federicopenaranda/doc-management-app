@@ -6,6 +6,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { ResponseEnvelopeInterceptor } from './common/interceptors/response-envelope.interceptor.js';
 import { AuthModule } from './auth/auth.module.js';
+import { ClientsModule } from './clients/clients.module.js';
 import { DocumentsModule } from './documents/documents.module.js';
 import { UploadsModule } from './uploads/uploads.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -31,6 +32,7 @@ import { buildPinoHttpOptions } from './logging/logger.config.js';
     DocumentsModule,
     UploadsModule,
     UsersModule,
+    ClientsModule,
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
   ],
   providers: [
