@@ -122,6 +122,10 @@
     "1653803649592746259": "Aún no hay clientes",
     "clients.edit-aria": "Editar {$name}",
     "clients.disable-aria": "Deshabilitar {$name}",
-    "clients.enable-aria": "Habilitar {$name}"
+    "clients.enable-aria": "Habilitar {$name}",
+    "2942230580917375982": "Prefijo",
+    "258081780591445337": "Ingresa un prefijo de hasta 10 caracteres",
+    "4489343118359698360": "Ya existe un cliente con este correo",
+    "7908396701700465462": "Ya existe un cliente con este prefijo"
   }
 }

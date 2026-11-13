@@ -31,14 +31,14 @@ const clientSchema = z.object({
   address: optional(255),
   code: optional(45),
   phone: optional(45),
-  // The unique index is on lower(code); the email is lowercased so one address is always written one way.
+  // Required and unique ignoring letter case; lowercased so one address is always written one way.
   email: z
     .string()
     .trim()
     .max(255)
-    .nullish()
-    .transform((value) => value?.toLowerCase() || null)
-    .pipe(z.email().nullable()),
+    .pipe(z.email())
+    .transform((value) => value.toLowerCase()),
+  prefix: z.string().trim().min(1).max(10),
 });
 
 const idSchema = z.uuid();

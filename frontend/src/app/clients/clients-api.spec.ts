@@ -11,12 +11,20 @@ const acme: Client = {
   address: null,
   code: 'ACME',
   phone: null,
-  email: null,
+  email: 'info@acme.com',
+  prefix: 'ACM',
   isActive: true,
   createdAt: '2026-11-13T12:00:00.000Z',
   updatedAt: '2026-11-13T12:00:00.000Z',
 };
-const input = { name: 'Acme', address: null, code: 'ACME', phone: null, email: null };
+const input = {
+  name: 'Acme',
+  address: null,
+  code: 'ACME',
+  phone: null,
+  email: 'info@acme.com',
+  prefix: 'ACM',
+};
 
 function setup() {
   TestBed.configureTestingModule({
@@ -88,7 +96,7 @@ describe('ClientsApi', () => {
     await expect(result).resolves.toEqual(acme);
   });
 
-  it('create() rejects with the HTTP error, so the form can tell a taken code (409)', async () => {
+  it('create() rejects with the HTTP error, so the form can tell a taken field (409)', async () => {
     const { api, http } = setup();
 
     const result = api.create(input);

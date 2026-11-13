@@ -8,6 +8,7 @@ const row = {
   code: 'ACME',
   phone: '123',
   email: 'info@acme.com',
+  prefix: 'ACM',
   created_at: new Date('2026-11-13T12:00:00Z'),
   updated_at: new Date('2026-11-13T12:00:00Z'),
   disabled_at: null,
@@ -19,6 +20,7 @@ const summary = {
   code: 'ACME',
   phone: '123',
   email: 'info@acme.com',
+  prefix: 'ACM',
   createdAt: row.created_at,
   updatedAt: row.updated_at,
   isActive: true,
@@ -29,6 +31,7 @@ const input = {
   code: 'ACME',
   phone: '123',
   email: 'info@acme.com',
+  prefix: 'ACM',
 };
 
 function setup(rows: unknown[] = [row]) {
@@ -73,17 +76,34 @@ describe('ClientsRepository', () => {
 
     const [sql, params] = query.mock.calls[0] as [string, unknown[]];
     expect(sql).toMatch(/^INSERT INTO clients/);
-    expect(params).toEqual(['Acme', 'Calle 1', 'ACME', '123', 'info@acme.com']);
+    expect(params).toEqual([
+      'Acme',
+      'Calle 1',
+      'ACME',
+      '123',
+      'info@acme.com',
+      'ACM',
+    ]);
   });
 
-  it('create() tells a code that is taken (unique violation 23505)', async () => {
-    const query = vi.fn().mockRejectedValue({ code: '23505' });
-    const repository = new ClientsRepository({
-      pool: { query },
-    } as unknown as DatabaseService);
+  it.each([
+    ['clients_code_lower_key', 'code'],
+    ['clients_email_lower_key', 'email'],
+    ['clients_prefix_lower_key', 'prefix'],
+  ])(
+    'create() tells which field is taken (unique violation 23505 on %s)',
+    async (constraint, field) => {
+      const query = vi.fn().mockRejectedValue({ code: '23505', constraint });
+      const repository = new ClientsRepository({
+        pool: { query },
+      } as unknown as DatabaseService);
 
-    expect(await repository.create(input)).toEqual({ status: 'code-taken' });
-  });
+      expect(await repository.create(input)).toEqual({
+        status: 'taken',
+        field,
+      });
+    },
+  );
 
   it('create() lets any other database error through', async () => {
     const query = vi.fn().mockRejectedValue(new Error('boom'));
@@ -109,14 +129,18 @@ describe('ClientsRepository', () => {
     });
   });
 
-  it('update() tells a code that is taken', async () => {
-    const query = vi.fn().mockRejectedValue({ code: '23505' });
+  it('update() tells a field that is taken', async () => {
+    const query = vi.fn().mockRejectedValue({
+      code: '23505',
+      constraint: 'clients_email_lower_key',
+    });
     const repository = new ClientsRepository({
       pool: { query },
     } as unknown as DatabaseService);
 
     expect(await repository.update('c1', input)).toEqual({
-      status: 'code-taken',
+      status: 'taken',
+      field: 'email',
     });
   });
 

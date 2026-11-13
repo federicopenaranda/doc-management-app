@@ -10,6 +10,7 @@ const client = (over: Partial<Client>): Client => ({
   code: 'ACME',
   phone: '123',
   email: 'info@acme.com',
+  prefix: 'ACM',
   isActive: true,
   createdAt: '2026-11-13T12:00:00.000Z',
   updatedAt: '2026-11-13T12:00:00.000Z',
@@ -22,7 +23,8 @@ const globex = client({
   name: 'Globex',
   code: null,
   phone: null,
-  email: null,
+  email: 'globex@example.com',
+  prefix: 'GLX',
   isActive: false,
 });
 
@@ -59,16 +61,16 @@ describe('ClientsPage', () => {
     expect(add.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('shows a Material table with Name, Code, Phone, Email, Status and Actions columns', async () => {
+  it('shows a Material table with Name, Prefix, Code, Phone, Email, Status and Actions columns', async () => {
     await setup(async () => [acme]);
 
     await screen.findByRole('table');
 
     const headers = screen.getAllByRole('columnheader').map((h) => h.textContent?.trim());
-    expect(headers).toEqual(['Name', 'Code', 'Phone', 'Email', 'Status', 'Actions']);
+    expect(headers).toEqual(['Name', 'Prefix', 'Code', 'Phone', 'Email', 'Status', 'Actions']);
   });
 
-  it('shows one row per client, a dash for an empty field, and the status', async () => {
+  it('shows one row per client, a dash for an empty code or phone, and the status', async () => {
     await setup(async () => [acme, globex]);
 
     const table = await screen.findByRole('table');
@@ -78,8 +80,22 @@ describe('ClientsPage', () => {
       within(row)
         .getAllByRole('cell')
         .map((c) => c.textContent?.trim());
-    expect(cells(acmeRow).slice(0, 5)).toEqual(['Acme', 'ACME', '123', 'info@acme.com', 'Active']);
-    expect(cells(globexRow).slice(0, 5)).toEqual(['Globex', '—', '—', '—', 'Disabled']);
+    expect(cells(acmeRow).slice(0, 6)).toEqual([
+      'Acme',
+      'ACM',
+      'ACME',
+      '123',
+      'info@acme.com',
+      'Active',
+    ]);
+    expect(cells(globexRow).slice(0, 6)).toEqual([
+      'Globex',
+      'GLX',
+      '—',
+      '—',
+      'globex@example.com',
+      'Disabled',
+    ]);
   });
 
   it('has an Edit link going to the edit form, named after the client', async () => {

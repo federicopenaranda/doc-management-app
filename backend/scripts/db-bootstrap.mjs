@@ -68,19 +68,23 @@ export function bootstrapStatements(iamUser) {
   created_at timestamptz NOT NULL DEFAULT now()
 )`,
     `GRANT SELECT, INSERT, UPDATE ON refresh_tokens TO ${quoteIdent(iamUser)}`,
-    // Clients: a client is disabled (disabled_at set), never deleted. The code is optional, but unique when present.
+    // Clients: a client is disabled (disabled_at set), never deleted. Name, prefix (up to 10 characters) and email are
+    // required; email and prefix are unique ignoring letter case. The code is optional, but unique when present.
     `CREATE TABLE IF NOT EXISTS clients (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
+  prefix text NOT NULL CHECK (char_length(prefix) <= 10),
   address text,
   code text,
   phone text,
-  email text,
+  email text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   disabled_at timestamptz
 )`,
     'CREATE UNIQUE INDEX IF NOT EXISTS clients_code_lower_key ON clients (lower(code)) WHERE code IS NOT NULL',
+    'CREATE UNIQUE INDEX IF NOT EXISTS clients_email_lower_key ON clients (lower(email))',
+    'CREATE UNIQUE INDEX IF NOT EXISTS clients_prefix_lower_key ON clients (lower(prefix))',
     `GRANT SELECT, INSERT, UPDATE ON clients TO ${quoteIdent(iamUser)}`,
     `INSERT INTO prueba (mensaje) SELECT 'hola desde db:bootstrap' WHERE NOT EXISTS (SELECT 1 FROM prueba)`,
   ];

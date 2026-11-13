@@ -45,6 +45,11 @@ type LoadState = 'loading' | 'ready' | 'error';
                 <td mat-cell *matCellDef="let client">{{ client.name }}</td>
               </ng-container>
 
+              <ng-container matColumnDef="prefix">
+                <th mat-header-cell *matHeaderCellDef i18n>Prefix</th>
+                <td mat-cell *matCellDef="let client">{{ client.prefix }}</td>
+              </ng-container>
+
               <ng-container matColumnDef="code">
                 <th mat-header-cell *matHeaderCellDef i18n>Code</th>
                 <td mat-cell *matCellDef="let client">{{ client.code || '—' }}</td>
@@ -57,7 +62,7 @@ type LoadState = 'loading' | 'ready' | 'error';
 
               <ng-container matColumnDef="email">
                 <th mat-header-cell *matHeaderCellDef i18n>Email</th>
-                <td mat-cell *matCellDef="let client">{{ client.email || '—' }}</td>
+                <td mat-cell *matCellDef="let client">{{ client.email }}</td>
               </ng-container>
 
               <ng-container matColumnDef="status">
@@ -105,7 +110,7 @@ type LoadState = 'loading' | 'ready' | 'error';
 export class ClientsPage {
   private readonly api = inject(ClientsApi);
 
-  protected readonly columns = ['name', 'code', 'phone', 'email', 'status', 'actions'];
+  protected readonly columns = ['name', 'prefix', 'code', 'phone', 'email', 'status', 'actions'];
   protected readonly state = signal<LoadState>('loading');
   protected readonly clients = signal<Client[]>([]);
   /** Set while a disable or enable request runs: only one at a time. */

@@ -145,12 +145,15 @@ describe('bootstrapStatements', () => {
       s.includes('CREATE TABLE IF NOT EXISTS clients'),
     );
 
-    it('has a uuid id, a required name, optional contact fields and creation, update and disable times', () => {
+    it('has a uuid id, a required name, prefix and email, optional address, code and phone, and creation, update and disable times', () => {
       expect(clients).toMatch(
         /id uuid PRIMARY KEY DEFAULT gen_random_uuid\(\)/,
       );
-      expect(clients).toMatch(/name text NOT NULL/);
-      for (const column of ['address', 'code', 'phone', 'email']) {
+      for (const column of ['name', 'prefix', 'email']) {
+        expect(clients).toMatch(new RegExp(`${column} text NOT NULL`));
+      }
+      expect(clients).toMatch(/CHECK \(char_length\(prefix\) <= 10\)/);
+      for (const column of ['address', 'code', 'phone']) {
         expect(clients).toMatch(new RegExp(`${column} text(?! NOT NULL)`));
       }
       expect(clients).toMatch(
@@ -165,6 +168,15 @@ describe('bootstrapStatements', () => {
     it('keeps a code unique ignoring letter case, only when there is one', () => {
       expect(sql).toContain(
         'CREATE UNIQUE INDEX IF NOT EXISTS clients_code_lower_key ON clients (lower(code)) WHERE code IS NOT NULL',
+      );
+    });
+
+    it('keeps the email and the prefix unique ignoring letter case', () => {
+      expect(sql).toContain(
+        'CREATE UNIQUE INDEX IF NOT EXISTS clients_email_lower_key ON clients (lower(email))',
+      );
+      expect(sql).toContain(
+        'CREATE UNIQUE INDEX IF NOT EXISTS clients_prefix_lower_key ON clients (lower(prefix))',
       );
     });
 

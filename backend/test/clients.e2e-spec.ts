@@ -19,6 +19,7 @@ const acme = {
   code: 'ACME',
   phone: '123',
   email: 'Info@Acme.com',
+  prefix: 'ACM',
 };
 
 // ConfigModule.forRoot() validates the environment when AppModule is first imported,
@@ -34,28 +35,44 @@ async function createApp(clientsEnabled = true) {
 
   // A tiny in-memory clients table, answering the exact statements the repository sends.
   const rows: Record<string, unknown>[] = [];
-  const codeTaken = (code: unknown, except?: unknown) =>
-    typeof code === 'string' &&
-    rows.some(
-      (r) =>
-        r !== except &&
-        typeof r.code === 'string' &&
-        r.code.toLowerCase() === code.toLowerCase(),
-    );
-  const duplicate = () =>
-    Promise.reject(
-      Object.assign(new Error('duplicate key'), { code: '23505' }),
-    );
+  // The three unique indexes, all ignoring letter case; a null code is never a duplicate.
+  const taken = (
+    values: { code: unknown; email: unknown; prefix: unknown },
+    except?: unknown,
+  ) => {
+    for (const field of ['code', 'email', 'prefix'] as const) {
+      const value = values[field];
+      const clash = rows.some(
+        (r) =>
+          r !== except &&
+          typeof r[field] === 'string' &&
+          typeof value === 'string' &&
+          r[field].toLowerCase() === value.toLowerCase(),
+      );
+      if (clash) {
+        return Promise.reject(
+          Object.assign(new Error('duplicate key'), {
+            code: '23505',
+            constraint: `clients_${field}_lower_key`,
+          }),
+        );
+      }
+    }
+    return null;
+  };
   const query = (sql: string, params: unknown[] = []) => {
     if (sql.startsWith('INSERT INTO clients')) {
-      if (codeTaken(params[2])) return duplicate();
+      const [name, address, code, phone, email, prefix] = params;
+      const clash = taken({ code, email, prefix });
+      if (clash) return clash;
       const row = {
         id: `00000000-0000-4000-8000-${String(rows.length + 1).padStart(12, '0')}`,
-        name: params[0],
-        address: params[1],
-        code: params[2],
-        phone: params[3],
-        email: params[4],
+        name,
+        address,
+        code,
+        phone,
+        email,
+        prefix,
         created_at: new Date('2026-11-13T12:00:00Z'),
         updated_at: new Date('2026-11-13T12:00:00Z'),
         disabled_at: null,
@@ -66,14 +83,10 @@ async function createApp(clientsEnabled = true) {
     if (sql.startsWith('UPDATE clients SET name')) {
       const row = rows.find((r) => r.id === params[0]);
       if (!row) return Promise.resolve({ rows: [] });
-      if (codeTaken(params[3], row)) return duplicate();
-      Object.assign(row, {
-        name: params[1],
-        address: params[2],
-        code: params[3],
-        phone: params[4],
-        email: params[5],
-      });
+      const [, name, address, code, phone, email, prefix] = params;
+      const clash = taken({ code, email, prefix }, row);
+      if (clash) return clash;
+      Object.assign(row, { name, address, code, phone, email, prefix });
       return Promise.resolve({ rows: [row] });
     }
     if (sql.startsWith('UPDATE clients SET disabled_at')) {
@@ -148,6 +161,7 @@ describe('clients (e2e)', () => {
         address: '',
         code: ' ACME ',
         email: acme.email,
+        prefix: ' ACM ',
       })
       .expect(201);
 
@@ -158,6 +172,7 @@ describe('clients (e2e)', () => {
       code: 'ACME',
       phone: null,
       email: 'info@acme.com',
+      prefix: 'ACM',
       createdAt: '2026-11-13T12:00:00.000Z',
       updatedAt: '2026-11-13T12:00:00.000Z',
       isActive: true,
@@ -167,14 +182,18 @@ describe('clients (e2e)', () => {
     await app.close();
   });
 
-  it('answers 400 naming the field for a missing name, a bad email or a too long code', async () => {
+  it('answers 400 naming the field for a missing name, a missing or bad email, a missing or too long prefix, or a too long code', async () => {
     const { app, token } = await createApp();
     const server = app.getHttpServer();
 
     for (const [body, field] of [
-      [{ name: '   ' }, 'name'],
-      [{ name: 'A', email: 'not-an-email' }, 'email'],
-      [{ name: 'A', code: 'x'.repeat(46) }, 'code'],
+      [{ ...acme, name: '   ' }, 'name'],
+      [{ ...acme, email: 'not-an-email' }, 'email'],
+      [{ ...acme, email: undefined }, 'email'],
+      [{ ...acme, email: '' }, 'email'],
+      [{ ...acme, prefix: undefined }, 'prefix'],
+      [{ ...acme, prefix: 'x'.repeat(11) }, 'prefix'],
+      [{ ...acme, code: 'x'.repeat(46) }, 'code'],
     ] as const) {
       const response = await request(server)
         .post('/clients')
@@ -186,17 +205,33 @@ describe('clients (e2e)', () => {
     await app.close();
   });
 
-  it('answers 409 for a code that another client has, whatever its letter case, but allows two clients without a code', async () => {
+  it('answers 409 naming the field for a code, an email or a prefix that another client has, whatever the letter case', async () => {
+    const { app, token } = await createApp();
+    const server = app.getHttpServer();
+    const post = (body: object) =>
+      request(server).post('/clients').set(authed(token)).send(body);
+    const other = { name: 'Other', email: 'other@x.com', prefix: 'OTH' };
+
+    await post(acme).expect(201);
+    for (const [body, field] of [
+      [{ ...other, code: 'acme' }, 'code'],
+      [{ ...other, email: 'INFO@acme.com' }, 'email'],
+      [{ ...other, prefix: 'acm' }, 'prefix'],
+    ] as const) {
+      const response = await post(body).expect(409);
+      expect(response.body.errors[0]).toMatchObject({ field });
+    }
+    await app.close();
+  });
+
+  it('allows two clients without a code', async () => {
     const { app, token } = await createApp();
     const server = app.getHttpServer();
     const post = (body: object) =>
       request(server).post('/clients').set(authed(token)).send(body);
 
-    await post({ name: 'Acme', code: 'ACME' }).expect(201);
-    const taken = await post({ name: 'Other', code: 'acme' }).expect(409);
-    expect(taken.body.errors[0]).toMatchObject({ field: 'code' });
-    await post({ name: 'No code 1' }).expect(201);
-    await post({ name: 'No code 2' }).expect(201);
+    await post({ name: 'A', email: 'a@x.com', prefix: 'A' }).expect(201);
+    await post({ name: 'B', email: 'b@x.com', prefix: 'B' }).expect(201);
     await app.close();
   });
 

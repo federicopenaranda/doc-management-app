@@ -8,7 +8,8 @@ export interface ClientSummary {
   address: string | null;
   code: string | null;
   phone: string | null;
-  email: string | null;
+  email: string;
+  prefix: string;
   createdAt: Date;
   updatedAt: Date;
   /** False once the client is disabled. Clients are disabled, never deleted. */
@@ -17,13 +18,13 @@ export interface ClientSummary {
 
 export type ClientInput = Pick<
   ClientSummary,
-  'name' | 'address' | 'code' | 'phone' | 'email'
+  'name' | 'address' | 'code' | 'phone' | 'email' | 'prefix'
 >;
 
 export type SaveResult =
   | { status: 'ok'; client: ClientSummary }
   | { status: 'not-found' }
-  | { status: 'code-taken' };
+  | { status: 'taken'; field: 'code' | 'email' | 'prefix' };
 
 interface ClientRow {
   id: string;
@@ -31,14 +32,15 @@ interface ClientRow {
   address: string | null;
   code: string | null;
   phone: string | null;
-  email: string | null;
+  email: string;
+  prefix: string;
   created_at: Date;
   updated_at: Date;
   disabled_at: Date | null;
 }
 
 const COLUMNS =
-  'id, name, address, code, phone, email, created_at, updated_at, disabled_at';
+  'id, name, address, code, phone, email, prefix, created_at, updated_at, disabled_at';
 
 const toSummary = (row: ClientRow): ClientSummary => ({
   id: row.id,
@@ -47,14 +49,24 @@ const toSummary = (row: ClientRow): ClientSummary => ({
   code: row.code,
   phone: row.phone,
   email: row.email,
+  prefix: row.prefix,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
   isActive: row.disabled_at === null,
 });
 
-// 23505: the unique index on lower(code) refused it, so another client has that code.
-const isCodeTaken = (error: unknown): boolean =>
-  (error as { code?: string }).code === '23505';
+const UNIQUE_INDEXES = {
+  clients_code_lower_key: 'code',
+  clients_email_lower_key: 'email',
+  clients_prefix_lower_key: 'prefix',
+} as const;
+
+/** 23505: a unique index refused it. Which field is told by the index name; undefined for any other error. */
+function takenField(error: unknown) {
+  const { code, constraint } = error as { code?: string; constraint?: string };
+  if (code !== '23505') return undefined;
+  return UNIQUE_INDEXES[constraint as keyof typeof UNIQUE_INDEXES];
+}
 
 @Injectable()
 export class ClientsRepository {
@@ -86,15 +98,30 @@ export class ClientsRepository {
 
   create(input: ClientInput): Promise<SaveResult> {
     return this.save(
-      `INSERT INTO clients (name, address, code, phone, email) VALUES ($1, $2, $3, $4, $5) RETURNING ${COLUMNS}`,
-      [input.name, input.address, input.code, input.phone, input.email],
+      `INSERT INTO clients (name, address, code, phone, email, prefix) VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COLUMNS}`,
+      [
+        input.name,
+        input.address,
+        input.code,
+        input.phone,
+        input.email,
+        input.prefix,
+      ],
     );
   }
 
   update(id: string, input: ClientInput): Promise<SaveResult> {
     return this.save(
-      `UPDATE clients SET name = $2, address = $3, code = $4, phone = $5, email = $6, updated_at = now() WHERE id = $1 RETURNING ${COLUMNS}`,
-      [id, input.name, input.address, input.code, input.phone, input.email],
+      `UPDATE clients SET name = $2, address = $3, code = $4, phone = $5, email = $6, prefix = $7, updated_at = now() WHERE id = $1 RETURNING ${COLUMNS}`,
+      [
+        id,
+        input.name,
+        input.address,
+        input.code,
+        input.phone,
+        input.email,
+        input.prefix,
+      ],
     );
   }
 
@@ -117,7 +144,8 @@ export class ClientsRepository {
         ? { status: 'ok', client: toSummary(rows[0]) }
         : { status: 'not-found' };
     } catch (error) {
-      if (isCodeTaken(error)) return { status: 'code-taken' };
+      const field = takenField(error);
+      if (field) return { status: 'taken', field };
       throw error;
     }
   }

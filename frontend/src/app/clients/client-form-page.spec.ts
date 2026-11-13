@@ -12,6 +12,7 @@ const saved: Client = {
   code: 'ACME',
   phone: '123',
   email: 'info@acme.com',
+  prefix: 'ACM',
   isActive: true,
   createdAt: '2026-11-13T12:00:00.000Z',
   updatedAt: '2026-11-13T12:00:00.000Z',
@@ -44,47 +45,72 @@ async function setup(
   const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
   const type = (label: RegExp, value: string) =>
     fireEvent.input(screen.getByLabelText(label), { target: { value } });
+  /** The required fields: name, prefix and email. */
+  const fillRequired = async (name = 'Acme') => {
+    await type(/^name/i, name);
+    await type(/^prefix/i, 'ACM');
+    await type(/^email/i, 'info@acme.com');
+  };
   const submit = () =>
     screen.getByRole('button', { name: /create client|save changes/i }) as HTMLButtonElement;
-  return { api, navigate, type, submit };
+  return { api, navigate, type, submit, fillRequired };
 }
 
 describe('ClientFormPage (adding)', () => {
-  it('has labelled name, code, phone, email and address fields, and only the name is required', async () => {
+  it('has labelled name, prefix, code, phone, email and address fields; name, prefix and email are required', async () => {
     await setup();
 
     expect(screen.getByRole('heading', { name: /add client/i })).toBeTruthy();
-    expect((screen.getByLabelText(/^name/i) as HTMLInputElement).required).toBe(true);
-    for (const label of [/^code/i, /^phone/i, /^email/i, /^address/i]) {
+    for (const label of [/^name/i, /^prefix/i, /^email/i]) {
+      expect((screen.getByLabelText(label) as HTMLInputElement).required).toBe(true);
+    }
+    for (const label of [/^code/i, /^phone/i, /^address/i]) {
       expect((screen.getByLabelText(label) as HTMLInputElement).required).toBe(false);
     }
   });
 
-  it('keeps Create disabled until there is a name', async () => {
+  it('keeps Create disabled until there is a name, a prefix and an email', async () => {
     const { type, submit } = await setup();
     expect(submit().disabled).toBe(true);
 
     await type(/^name/i, '   ');
+    await type(/^prefix/i, '   ');
+    await type(/^email/i, 'info@acme.com');
     expect(submit().disabled).toBe(true);
 
     await type(/^name/i, 'Acme');
+    expect(submit().disabled).toBe(true);
+
+    await type(/^prefix/i, 'ACM');
     expect(submit().disabled).toBe(false);
   });
 
-  it('refuses an email that is not an email, but accepts an empty one', async () => {
-    const { type, submit } = await setup();
-    await type(/^name/i, 'Acme');
+  it('refuses a prefix longer than 10 characters', async () => {
+    const { type, submit, fillRequired } = await setup();
+    await fillRequired();
+
+    await type(/^prefix/i, 'x'.repeat(11));
+    expect(submit().disabled).toBe(true);
+
+    await type(/^prefix/i, 'x'.repeat(10));
+    expect(submit().disabled).toBe(false);
+  });
+
+  it('refuses an email that is not an email, and an empty one', async () => {
+    const { type, submit, fillRequired } = await setup();
+    await fillRequired();
 
     await type(/^email/i, 'nope');
     expect(submit().disabled).toBe(true);
 
     await type(/^email/i, '');
-    expect(submit().disabled).toBe(false);
+    expect(submit().disabled).toBe(true);
   });
 
   it('sends trimmed values, empty optional fields as null, and goes back to the list', async () => {
-    const { api, navigate, type, submit } = await setup();
-    await type(/^name/i, '  Acme ');
+    const { api, navigate, type, submit, fillRequired } = await setup();
+    await fillRequired('  Acme ');
+    await type(/^prefix/i, ' ACM ');
     await type(/^code/i, ' ACME ');
 
     await fireEvent.click(submit());
@@ -95,33 +121,39 @@ describe('ClientFormPage (adding)', () => {
       code: 'ACME',
       address: null,
       phone: null,
-      email: null,
+      email: 'info@acme.com',
+      prefix: 'ACM',
     });
   });
 
-  it('says the code is taken on a 409, and stays on the form', async () => {
-    const { navigate, type, submit } = await setup({
+  it.each([
+    ['code', 'A client with this code already exists'],
+    ['email', 'A client with this email already exists'],
+    ['prefix', 'A client with this prefix already exists'],
+  ])('says the %s is taken on a 409 naming it, and stays on the form', async (field, message) => {
+    const { navigate, submit, fillRequired } = await setup({
       save: async () => {
-        throw new HttpErrorResponse({ status: 409 });
+        throw new HttpErrorResponse({
+          status: 409,
+          error: { success: false, errors: [{ field, message: 'taken' }] },
+        });
       },
     });
-    await type(/^name/i, 'Acme');
+    await fillRequired();
 
     await fireEvent.click(submit());
 
-    expect((await screen.findByRole('alert')).textContent).toContain(
-      'A client with this code already exists',
-    );
+    expect((await screen.findByRole('alert')).textContent).toContain(message);
     expect(navigate).not.toHaveBeenCalled();
   });
 
   it('says it could not save on any other error', async () => {
-    const { type, submit } = await setup({
+    const { submit, fillRequired } = await setup({
       save: async () => {
         throw new HttpErrorResponse({ status: 500 });
       },
     });
-    await type(/^name/i, 'Acme');
+    await fillRequired();
 
     await fireEvent.click(submit());
 
@@ -149,6 +181,7 @@ describe('ClientFormPage (editing)', () => {
       code: 'ACME',
       phone: '123',
       email: 'info@acme.com',
+      prefix: 'ACM',
     });
     expect(api.create).not.toHaveBeenCalled();
   });

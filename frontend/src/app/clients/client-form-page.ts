@@ -14,18 +14,28 @@ import { MatInput } from '@angular/material/input';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ClientsApi, type ClientInput } from './clients-api';
 
-type FormError = 'taken' | 'unavailable' | null;
+type TakenField = 'code' | 'email' | 'prefix';
+type FormError = TakenField | 'unavailable' | null;
 type LoadState = 'loading' | 'ready' | 'error' | 'not-found';
 
 // The same bounds as the API, which has the final word.
 const MAX_TEXT = 255;
 const MAX_SHORT = 45;
+const MAX_PREFIX = 10;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Whitespace alone is not a name. An empty email is fine: the email is optional.
+// Whitespace alone is not a name, a prefix or an email.
 const hasText = Validators.pattern(/\S/);
 const emailValidator = (control: AbstractControl<string>): ValidationErrors | null =>
-  control.value.trim() === '' || EMAIL.test(control.value.trim()) ? null : { email: true };
+  EMAIL.test(control.value.trim()) ? null : { email: true };
+
+const TAKEN_FIELDS: readonly string[] = ['code', 'email', 'prefix'];
+
+/** The field a 409 is about: the API names it in its first error. */
+function takenField(error: HttpErrorResponse): TakenField | null {
+  const field = (error.error as { errors?: { field?: string }[] } | null)?.errors?.[0]?.field;
+  return field !== undefined && TAKEN_FIELDS.includes(field) ? (field as TakenField) : null;
+}
 
 /** Errors show as soon as the user has typed in the field, not only after leaving it. */
 const showWhenTyped: ErrorStateMatcher = {
@@ -77,6 +87,18 @@ const orNull = (value: string): string | null => value.trim() || null;
             </mat-form-field>
 
             <mat-form-field>
+              <mat-label i18n>Prefix</mat-label>
+              <input
+                matInput
+                formControlName="prefix"
+                autocomplete="off"
+                required
+                [errorStateMatcher]="showWhenTyped"
+              />
+              <mat-error i18n>Enter a prefix of up to 10 characters</mat-error>
+            </mat-form-field>
+
+            <mat-form-field>
               <mat-label i18n>Code</mat-label>
               <input
                 matInput
@@ -106,6 +128,7 @@ const orNull = (value: string): string | null => value.trim() || null;
                 type="email"
                 formControlName="email"
                 autocomplete="off"
+                required
                 [errorStateMatcher]="showWhenTyped"
               />
               <mat-error i18n>Enter a valid email</mat-error>
@@ -124,12 +147,21 @@ const orNull = (value: string): string | null => value.trim() || null;
 
             @if (error(); as kind) {
               <p role="alert" class="text-red-800">
-                @if (kind === 'taken') {
-                  <ng-container i18n>A client with this code already exists</ng-container>
-                } @else {
-                  <ng-container i18n
-                    >Could not save the client, please try again later</ng-container
-                  >
+                @switch (kind) {
+                  @case ('code') {
+                    <ng-container i18n>A client with this code already exists</ng-container>
+                  }
+                  @case ('email') {
+                    <ng-container i18n>A client with this email already exists</ng-container>
+                  }
+                  @case ('prefix') {
+                    <ng-container i18n>A client with this prefix already exists</ng-container>
+                  }
+                  @default {
+                    <ng-container i18n
+                      >Could not save the client, please try again later</ng-container
+                    >
+                  }
                 }
               </p>
             }
@@ -165,9 +197,10 @@ export class ClientFormPage {
 
   protected readonly form = inject(NonNullableFormBuilder).group({
     name: ['', [Validators.required, hasText, Validators.maxLength(MAX_TEXT)]],
+    prefix: ['', [Validators.required, hasText, Validators.maxLength(MAX_PREFIX)]],
     code: ['', Validators.maxLength(MAX_SHORT)],
     phone: ['', Validators.maxLength(MAX_SHORT)],
-    email: ['', [emailValidator, Validators.maxLength(MAX_TEXT)]],
+    email: ['', [Validators.required, emailValidator, Validators.maxLength(MAX_TEXT)]],
     address: ['', Validators.maxLength(MAX_TEXT)],
   });
 
@@ -184,7 +217,8 @@ export class ClientFormPage {
         name: client.name,
         code: client.code ?? '',
         phone: client.phone ?? '',
-        email: client.email ?? '',
+        email: client.email,
+        prefix: client.prefix,
         address: client.address ?? '',
       });
       this.loadState.set('ready');
@@ -204,7 +238,8 @@ export class ClientFormPage {
       name: value.name.trim(),
       code: orNull(value.code),
       phone: orNull(value.phone),
-      email: orNull(value.email),
+      email: value.email.trim(),
+      prefix: value.prefix.trim(),
       address: orNull(value.address),
     };
     try {
@@ -212,7 +247,8 @@ export class ClientFormPage {
       await this.router.navigateByUrl('/clients');
     } catch (error) {
       this.error.set(
-        error instanceof HttpErrorResponse && error.status === 409 ? 'taken' : 'unavailable',
+        (error instanceof HttpErrorResponse && error.status === 409 ? takenField(error) : null) ??
+          'unavailable',
       );
     } finally {
       this.busy.set(false);

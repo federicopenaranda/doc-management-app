@@ -8,7 +8,8 @@ const client: ClientSummary = {
   address: null,
   code: 'ACME',
   phone: null,
-  email: null,
+  email: 'info@acme.com',
+  prefix: 'ACM',
   createdAt: new Date('2026-11-13T12:00:00Z'),
   updatedAt: new Date('2026-11-13T12:00:00Z'),
   isActive: true,
@@ -18,7 +19,8 @@ const input = {
   address: null,
   code: 'ACME',
   phone: null,
-  email: null,
+  email: 'info@acme.com',
+  prefix: 'ACM',
 };
 
 function setup(
@@ -66,15 +68,18 @@ describe('ClientsService', () => {
     );
   });
 
-  it('answers 409 naming the code field when the code is taken', async () => {
-    const taken = vi.fn().mockResolvedValue({ status: 'code-taken' });
-    const { service } = setup({ create: taken, update: taken });
+  it.each(['code', 'email', 'prefix'])(
+    'answers 409 naming the %s field when it is taken',
+    async (field) => {
+      const taken = vi.fn().mockResolvedValue({ status: 'taken', field });
+      const { service } = setup({ create: taken, update: taken });
 
-    const expected = new ConflictException({
-      message: 'A client with this code already exists',
-      field: 'code',
-    });
-    await expect(service.create(input)).rejects.toEqual(expected);
-    await expect(service.update('c1', input)).rejects.toEqual(expected);
-  });
+      const expected = new ConflictException({
+        message: `A client with this ${field} already exists`,
+        field,
+      });
+      await expect(service.create(input)).rejects.toEqual(expected);
+      await expect(service.update('c1', input)).rejects.toEqual(expected);
+    },
+  );
 });

@@ -15,10 +15,10 @@ const NOT_FOUND = 'Client not found';
 /** The saved client, or the error the API answers with. */
 function saved(result: SaveResult): ClientSummary {
   if (result.status === 'not-found') throw new NotFoundException(NOT_FOUND);
-  if (result.status === 'code-taken') {
+  if (result.status === 'taken') {
     throw new ConflictException({
-      message: 'A client with this code already exists',
-      field: 'code',
+      message: `A client with this ${result.field} already exists`,
+      field: result.field,
     });
   }
   return result.client;
