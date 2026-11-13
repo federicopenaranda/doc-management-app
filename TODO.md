@@ -26,6 +26,8 @@ Sandbox GCP project `doc-management-sandbox` (us-west1), all applied and live. *
 2. **Roles and permissions (SCRUM-17):** decides who may create/edit/disable/archive users (today any logged-in user can).
 3. **Remove the `preferencesEnabled` flag around 2026-11-24** (two weeks after use, per `CLAUDE.md`) and the keys `authEnabled`, `refreshEnabled`, `usersEnabled` that may still sit in the `frontend-sandbox` secret and `AUTH_ENABLED`, `REFRESH_ENABLED`, `USERS_ENABLED` in `backend-sandbox` (the code ignores them now; remove them by hand). `DATABASE_ENABLED`/`databaseEnabled` is the next flag with a clock.
 
+- **Clients (built 2026-11-13, not deployed):** to see it in sandbox, run `db:bootstrap` (creates `clients`), add `CLIENTS_ENABLED=true` to the `backend-sandbox` secret and `"clientsEnabled": true` to `frontend-sandbox`. Remove both flags two weeks after they are on (`CLIENTS_ENABLED`, `ClientsEnabledGuard`, `clientsEnabled`, the `canMatch` of the `clients` route, the menu `@if`). Not built yet: archiving clients, paging, `created_by`/`updated_by` (activity log), `users.client_id`.
+
 ## Smaller items
 
 - `knip` warnings that were already there: unused type `UploadStatus`, unlisted `@angular-eslint/builder`.
