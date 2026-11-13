@@ -10,7 +10,7 @@ async function setup() {
   return render(Shell, {
     providers: [
       provideRouter([]),
-      { provide: AppConfigService, useValue: { preferencesEnabled: false } },
+      { provide: AppConfigService, useValue: { preferencesEnabled: false, clientsEnabled: false } },
       {
         provide: AuthService,
         useValue: { currentUser: signal(null), loadCurrentUser: vi.fn(), logout: vi.fn() },
@@ -125,7 +125,10 @@ describe('Shell', () => {
         imports: [Shell],
         providers: [
           provideRouter([]),
-          { provide: AppConfigService, useValue: { preferencesEnabled: false } },
+          {
+            provide: AppConfigService,
+            useValue: { preferencesEnabled: false, clientsEnabled: false },
+          },
           {
             provide: AuthService,
             useValue: { currentUser: signal(null), loadCurrentUser: vi.fn(), logout: vi.fn() },

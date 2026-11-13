@@ -24,7 +24,17 @@ describe('validateEnv', () => {
       LOG_LEVEL: 'info',
       PORT: 3000,
       DATABASE_ENABLED: false,
+      CLIENTS_ENABLED: false,
     });
+  });
+
+  it('reads CLIENTS_ENABLED as a real boolean: the string "false" is off', () => {
+    expect(
+      validateEnv({ ...valid, CLIENTS_ENABLED: 'true' }).CLIENTS_ENABLED,
+    ).toBe(true);
+    expect(
+      validateEnv({ ...valid, CLIENTS_ENABLED: 'false' }).CLIENTS_ENABLED,
+    ).toBe(false);
   });
 
   it('coerces PORT to a number', () => {

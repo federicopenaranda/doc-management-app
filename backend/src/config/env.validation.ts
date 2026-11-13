@@ -47,6 +47,8 @@ const envSchema = z.object({
     .optional(),
   DB_NAME: z.string().min(1).optional(),
   DB_USER: z.string().min(1).optional(),
+  // Feature flag for the clients routes: remove it two weeks after it is on in use.
+  CLIENTS_ENABLED: z.stringbool().default(false),
 });
 
 const envWithRules = envSchema.superRefine((env, ctx) => {
