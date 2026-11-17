@@ -76,6 +76,28 @@ export const MANIFEST = [
   'frontend/.dockerignore',
   'frontend/scripts',
   'frontend/public/config.json',
+  // Infrastructure and CI (phase 4)
+  'infrastructure/apis.tf',
+  'infrastructure/artifact_registry.tf',
+  'infrastructure/cloud_run.tf',
+  'infrastructure/data.tf',
+  'infrastructure/imports.tf',
+  'infrastructure/locals.tf',
+  'infrastructure/outputs.tf',
+  'infrastructure/secrets.tf',
+  'infrastructure/service_accounts.tf',
+  'infrastructure/sql.tf',
+  'infrastructure/variables.tf',
+  'infrastructure/versions.tf',
+  'infrastructure/README.md',
+  'infrastructure/tests',
+  '.gitattributes',
+  'frontend/.gitattributes',
+  'backend/.gitattributes',
+  '.github/scripts/redact-plan.cjs',
+  '.github/workflows/backend.yml',
+  '.github/workflows/frontend.yml',
+  '.github/workflows/infrastructure.yml',
   'backend/Dockerfile',
   'backend/.dockerignore',
 ];
@@ -91,6 +113,10 @@ export const REPLACEMENTS = [
   [/https:\/\/dms\.example\.com/g, 'https://__PROJECT_NAME__.example.com'],
   [/\bDMS API\b/g, '__PROJECT_TITLE__ API'],
   [/5432\/dms\b/g, '5432/__DB_NAME__'],
+  [/resource "google_sql_database" "dms"/g, 'resource "google_sql_database" "app"'],
+  [/google_sql_database\.dms\b/g, 'google_sql_database.app'],
+  [/called dms\b/g, 'called __DB_NAME__'],
+  [/"dms"/g, '"__DB_NAME__"'],
   [/'dms'/g, "'__DB_NAME__'"],
   [/dist\/doc-management\//g, 'dist/__PROJECT_NAME__/'],
   [/\bdms-(?=[a-z])/g, '__PREFIX__-'], // Angular selectors, storage and channel names
@@ -99,10 +125,20 @@ export const REPLACEMENTS = [
 ];
 
 /** App files that live elsewhere in templates/ (the claude group is copied to the project root). */
-export const MOVES = { 'CLAUDE.md': 'claude/CLAUDE.md' };
+export const MOVES = {
+  'CLAUDE.md': 'claude/CLAUDE.md',
+  '.gitattributes': 'root/.gitattributes',
+  '.github/scripts/redact-plan.cjs': 'root/.github/scripts/redact-plan.cjs',
+  '.github/workflows/backend.yml': 'root/.github/workflows/backend.yml',
+  '.github/workflows/frontend.yml': 'root/.github/workflows/frontend.yml',
+  '.github/workflows/infrastructure.yml': 'root/.github/workflows/infrastructure.yml',
+};
 
 /** App files the blueprint does not have, inside folders that are copied whole. */
-export const EXCLUDE = [/\/language-switch-dialog\./];
+export const EXCLUDE = [
+  /\/language-switch-dialog\./,
+  /infrastructure\/tests\/(dead_letter|pubsub|uploads)\.tftest\.hcl$/, // Pub/Sub and uploads are not in the blueprint
+];
 
 /** What must not survive in a template. */
 export const LEAK = /\b(dms|doc-management|docmanagement|nexo)\b/i;

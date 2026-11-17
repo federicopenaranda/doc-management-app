@@ -36,9 +36,10 @@ Add `--dry-run` first to see every step without running anything.
 2. **Frontend:** `ng new` (SCSS, routing, no SSR, standalone) + Tailwind + Angular Material + angular-eslint + Angular Testing Library + Prettier + Playwright, then the app's own foundation: runtime `config.json`, API response interceptor, login with refresh tokens (logout in every tab), shell (toolbar, side menu, preferences), light/dark theme, users screens, English and Spanish builds (`angular.json` gets the i18n settings), the nginx image with a Content-Security-Policy, and the `config:pull` script.
 3. **Backend:** `nest new` (SWC builder, strict) + the app's own foundation: standard response envelope, `parseBody` with zod, zod-validated env, Secret Manager loader (`env:pull`), database module (Cloud SQL connector or `DATABASE_URL`), login (scrypt passwords, JWT, rotating refresh tokens), users (list, create, edit, disable, archive, restore), `db:bootstrap` and `users:create`, health checks, Swagger in development, helmet, strict CORS, throttler, Pino logging, the Dockerfile, oxlint with `no-explicit-any` as error.
 4. **Husky:** pre-commit runs lint-staged per app; pre-push runs each app's unit tests.
-5. **Verification:** build, lint, unit tests, e2e tests and a Prettier check for each app.
+5. **Infrastructure and CI:** Terraform for a sandbox GCP project (Cloud Run frontend and backend, Cloud SQL, Secret Manager, Artifact Registry, service accounts) with its offline tests, and the GitHub workflows (backend, frontend, infrastructure plan and apply with Workload Identity Federation).
+6. **Verification:** build, lint, unit tests and e2e tests for each app, a Prettier check, and `terraform init -backend=false`, `fmt`, `validate` and `test` when Terraform is installed.
 
-What a new project does **not** get: clients, uploads, the document worker (Tika, Pub/Sub), the Nexo artwork, the app's feature flags for those. Infrastructure (Terraform, GitHub workflows) is not part of the blueprint yet.
+What a new project does **not** get: clients, uploads, the document worker, the Tika server, Pub/Sub, the document buckets and the dead-letter alert, the Nexo artwork, the app's feature flags for those. The Terraform has no `alert_email` variable and no `GCS_BUCKET`.
 
 ## Layout
 

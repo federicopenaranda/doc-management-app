@@ -172,7 +172,8 @@ function createRoot() {
   if (!dry) mkdirSync(root, { recursive: true });
   copyTemplate('root', root);
   if (!opt['no-claude']) copyTemplate('claude', root);
-  for (const folder of ['docs', 'infrastructure']) write(join(root, folder, '.gitkeep'), '');
+  write(join(root, 'docs', '.gitkeep'), '');
+  copyTemplate('infrastructure', join(root, 'infrastructure'));
   write(
     join(root, 'README.md'),
     `# ${title}\n\nMonorepo created with the project blueprint.\n\n` +
@@ -309,6 +310,18 @@ function verify() {
   if (withBackend) {
     const be = join(root, beDir);
     for (const cmd of ['npm run lint', 'npm test', 'npm run test:e2e', 'npx nest build', 'npx prettier --check .']) run(cmd, be);
+  }
+  // Terraform is optional: checked only when it is installed (the Google provider is mocked, no GCP access needed).
+  let terraform = false;
+  try {
+    execSync('terraform version', { stdio: 'ignore' });
+    terraform = true;
+  } catch {
+    console.log('\n(terraform is not installed: the infrastructure checks were skipped)');
+  }
+  if (terraform) {
+    const infra = join(root, 'infrastructure');
+    for (const cmd of ['terraform init -backend=false -input=false', 'terraform fmt -check -recursive', 'terraform validate', 'terraform test']) run(cmd, infra);
   }
 }
 

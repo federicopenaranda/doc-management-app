@@ -23,7 +23,44 @@ export function dropTest(text, title, indent = '  ') {
   return text.slice(0, start) + text.slice(end + `\n${indent}});`.length);
 }
 
-const noLogoLines = (text) => cut(text, /^.*nexo-logo\.png.*\n/gm, 'logo line');
+/** Removes a `run "<name>" { ... }` block of a Terraform test, with the comment lines right above it. */
+export function dropRun(text, name) {
+  const marker = `\nrun "${name}" {\n`;
+  const at = text.indexOf(marker);
+  if (at < 0) throw new Error(`transform: no run "${name}"`);
+  const end = text.indexOf('\n}\n', at + 1);
+  if (end < 0) throw new Error(`transform: run "${name}" has no end`);
+  let start = at;
+  // Comment lines directly above belong to the run.
+  while (true) {
+    const lineStart = text.lastIndexOf('\n', start - 1);
+    const line = text.slice(lineStart + 1, start);
+    if (!line.startsWith('#')) break;
+    start = lineStart;
+  }
+  return text.slice(0, start) + text.slice(end + '\n}'.length);
+}
+
+/** Removes a top-level `describe('<title>', () => { ... });` block of a node:test file. */
+export function dropDescribe(text, title) {
+  const start = text.indexOf(`\ndescribe('${title}`);
+  if (start < 0) throw new Error(`transform: no describe "${title}"`);
+  const end = text.indexOf('\n});\n', start);
+  if (end < 0) throw new Error(`transform: describe "${title}" has no end`);
+  return text.slice(0, start) + text.slice(end + '\n});'.length);
+}
+
+/** The text of a markdown section: from its `## <heading>` line to the next `## ` line. */
+export function section(text, heading) {
+  const start = text.indexOf(`## ${heading}\n`);
+  if (start < 0) throw new Error(`transform: no section "${heading}"`);
+  const next = text.indexOf('\n## ', start + 1);
+  return next < 0 ? text.slice(start) : text.slice(start, next + 1);
+}
+
+const noAlertVar = (t) => cut(t, /^ *alert_email\s*= "alerts@example\.com"\n/m, 'alert_email variable');
+
+const noLogoLines =(text) => cut(text, /^.*nexo-logo\.png.*\n/gm, 'logo line');
 
 export const TRANSFORMS = {
   'frontend/src/app/app.routes.ts': (t) => {
@@ -135,6 +172,112 @@ export const TRANSFORMS = {
       '',
     ].join('\n');
     return head + t.slice(rules);
+  },
+
+  // ---- Infrastructure: the blueprint has no Tika, Pub/Sub, buckets or dead-letter alert ----
+  'infrastructure/apis.tf': (t) => {
+    t = cut(t, '    "pubsub.googleapis.com",\n');
+    t = cut(t, '    "storage.googleapis.com",\n');
+    return cut(t, '    "monitoring.googleapis.com",\n');
+  },
+
+  'infrastructure/artifact_registry.tf': (t) => {
+    t = cut(t, /\n# Cloud Run cannot pull from Docker Hub directly[\s\S]*$/, 'dockerhub repository');
+    return t.replace(/\n+$/, '\n');
+  },
+
+  'infrastructure/cloud_run.tf': (t) => {
+    t = cut(t, /  tika_image +=[^\n]*\n/, 'tika image');
+    t = cut(t, /      env \{\n        name  = "TIKA_URL"[\s\S]*?\n      \}\n/, 'TIKA_URL');
+    t = cut(t, /      env \{\n        name  = "PROCESSED_BUCKET"[\s\S]*?\n      \}\n/, 'PROCESSED_BUCKET');
+    t = cut(t, /      # The audience of the Pub\/Sub push token[^\n]*\n      env \{\n        name  = "BACKEND_URL"[\s\S]*?\n      \}\n/, 'BACKEND_URL');
+    t = cut(t, /      env \{\n        name  = "PUBSUB_PUSH_SA_EMAIL"[\s\S]*?\n      \}\n/, 'PUBSUB_PUSH_SA_EMAIL');
+    t = cut(t, /# Apache Tika has no authentication[\s\S]*?\n\}\n\n(?=resource "google_cloud_run_v2_service_iam_member" "public")/, 'tika service');
+    return cut(t, /\nresource "google_cloud_run_v2_service_iam_member" "tika_invoker" \{[\s\S]*?\n\}\n/, 'tika invoker');
+  },
+
+  'infrastructure/locals.tf': (t) => cut(t, /  tika_url +=[^\n]*\n/, 'tika_url'),
+
+  'infrastructure/outputs.tf': (t) => {
+    t = cut(t, /output "documents_bucket" \{[\s\S]*?\n\}\n\n/, 'documents_bucket');
+    return cut(t, /output "tika_url" \{[\s\S]*?\n\}\n\n/, 'tika_url');
+  },
+
+  'infrastructure/service_accounts.tf': (t) => {
+    t = cut(t, /\nresource "google_service_account" "tika" \{[\s\S]*?\n\}\n/, 'tika account');
+    return cut(t, /\nresource "google_service_account" "pubsub_push" \{[\s\S]*?\n\}\n/, 'pubsub account');
+  },
+
+  'infrastructure/variables.tf': (t) => {
+    t = swap(t, 'Region for Cloud Run, Artifact Registry, Pub/Sub and storage.', 'Region for Cloud Run, Cloud SQL and Artifact Registry.');
+    return cut(t, /\nvariable "alert_email" \{[\s\S]*?\n\}\n/, 'alert_email');
+  },
+
+  'infrastructure/tests/foundation.tftest.hcl': (t) => {
+    t = noAlertVar(t);
+    t = cut(t, '      "pubsub.googleapis.com",\n');
+    t = cut(t, '      "storage.googleapis.com",\n');
+    t = cut(t, '      "monitoring.googleapis.com",\n');
+    return swap(t, 'exactly the seven required APIs must be enabled', 'exactly the four required APIs must be enabled');
+  },
+
+  'infrastructure/tests/cloud_run.tftest.hcl': (t) => {
+    t = noAlertVar(t);
+    for (const name of ['backend_env_has_tika_url', 'tika_callable_only_by_backend', 'tika_runs_from_dockerhub_remote_repo', 'backend_env_has_worker_settings']) {
+      t = dropRun(t, name);
+    }
+    return t.replace(/\n+$/, '\n');
+  },
+
+  'infrastructure/tests/outputs.tftest.hcl': (t) => {
+    t = noAlertVar(t);
+    t = cut(t, /  assert \{\n    condition     = output\.documents_bucket[\s\S]*?\n  \}\n\n/, 'documents_bucket assert');
+    return cut(t, /  assert \{\n    condition     = output\.tika_url[\s\S]*?\n  \}\n\n/, 'tika_url assert');
+  },
+
+  'infrastructure/tests/cloud_sql.tftest.hcl': noAlertVar,
+  'infrastructure/tests/secrets.tftest.hcl': noAlertVar,
+  'infrastructure/tests/imports.tftest.hcl': noAlertVar,
+
+  'infrastructure/tests/guards.spec.mjs': (t) => {
+    t = dropTest(t, 'reads the alert address from a secret');
+    return dropDescribe(t, 'first-apply ordering');
+  },
+
+  'infrastructure/tests/redact.spec.mjs': (t) => swap(t, 'google_pubsub_subscription.x', 'google_cloud_run_v2_service.x'),
+
+  '.github/workflows/infrastructure.yml': (t) => cut(t, /^ *TF_VAR_alert_email: .*\n/gm, 'alert_email variable'),
+
+  // A shorter README: what the blueprint creates, then the app's own sections for the pipeline, secrets and database.
+  'infrastructure/README.md': (t) => {
+    const head = [
+      '# Infrastructure',
+      '',
+      'Terraform for the **sandbox** GCP project of __PROJECT_TITLE__ (`__PROJECT_NAME__-sandbox`, region `us-west1`; change both',
+      'in the GitHub environment variables).',
+      '',
+      '## What it creates',
+      '',
+      '| Area | Resources |',
+      '| --- | --- |',
+      '| Cloud Run | `frontend` and `backend` (public) |',
+      '| Identities | `frontend-run` and `backend-run` service accounts |',
+      '| Secrets | `backend-local`, `backend-sandbox`, `frontend-local`, `frontend-sandbox` (JSON, see below) |',
+      '| Database | Cloud SQL `__PROJECT_NAME__-postgres` (PostgreSQL 16, `db-f1-micro`, one zone, 10 GB HDD, no backups) with the database `__DB_NAME__`; the backend identity logs in with IAM (no password). See *Cloud SQL* below |',
+      '| Registry | `apps` (the frontend and backend images) |',
+      '',
+      '',
+    ].join('\n');
+    const how = section(t, 'How changes reach GCP')
+      .replace('; secrets `LOCAL_SECRET_READERS` and `ALERT_EMAIL`', '; secret `LOCAL_SECRET_READERS`')
+      .replace(/\n  Both secrets are GitHub \*\*secrets\*\*[\s\S]*?\n  also marks it sensitive/, '\n  The readers are a GitHub **secret** (not a variable) so Actions masks the addresses in logs of a public repository; Terraform\n  also marks it sensitive');
+    const secrets = cut(section(t, 'Secrets'), /^  "GCS_BUCKET": .*\n/gm, 'GCS_BUCKET examples');
+    const things = swap(
+      section(t, 'Things to know'),
+      /^- The Pub\/Sub token-creator binding, the deterministic Cloud Run URLs and the Docker Hub remote repository are assumptions/m,
+      '- The deterministic Cloud Run URLs are an assumption',
+    );
+    return head + how + '\n' + secrets + '\n' + section(t, 'Cloud SQL') + '\n' + things;
   },
 
   'frontend/src/index.html': (t) => {
