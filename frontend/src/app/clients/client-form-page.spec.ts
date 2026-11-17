@@ -3,7 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/angular';
 import { ClientFormPage } from './client-form-page';
-import { ClientsApi, type Client, type ClientInput } from './clients-api';
+import { ClientsApi } from './clients-api';
+import type { Client, ClientInput } from './client.model';
 
 const saved: Client = {
   id: 'c1',

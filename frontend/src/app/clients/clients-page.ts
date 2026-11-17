@@ -3,7 +3,8 @@ import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
-import { ClientsApi, type Client } from './clients-api';
+import { ClientsApi } from './clients-api';
+import type { Client } from './client.model';
 
 type LoadState = 'loading' | 'ready' | 'error';
 

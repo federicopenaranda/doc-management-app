@@ -9,7 +9,8 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { ArchiveUserDialog } from './archive-user-dialog';
 import { ChangePasswordDialog } from './change-password-dialog';
-import { UsersApi, type ArchivedUser, type User } from './users-api';
+import { UsersApi } from './users-api';
+import type { ArchivedUser, User } from './user.model';
 
 type LoadState = 'loading' | 'ready' | 'error';
 type ActionError = 'update' | 'archive' | 'restore' | null;

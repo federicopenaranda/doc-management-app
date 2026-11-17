@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { Language } from '../auth/auth.service';
+import type { Language } from '../auth/auth.model';
 
 /** The language a build copy was made for; `ng serve` runs the source language with the id `en-US`. */
 export const languageOf = (localeId: string): Language => (localeId.startsWith('es') ? 'es' : 'en');

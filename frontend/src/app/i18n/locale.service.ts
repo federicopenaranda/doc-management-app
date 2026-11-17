@@ -1,6 +1,6 @@
 import { PlatformLocation } from '@angular/common';
 import { inject, LOCALE_ID, Service } from '@angular/core';
-import type { Language } from '../auth/auth.service';
+import type { Language } from '../auth/auth.model';
 import { languageOf, localizedUrl, NAVIGATE } from './locale';
 
 /** Knows which language copy (/en/ or /es/) this page is, and moves to the other one. */

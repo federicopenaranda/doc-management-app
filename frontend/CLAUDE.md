@@ -36,6 +36,7 @@ You are an expert in TypeScript, Angular, and scalable web application developme
 - Do NOT use `ngStyle`, use `style` bindings instead
 - Do NOT import `CommonModule`, import only the directives and pipes the template uses, such as `AsyncPipe` or `DatePipe`
 - When using external templates/styles, use paths relative to the component TS file.
+- Shared interfaces and types (API data, state shared between files) go in an exported `<feature>.model.ts` file in the feature folder (for example `users/user.model.ts`), never in a component, service or API file. Import them with `import type`. A type used only inside one component may stay in its `.ts`.
 
 ## State Management
 

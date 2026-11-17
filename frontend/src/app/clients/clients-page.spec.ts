@@ -1,6 +1,7 @@
 import { provideRouter } from '@angular/router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/angular';
-import { ClientsApi, type Client } from './clients-api';
+import { ClientsApi } from './clients-api';
+import type { Client } from './client.model';
 import { ClientsPage } from './clients-page';
 
 const client = (over: Partial<Client>): Client => ({

@@ -1,20 +1,10 @@
 import { computed, inject, Service, signal } from '@angular/core';
 import { PUT_FILE, UploadApi } from './upload-api';
+import type { UploadError, UploadItem } from './upload.model';
 
 export const MAX_FILE_BYTES = 100 * 1024 * 1024;
 const MAX_FILES_PER_DROP = 20;
 const PARALLEL_UPLOADS = 4;
-
-export type UploadStatus = 'queued' | 'uploading' | 'done' | 'exists' | 'failed' | 'rejected';
-export type UploadError = 'empty' | 'too-large' | 'too-many' | 'sign-failed' | 'upload-failed';
-
-export interface UploadItem {
-  id: number;
-  file: File;
-  status: UploadStatus;
-  progress: number;
-  error?: UploadError;
-}
 
 /** State of the upload list: validates, signs each file right before its PUT (URLs expire), runs 4 PUTs at a time. */
 @Service()

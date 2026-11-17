@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { PUT_FILE, UploadApi, type SignedUpload } from './upload-api';
+import { PUT_FILE, UploadApi } from './upload-api';
+import type { SignedUpload } from './upload.model';
 import { MAX_FILE_BYTES, UploadStore } from './upload-store';
 
 interface PendingPut {

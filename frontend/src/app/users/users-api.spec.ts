@@ -2,7 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_URL } from '../api-url';
-import { UsersApi, type User } from './users-api';
+import { UsersApi } from './users-api';
+import type { User } from './user.model';
 
 const API = 'http://localhost:3000';
 const ana: User = {

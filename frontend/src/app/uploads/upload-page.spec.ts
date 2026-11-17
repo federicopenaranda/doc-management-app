@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, within } from '@testing-library/angular';
-import { PUT_FILE, UploadApi, type SignedUpload } from './upload-api';
+import { PUT_FILE, UploadApi } from './upload-api';
+import type { SignedUpload } from './upload.model';
 import { UploadPage } from './upload-page';
 
 interface PendingPut {

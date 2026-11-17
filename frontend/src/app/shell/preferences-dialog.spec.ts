@@ -1,7 +1,8 @@
 import { signal } from '@angular/core';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/angular';
 import { MatDialogRef } from '@angular/material/dialog';
-import { AuthService, type CurrentUser } from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
+import type { CurrentUser } from '../auth/auth.model';
 import { LocaleService } from '../i18n/locale.service';
 import { UploadStore } from '../uploads/upload-store';
 import { PreferencesDialog } from './preferences-dialog';

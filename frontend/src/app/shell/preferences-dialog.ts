@@ -10,7 +10,8 @@ import {
 } from '@angular/material/dialog';
 import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatOption, MatSelect } from '@angular/material/select';
-import { AuthService, type Language } from '../auth/auth.service';
+import { AuthService } from '../auth/auth.service';
+import type { Language } from '../auth/auth.model';
 import { LocaleService } from '../i18n/locale.service';
 import { UploadStore } from '../uploads/upload-store';
 import { LanguageSwitchDialog } from './language-switch-dialog';

@@ -2,13 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, InjectionToken, Service } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../api-url';
-
-export interface SignedUpload {
-  name: string;
-  url: string;
-  /** Headers the PUT must send exactly as listed (they are part of the signature). */
-  headers: Record<string, string>;
-}
+import type { SignedUpload, PutFile } from './upload.model';
 
 /** Asks the backend for a signed URL to upload one file to the landing bucket. */
 @Service()
@@ -33,14 +27,6 @@ export class UploadApi {
     return signed;
   }
 }
-
-/** Resolves the HTTP status (the caller decides what it means); rejects only on network failure. */
-export type PutFile = (
-  url: string,
-  headers: Record<string, string>,
-  file: Blob,
-  onProgress: (percent: number) => void,
-) => Promise<number>;
 
 /** XMLHttpRequest, because fetch cannot report upload progress. */
 export const putWithProgress: PutFile = (url, headers, file, onProgress) =>
