@@ -188,9 +188,83 @@ describe('bootstrapStatements', () => {
   });
 
   it('inserts one starter row only when the table is empty', () => {
-    const insert = sql.find((s) => s.startsWith('INSERT'));
+    const insert = sql.find((s) => s.startsWith('INSERT INTO prueba'));
 
     expect(insert).toMatch(/WHERE NOT EXISTS \(SELECT 1 FROM prueba\)/);
+  });
+
+  describe('roles', () => {
+    const roles = sql.find((s) =>
+      s.includes('CREATE TABLE IF NOT EXISTS roles'),
+    );
+    const userRoles = sql.find((s) =>
+      s.includes('CREATE TABLE IF NOT EXISTS user_roles'),
+    );
+    const at = (text) => sql.findIndex((s) => s.includes(text));
+
+    it('has the role key as its primary key and a required name', () => {
+      expect(roles).toMatch(/key text PRIMARY KEY/);
+      expect(roles).toMatch(/name text NOT NULL/);
+    });
+
+    it('seeds the four roles, and can run twice', () => {
+      const seed = sql.find((s) => s.startsWith('INSERT INTO roles'));
+
+      for (const key of ['viewer', 'editor', 'admin', 'site_admin']) {
+        expect(seed).toContain(`'${key}'`);
+      }
+      expect(seed).toMatch(/ON CONFLICT \(key\) DO NOTHING/);
+    });
+
+    it('assigns a role to a user with who granted it and when, and keeps a revoked row (history)', () => {
+      expect(userRoles).toMatch(/user_id uuid NOT NULL REFERENCES users\(id\)/);
+      expect(userRoles).toMatch(
+        /role_key text NOT NULL REFERENCES roles\(key\)/,
+      );
+      expect(userRoles).toMatch(
+        /granted_at timestamptz NOT NULL DEFAULT now\(\)/,
+      );
+      expect(userRoles).toMatch(/granted_by uuid REFERENCES users\(id\)/);
+      expect(userRoles).toMatch(/revoked_at timestamptz(?! NOT NULL)/);
+      expect(userRoles).toMatch(/revoked_by uuid REFERENCES users\(id\)/);
+    });
+
+    it('allows one active row per user and role, but many revoked ones', () => {
+      expect(sql).toContain(
+        'CREATE UNIQUE INDEX IF NOT EXISTS user_roles_active_key ON user_roles (user_id, role_key) WHERE revoked_at IS NULL',
+      );
+    });
+
+    it('gives a user an optional client, after the clients table exists', () => {
+      const alter =
+        'ALTER TABLE users ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id)';
+
+      expect(sql).toContain(alter);
+      expect(at(alter)).toBeGreaterThan(
+        at('CREATE TABLE IF NOT EXISTS clients'),
+      );
+    });
+
+    it('gives every user that has no active role the site_admin role, so nobody is left without one', () => {
+      const backfill = sql.find((s) => s.startsWith('INSERT INTO user_roles'));
+
+      expect(backfill).toMatch(/'site_admin'/);
+      expect(backfill).toMatch(/NOT EXISTS/);
+      expect(backfill).toMatch(/revoked_at IS NULL/);
+      expect(at(backfill)).toBeGreaterThan(at('INSERT INTO roles'));
+    });
+
+    it('is created after users and roles, which it points to', () => {
+      expect(sql.indexOf(userRoles)).toBeGreaterThan(sql.indexOf(roles));
+      expect(sql.indexOf(roles)).toBeGreaterThan(sql.indexOf(users));
+    });
+
+    it('lets the backend identity read the roles, and read, add and update the assignments', () => {
+      expect(sql).toContain(`GRANT SELECT ON roles TO "${iamUser}"`);
+      expect(sql).toContain(
+        `GRANT SELECT, INSERT, UPDATE ON user_roles TO "${iamUser}"`,
+      );
+    });
   });
 
   it('refuses a user name with a quote or a semicolon', () => {
