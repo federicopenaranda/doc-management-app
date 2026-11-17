@@ -1,3 +1,4 @@
+import { NgOptimizedImage } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatFormField, MatLabel, MatSuffix } from '@angular/material/form-field';
@@ -18,6 +19,7 @@ type LoginError = 'invalid' | 'unavailable' | null;
     MatInput,
     MatProgressSpinner,
     MatSuffix,
+    NgOptimizedImage,
     PasswordToggle,
   ],
   templateUrl: './login-page.html',
