@@ -26,7 +26,7 @@ describe('LoginPage', () => {
     await setup(async () => true);
 
     const logo = screen.getByRole('img', { name: 'Nexo' }) as HTMLImageElement;
-    expect(logo.getAttribute('src')).toBe('nexo-logo.svg');
+    expect(logo.getAttribute('src')).toBe('nexo-logo.png');
     const heading = screen.getByRole('heading', { name: /sign in/i });
     expect(logo.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
