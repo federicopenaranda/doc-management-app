@@ -12,8 +12,10 @@ import { ApiExcludeController } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { parseBody } from '../common/validation.js';
-import { AuthService, type LoginResult, type Profile } from './auth.service.js';
-import { JwtAuthGuard, type AuthenticatedRequest } from './jwt-auth.guard.js';
+import { AuthService } from './auth.service.js';
+import type { LoginResult, Profile } from './auth.model.js';
+import { JwtAuthGuard } from './jwt-auth.guard.js';
+import type { AuthenticatedRequest } from './auth.model.js';
 
 const loginSchema = z.object({
   // Trimmed first: an email pasted from a mail client often carries a space.

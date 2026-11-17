@@ -1,14 +1,5 @@
 import { Storage } from '@google-cloud/storage';
-
-export interface UrlSigner {
-  /** V4 signed URL that accepts one PUT of a new object (fails with 412 if the name already exists). */
-  sign(
-    bucket: string,
-    name: string,
-    contentType: string,
-    expires: Date,
-  ): Promise<string>;
-}
+import type { UrlSigner } from './upload.model.js';
 
 export const URL_SIGNER = Symbol('URL_SIGNER');
 

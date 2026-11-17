@@ -5,21 +5,15 @@ import {
 } from '@nestjs/common';
 import { hashPassword } from '../auth/password.js';
 import { RefreshTokensRepository } from '../auth/refresh-tokens.repository.js';
-import {
-  UsersRepository,
-  type ArchivedUser,
-  type EditedUser,
-  type UserSummary,
-} from '../auth/users.repository.js';
+import { UsersRepository } from '../auth/users.repository.js';
+import type {
+  ArchivedUser,
+  EditedUser,
+  UserSummary,
+} from '../auth/user.model.js';
+import type { CreateUserInput } from './user.model.js';
 
 const EMAIL_TAKEN = 'A user with this email already exists';
-
-export interface CreateUserInput {
-  email: string;
-  firstName: string;
-  lastName: string;
-  password: string;
-}
 
 @Injectable()
 export class UsersService {

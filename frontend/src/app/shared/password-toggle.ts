@@ -9,17 +9,7 @@ import { MatIcon } from '@angular/material/icon';
 @Component({
   selector: 'dms-password-toggle',
   imports: [MatIconButton, MatIcon],
-  template: `
-    <button
-      matIconButton
-      type="button"
-      [attr.aria-label]="shown() ? hideLabel : showLabel"
-      [attr.aria-pressed]="shown()"
-      (click)="toggle()"
-    >
-      <mat-icon [fontIcon]="shown() ? 'visibility_off' : 'visibility'" />
-    </button>
-  `,
+  templateUrl: './password-toggle.html',
 })
 export class PasswordToggle {
   readonly input = input.required<HTMLInputElement>();

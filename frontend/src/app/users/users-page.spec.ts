@@ -1,8 +1,10 @@
 import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/angular';
-import { AuthService, type CurrentUser } from '../auth/auth.service';
-import { UsersApi, type ArchivedUser, type User } from './users-api';
+import { AuthService } from '../auth/auth.service';
+import type { CurrentUser } from '../auth/auth.model';
+import { UsersApi } from './users-api';
+import type { ArchivedUser, User } from './user.model';
 import { UsersPage } from './users-page';
 
 const user = (over: Partial<User>): User => ({

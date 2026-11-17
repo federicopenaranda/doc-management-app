@@ -5,15 +5,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { Request } from 'express';
 import { UsersRepository } from './users.repository.js';
-
-export interface AuthenticatedUser {
-  id: string;
-  email: string;
-}
-
-export type AuthenticatedRequest = Request & { user: AuthenticatedUser };
+import type { AuthenticatedRequest } from './auth.model.js';
 
 /** Lets a request through only with a valid "Authorization: Bearer <jwt>"; sets request.user. */
 @Injectable()

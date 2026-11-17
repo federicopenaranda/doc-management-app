@@ -2,7 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_URL } from '../api-url';
-import { ClientsApi, type Client } from './clients-api';
+import { ClientsApi } from './clients-api';
+import type { Client } from './client.model';
 
 const API = 'http://localhost:3000';
 const acme: Client = {

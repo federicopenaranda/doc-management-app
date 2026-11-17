@@ -9,11 +9,8 @@ import { HTTP_CODE_METADATA } from '@nestjs/common/constants.js';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { map, type Observable } from 'rxjs';
-import {
-  SKIP_ENVELOPE,
-  correlationIdOf,
-  type ApiSuccess,
-} from '../api-response.js';
+import { SKIP_ENVELOPE, correlationIdOf } from '../api-response.js';
+import type { ApiSuccess } from '../api-response.model.js';
 
 /** Wraps what a handler returns in the standard response shape; errors are shaped by HttpExceptionFilter. */
 @Injectable()

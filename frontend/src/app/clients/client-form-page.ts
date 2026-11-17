@@ -12,11 +12,12 @@ import { ErrorStateMatcher } from '@angular/material/core';
 import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { ClientsApi, type ClientInput } from './clients-api';
+import { ClientsApi } from './clients-api';
+import type { ClientInput } from './client.model';
+import type { LoadState } from '../shared/load-state.model';
 
 type TakenField = 'code' | 'email' | 'prefix';
 type FormError = TakenField | 'unavailable' | null;
-type LoadState = 'loading' | 'ready' | 'error' | 'not-found';
 
 // The same bounds as the API, which has the final word.
 const MAX_TEXT = 255;
@@ -49,138 +50,7 @@ const orNull = (value: string): string | null => value.trim() || null;
 @Component({
   selector: 'dms-client-form-page',
   imports: [MatButton, MatError, MatFormField, MatLabel, MatInput, ReactiveFormsModule, RouterLink],
-  template: `
-    <section aria-labelledby="client-form-title" class="mx-auto flex max-w-md flex-col gap-6 p-8">
-      <h2 id="client-form-title" class="text-2xl font-medium">
-        @if (editing) {
-          <ng-container i18n>Edit client</ng-container>
-        } @else {
-          <ng-container i18n>Add client</ng-container>
-        }
-      </h2>
-
-      @switch (loadState()) {
-        @case ('loading') {
-          <p role="status" i18n>Loading client…</p>
-        }
-        @case ('not-found') {
-          <p role="alert" class="text-red-800" i18n>Client not found</p>
-        }
-        @case ('error') {
-          <p role="alert" class="flex items-center gap-2 text-red-800">
-            <ng-container i18n>Could not load the client</ng-container>
-            <button matButton type="button" (click)="load()" i18n>Try again</button>
-          </p>
-        }
-        @default {
-          <form class="flex flex-col gap-2" [formGroup]="form" (ngSubmit)="onSubmit()">
-            <mat-form-field>
-              <mat-label i18n>Name</mat-label>
-              <input
-                matInput
-                formControlName="name"
-                autocomplete="off"
-                required
-                [errorStateMatcher]="showWhenTyped"
-              />
-              <mat-error i18n>Enter a name of up to 255 characters</mat-error>
-            </mat-form-field>
-
-            <mat-form-field>
-              <mat-label i18n>Prefix</mat-label>
-              <input
-                matInput
-                formControlName="prefix"
-                autocomplete="off"
-                required
-                [errorStateMatcher]="showWhenTyped"
-              />
-              <mat-error i18n>Enter a prefix of up to 10 characters</mat-error>
-            </mat-form-field>
-
-            <mat-form-field>
-              <mat-label i18n>Code</mat-label>
-              <input
-                matInput
-                formControlName="code"
-                autocomplete="off"
-                [errorStateMatcher]="showWhenTyped"
-              />
-              <mat-error i18n>The code can have at most 45 characters</mat-error>
-            </mat-form-field>
-
-            <mat-form-field>
-              <mat-label i18n>Phone</mat-label>
-              <input
-                matInput
-                type="tel"
-                formControlName="phone"
-                autocomplete="off"
-                [errorStateMatcher]="showWhenTyped"
-              />
-              <mat-error i18n>The phone can have at most 45 characters</mat-error>
-            </mat-form-field>
-
-            <mat-form-field>
-              <mat-label i18n>Email</mat-label>
-              <input
-                matInput
-                type="email"
-                formControlName="email"
-                autocomplete="off"
-                required
-                [errorStateMatcher]="showWhenTyped"
-              />
-              <mat-error i18n>Enter a valid email</mat-error>
-            </mat-form-field>
-
-            <mat-form-field>
-              <mat-label i18n>Address</mat-label>
-              <input
-                matInput
-                formControlName="address"
-                autocomplete="off"
-                [errorStateMatcher]="showWhenTyped"
-              />
-              <mat-error i18n>The address can have at most 255 characters</mat-error>
-            </mat-form-field>
-
-            @if (error(); as kind) {
-              <p role="alert" class="text-red-800">
-                @switch (kind) {
-                  @case ('code') {
-                    <ng-container i18n>A client with this code already exists</ng-container>
-                  }
-                  @case ('email') {
-                    <ng-container i18n>A client with this email already exists</ng-container>
-                  }
-                  @case ('prefix') {
-                    <ng-container i18n>A client with this prefix already exists</ng-container>
-                  }
-                  @default {
-                    <ng-container i18n
-                      >Could not save the client, please try again later</ng-container
-                    >
-                  }
-                }
-              </p>
-            }
-
-            <div class="flex gap-2">
-              <button matButton="filled" type="submit" [disabled]="form.invalid || busy()">
-                @if (editing) {
-                  <ng-container i18n>Save changes</ng-container>
-                } @else {
-                  <ng-container i18n>Create client</ng-container>
-                }
-              </button>
-              <a matButton routerLink="/clients" i18n>Cancel</a>
-            </div>
-          </form>
-        }
-      }
-    </section>
-  `,
+  templateUrl: './client-form-page.html',
 })
 export class ClientFormPage {
   private readonly api = inject(ClientsApi);

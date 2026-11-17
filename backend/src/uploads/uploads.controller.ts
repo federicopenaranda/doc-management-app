@@ -3,7 +3,8 @@ import { ApiExcludeController } from '@nestjs/swagger';
 import { parseBody } from '../common/validation.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { signRequestSchema } from './uploads.schema.js';
-import { UploadsService, type SignedUpload } from './uploads.service.js';
+import { UploadsService } from './uploads.service.js';
+import type { SignedUpload } from './upload.model.js';
 
 @ApiExcludeController()
 @Controller('uploads')

@@ -4,7 +4,8 @@ import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angul
 import { fireEvent, render, screen, waitFor } from '@testing-library/angular';
 import { AuthService } from '../auth/auth.service';
 import { UserFormPage } from './user-form-page';
-import { UsersApi, type NewUser, type User } from './users-api';
+import { UsersApi } from './users-api';
+import type { NewUser, User } from './user.model';
 
 const created: User = {
   id: 'u1',

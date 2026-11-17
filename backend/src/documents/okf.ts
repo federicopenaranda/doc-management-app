@@ -1,10 +1,4 @@
-export interface OkfInput {
-  title: string;
-  resource: string;
-  created: Date;
-  metadata: Record<string, string | string[]>;
-  content: string;
-}
+import type { OkfInput } from './document.model.js';
 
 function tikaKey(name: string): string {
   return `tika_${name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;

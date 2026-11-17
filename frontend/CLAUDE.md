@@ -29,13 +29,14 @@ You are an expert in TypeScript, Angular, and scalable web application developme
 - Use `model()` for two-way bound properties with `[(prop)]` syntax instead of pairing `input()` with `output()`
 - Use `computed()` for derived state
 - Use `linkedSignal()` for state derived from multiple reactive sources that must stay synchronized
-- Prefer inline templates for small components
+- Template size rule: if the template is more than 5 lines, put it in its own `.html` file next to the component (`templateUrl: './name.html'`); if it is 5 lines or fewer, keep it inline in the `template` property
 - Prefer Signal Forms (`@angular/forms/signals`) for new forms. They are stable in Angular v22+ and provide signal-based state, type-safe field access, and schema-based validation
 - When not using Signal Forms, prefer Reactive forms instead of Template-driven ones
 - Do NOT use `ngClass`, use `class` bindings instead
 - Do NOT use `ngStyle`, use `style` bindings instead
 - Do NOT import `CommonModule`, import only the directives and pipes the template uses, such as `AsyncPipe` or `DatePipe`
 - When using external templates/styles, use paths relative to the component TS file.
+- Shared interfaces and types (API data, state shared between files) go in an exported `<feature>.model.ts` file in the feature folder (for example `users/user.model.ts`), never in a component, service or API file. Import them with `import type`. A type used only inside one component may stay in its `.ts`.
 
 ## State Management
 

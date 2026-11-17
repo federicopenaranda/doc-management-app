@@ -11,15 +11,6 @@ import {
 @Component({
   selector: 'dms-language-switch-dialog',
   imports: [MatButton, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
-  template: `
-    <h2 mat-dialog-title i18n>Change the language?</h2>
-    <mat-dialog-content i18n>
-      The page reloads, and the uploads still in progress are cancelled.
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button matButton [mat-dialog-close]="false" cdkFocusInitial i18n>Cancel</button>
-      <button matButton="filled" [mat-dialog-close]="true" i18n>Change language</button>
-    </mat-dialog-actions>
-  `,
+  templateUrl: './language-switch-dialog.html',
 })
 export class LanguageSwitchDialog {}

@@ -1,5 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import type { ClientsRepository, ClientSummary } from './clients.repository.js';
+import type { ClientsRepository } from './clients.repository.js';
+import type { ClientSummary } from './client.model.js';
 import { ClientsService } from './clients.service.js';
 
 const client: ClientSummary = {

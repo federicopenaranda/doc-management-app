@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../api-url';
 import { LocaleService } from '../i18n/locale.service';
+import type { Language, CurrentUser } from './auth.model';
 
 const ACCESS_KEY = 'dms.accessToken';
 const REFRESH_KEY = 'dms.refreshToken';
@@ -11,17 +12,6 @@ const LANGUAGE_KEY = 'dms.language';
 // Tabs do not share a session (sessionStorage), so this channel is how they hear that someone logged out.
 const CHANNEL = 'dms-auth';
 const LOGOUT_MESSAGE = 'logout';
-
-export type Language = 'en' | 'es';
-
-/** Who is logged in, as the toolbar shows it. */
-export interface CurrentUser {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  language: Language;
-}
 
 const isText = (value: unknown): value is string => typeof value === 'string' && value !== '';
 

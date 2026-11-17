@@ -63,6 +63,12 @@
 ### 🔌 Backend (NestJS)
 - Compilación ultrarrápida con **SWC** (`nest-cli.json`).
 - DTOs validados estrictamente con `class-validator` (`whitelist: true`, `forbidNonWhitelisted: true`).
+- Las interfaces y tipos compartidos entre archivos van en un archivo `<feature>.model.ts` exportado, en la carpeta de la feature (por ejemplo `clients/client.model.ts`), nunca dentro de un servicio, repositorio o controlador. Se importan con `import type`. Los tipos internos de un solo archivo (por ejemplo las filas de la base de datos) y los derivados de un esquema `zod` pueden quedarse en su archivo.
+
+### 📁 Convenciones de archivos (FE y BE)
+- **Modelos:** `<feature>.model.ts`, siempre en singular (`user.model.ts`, no `users.model.ts`), con las interfaces y tipos compartidos.
+- **Templates de Angular:** más de 5 líneas van en su propio `<componente>.html` junto al componente (`templateUrl`); 5 líneas o menos pueden ir inline en `template`.
+- **Tipos compartidos de la UI** (por ejemplo `LoadState`) viven en `frontend/src/app/shared/*.model.ts`; no se duplican por componente.
 
 ### 🚩 Feature Flags
 - Usar Feature Flags **solo para trabajo incompleto**: una funcionalidad que se despliega a medio hacer y no debe verse todavía, tanto en FE como en BE. Una funcionalidad terminada dentro de su ticket se entrega sin flag (así cerramos los tickets más rápido).

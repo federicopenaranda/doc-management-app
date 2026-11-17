@@ -1,6 +1,5 @@
 import { Service, signal } from '@angular/core';
-
-export type Scheme = 'light' | 'dark';
+import type { Scheme } from './theme.model';
 
 // index.html reads the same key before the app starts, so the saved theme shows on first paint.
 const STORAGE_KEY = 'dms-theme';

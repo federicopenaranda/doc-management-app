@@ -1,9 +1,5 @@
 import { Storage } from '@google-cloud/storage';
-
-export interface ObjectStore {
-  download(bucket: string, name: string): Promise<Buffer>;
-  upload(bucket: string, path: string, text: string): Promise<void>;
-}
+import type { ObjectStore } from './document.model.js';
 
 export const OBJECT_STORE = Symbol('OBJECT_STORE');
 
