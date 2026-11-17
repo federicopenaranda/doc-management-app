@@ -22,6 +22,15 @@ async function setup(login: (email: string, password: string) => Promise<boolean
 }
 
 describe('LoginPage', () => {
+  it('shows the Nexo logo above the sign-in form', async () => {
+    await setup(async () => true);
+
+    const logo = screen.getByRole('img', { name: 'Nexo' }) as HTMLImageElement;
+    expect(logo.getAttribute('src')).toBe('nexo-logo.svg');
+    const heading = screen.getByRole('heading', { name: /sign in/i });
+    expect(logo.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('has labelled email and password fields and a sign-in button', async () => {
     await setup(async () => true);
 

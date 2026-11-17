@@ -1,4 +1,14 @@
 <main class="mx-auto flex max-w-sm flex-col gap-6 p-8">
+  <!-- On a white plate: the navy of the logo would disappear on the dark theme. -->
+  <img
+    ngSrc="nexo-logo.svg"
+    width="200"
+    height="180"
+    alt="Nexo"
+    priority
+    class="mx-auto rounded-xl bg-white p-3"
+  />
+
   <h1 class="text-2xl font-medium" i18n>Sign in</h1>
 
   <form class="flex flex-col gap-4" (submit)="onSubmit($event)">
