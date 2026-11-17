@@ -7,6 +7,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -210,11 +211,17 @@ function createBackend() {
     root,
   );
   run(
-    'npm i class-validator class-transformer @nestjs/swagger @nestjs/config zod helmet @nestjs/throttler nestjs-pino pino pino-http @nestjs/terminus',
+    'npm i class-validator class-transformer @nestjs/swagger @nestjs/config zod helmet @nestjs/throttler nestjs-pino pino pino-http @nestjs/terminus pg @google-cloud/cloud-sql-connector',
     be,
   );
-  run('npm i -D @swc/cli @swc/core pino-pretty', be);
+  run('npm i -D @swc/cli @swc/core pino-pretty @types/pg @google-cloud/secret-manager dotenv', be);
+  // The Nest scaffold's hello-world is replaced by the templates (the app has no endpoint at /).
+  for (const file of ['app.controller.ts', 'app.controller.spec.ts', 'app.service.ts']) {
+    console.log(`  remove src/${file}`);
+    if (!dry) rmSync(join(be, 'src', file), { force: true });
+  }
   copyTemplate('backend', be);
+  run('npm pkg set scripts.env:pull="node scripts/pull-env.mjs"', be);
   patchJson(join(be, '.oxlintrc.json'), (c) => {
     c.rules = { ...c.rules, 'typescript/no-explicit-any': 'error' }; // zero-any policy
   });

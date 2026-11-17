@@ -10,7 +10,6 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   JWT_SECRET: z.string().min(32),
-  GCS_BUCKET: z.string().min(1),
   // Comma-separated list of allowed CORS origins, e.g. "http://localhost:4200,https://__PROJECT_NAME__.example.com".
   FRONTEND_URLS: z
     .string()
@@ -27,13 +26,41 @@ const envSchema = z.object({
         )
         .min(1),
     ),
+  // Feature flag for the database connection: remove it two weeks after it is on in use.
+  // z.stringbool, not z.coerce.boolean: the latter turns the string "false" into true.
+  DATABASE_ENABLED: z.stringbool().default(false),
+  // Cloud SQL connection name (project:region:instance). When set, the backend connects through the
+  // Cloud SQL connector with IAM login; otherwise it uses DATABASE_URL.
+  CLOUD_SQL_INSTANCE: z
+    .string()
+    .regex(
+      /^[^:\s]+:[^:\s]+:[^:\s]+$/,
+      'must look like project:region:instance',
+    )
+    .optional(),
+  DB_NAME: z.string().min(1).optional(),
+  DB_USER: z.string().min(1).optional(),
+});
+
+const envWithRules = envSchema.superRefine((env, ctx) => {
+  if (env.CLOUD_SQL_INSTANCE !== undefined) {
+    for (const name of ['DB_NAME', 'DB_USER'] as const) {
+      if (env[name] === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [name],
+          message: 'is required when CLOUD_SQL_INSTANCE is set',
+        });
+      }
+    }
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;
 
 /** Validates the environment at startup; throws (aborting boot) if a variable is missing or invalid. */
 export function validateEnv(config: Record<string, unknown>): Env {
-  const result = envSchema.safeParse(config);
+  const result = envWithRules.safeParse(config);
   if (!result.success) {
     // Only variable names and rules are reported, never the values (they may be secrets).
     const problems = result.error.issues
