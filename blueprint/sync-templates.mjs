@@ -31,8 +31,17 @@ export const MANIFEST = [
   'backend/scripts/pull-env.mjs',
   'backend/scripts/pull-env.spec.mjs',
   'backend/.gitignore',
+  'backend/vitest.config.ts',
   'backend/test/app.e2e-spec.ts',
   'backend/test/health-database.e2e-spec.ts',
+  // Backend login and users (phase 2)
+  'backend/src/auth',
+  'backend/src/users',
+  'backend/scripts/admin-connection.mjs',
+  'backend/scripts/users-create.mjs',
+  'backend/scripts/users-create.spec.mjs',
+  'backend/test/auth.e2e-spec.ts',
+  'backend/test/users.e2e-spec.ts',
   'backend/Dockerfile',
   'backend/.dockerignore',
 ];

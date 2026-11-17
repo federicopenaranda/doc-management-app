@@ -211,7 +211,7 @@ function createBackend() {
     root,
   );
   run(
-    'npm i class-validator class-transformer @nestjs/swagger @nestjs/config zod helmet @nestjs/throttler nestjs-pino pino pino-http @nestjs/terminus pg @google-cloud/cloud-sql-connector',
+    'npm i class-validator class-transformer @nestjs/swagger @nestjs/config zod helmet @nestjs/throttler nestjs-pino pino pino-http @nestjs/terminus pg @google-cloud/cloud-sql-connector @nestjs/jwt',
     be,
   );
   run('npm i -D @swc/cli @swc/core pino-pretty @types/pg @google-cloud/secret-manager dotenv', be);
