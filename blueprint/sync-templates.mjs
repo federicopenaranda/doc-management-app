@@ -10,6 +10,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { TRANSFORMS } from './sync-transforms.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO = resolve(HERE, '..');
@@ -42,6 +43,36 @@ export const MANIFEST = [
   'backend/scripts/users-create.spec.mjs',
   'backend/test/auth.e2e-spec.ts',
   'backend/test/users.e2e-spec.ts',
+  // Frontend (phase 3)
+  'frontend/src/app/api-url.ts',
+  'frontend/src/app/api',
+  'frontend/src/app/app-config.service.ts',
+  'frontend/src/app/app-config.service.spec.ts',
+  'frontend/src/app/app.config.ts',
+  'frontend/src/app/app.routes.ts',
+  'frontend/src/app/app.routes.spec.ts',
+  'frontend/src/app/app.ts',
+  'frontend/src/app/auth',
+  'frontend/src/app/home',
+  'frontend/src/app/i18n',
+  'frontend/src/app/shared',
+  'frontend/src/app/shell',
+  'frontend/src/app/theme',
+  'frontend/src/app/users',
+  'frontend/src/index.html',
+  'frontend/src/app/app.html',
+  'frontend/src/main.ts',
+  'frontend/src/styles.scss',
+  'frontend/src/themes',
+  'frontend/tsconfig.json',
+  'frontend/tsconfig.app.json',
+  'frontend/tsconfig.spec.json',
+  'frontend/src/locale/messages.es.json',
+  'frontend/docker',
+  'frontend/Dockerfile',
+  'frontend/.dockerignore',
+  'frontend/scripts',
+  'frontend/public/config.json',
   'backend/Dockerfile',
   'backend/.dockerignore',
 ];
@@ -58,7 +89,14 @@ export const REPLACEMENTS = [
   [/\bDMS API\b/g, '__PROJECT_TITLE__ API'],
   [/5432\/dms\b/g, '5432/__DB_NAME__'],
   [/'dms'/g, "'__DB_NAME__'"],
+  [/dist\/doc-management\//g, 'dist/__PROJECT_NAME__/'],
+  [/\bdms-(?=[a-z])/g, '__PREFIX__-'], // Angular selectors, storage and channel names
+  [/\bdms\.(?=[a-z])/g, '__PREFIX__.'], // storage keys
+  [/\bNexo\b/g, '__PROJECT_TITLE__'],
 ];
+
+/** App files the blueprint does not have, inside folders that are copied whole. */
+export const EXCLUDE = [/\/language-switch-dialog\./];
 
 /** What must not survive in a template. */
 export const LEAK = /\b(dms|doc-management|docmanagement|nexo)\b/i;
@@ -93,9 +131,12 @@ export function plan(repo = REPO, manifest = MANIFEST) {
     if (!existsSync(path)) throw new Error(`${entry} is in the manifest but does not exist`);
     const paths = statSync(path).isDirectory() ? walk(path) : [path];
     for (const file of paths) {
+      const rel = relative(repo, file).split('\\').join('/');
+      if (EXCLUDE.some((pattern) => pattern.test(`/${rel}`))) continue;
       // The working copy may have CRLF (autocrlf); the templates always have LF.
-      const content = applyReplacements(readFileSync(file, 'utf8').replace(/\r\n/g, '\n'));
-      files.push({ rel: relative(repo, file).split('\\').join('/'), content });
+      let text = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+      if (TRANSFORMS[rel]) text = TRANSFORMS[rel](text);
+      files.push({ rel, content: applyReplacements(text) });
     }
   }
   return files;

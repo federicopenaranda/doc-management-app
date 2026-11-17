@@ -1,0 +1,56 @@
+// GitHub (Primer) look for Angular Material: dark and light palettes that follow the
+// system setting, compact density and GitHub's font stack. To add another theme, put a
+// new file next to this one and change the single @use line in styles.scss.
+@use '@angular/material' as mat;
+
+html {
+  color-scheme: light dark;
+
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$azure-palette,
+        theme-type: color-scheme,
+      ),
+      typography: (
+        plain-family: (
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          'Noto Sans',
+          Helvetica,
+          Arial,
+          sans-serif,
+        ),
+        brand-family: (
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          'Noto Sans',
+          Helvetica,
+          Arial,
+          sans-serif,
+        ),
+      ),
+    )
+  );
+
+  // Compact, like GitHub: small controls, 28px buttons.
+  @include mat.all-component-densities(-2);
+
+  // Primer values: light-dark(<light>, <dark>) picks one from the system color scheme.
+  --mat-sys-background: light-dark(#ffffff, #0d1117);
+  --mat-sys-surface: light-dark(#ffffff, #0d1117);
+  --mat-sys-surface-container-lowest: light-dark(#ffffff, #0d1117);
+  --mat-sys-surface-container-low: light-dark(#f6f8fa, #161b22);
+  --mat-sys-surface-container: light-dark(#f6f8fa, #161b22);
+  --mat-sys-surface-container-high: light-dark(#eaeef2, #21262d);
+  --mat-sys-surface-container-highest: light-dark(#d0d7de, #30363d);
+  --mat-sys-on-background: light-dark(#1f2328, #e6edf3);
+  --mat-sys-on-surface: light-dark(#1f2328, #e6edf3);
+  --mat-sys-on-surface-variant: light-dark(#656d76, #8b949e);
+  --mat-sys-outline: light-dark(#656d76, #8b949e);
+  --mat-sys-outline-variant: light-dark(#d0d7de, #30363d);
+  --mat-sys-primary: light-dark(#0969da, #388bfd);
+  --mat-sys-on-primary: light-dark(#ffffff, #0d1117);
+}
