@@ -65,7 +65,8 @@
 - DTOs validados estrictamente con `class-validator` (`whitelist: true`, `forbidNonWhitelisted: true`).
 
 ### 🚩 Feature Flags
-- Implementar Feature Flags tanto en FE como en BE para cualquier funcionalidad nueva.
+- Usar Feature Flags **solo para trabajo incompleto**: una funcionalidad que se despliega a medio hacer y no debe verse todavía, tanto en FE como en BE. Una funcionalidad terminada dentro de su ticket se entrega sin flag (así cerramos los tickets más rápido).
+- No crear una flag nueva por costumbre ni para funcionalidades completas; si hay duda, preguntar al dueño.
 - **Regla de Limpieza:** Toda Feature Flag debe ser completamente eliminada del código tras **2 semanas** de estar activa en uso/producción.
 
 ---
