@@ -11,8 +11,8 @@ import { ArchiveUserDialog } from './archive-user-dialog';
 import { ChangePasswordDialog } from './change-password-dialog';
 import { UsersApi } from './users-api';
 import type { ArchivedUser, User } from './user.model';
+import type { LoadState } from '../shared/load-state.model';
 
-type LoadState = 'loading' | 'ready' | 'error';
 type ActionError = 'update' | 'archive' | 'restore' | null;
 
 @Component({

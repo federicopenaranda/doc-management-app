@@ -15,9 +15,9 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { PasswordToggle } from '../shared/password-toggle';
 import { UsersApi } from './users-api';
+import type { LoadState } from '../shared/load-state.model';
 
 type FormError = 'taken' | 'unavailable' | null;
-type LoadState = 'loading' | 'ready' | 'error' | 'not-found';
 
 // The same bounds as the API, which has the final word.
 const MIN_PASSWORD = 12;

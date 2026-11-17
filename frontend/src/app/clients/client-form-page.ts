@@ -14,10 +14,10 @@ import { MatInput } from '@angular/material/input';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ClientsApi } from './clients-api';
 import type { ClientInput } from './client.model';
+import type { LoadState } from '../shared/load-state.model';
 
 type TakenField = 'code' | 'email' | 'prefix';
 type FormError = TakenField | 'unavailable' | null;
-type LoadState = 'loading' | 'ready' | 'error' | 'not-found';
 
 // The same bounds as the API, which has the final word.
 const MAX_TEXT = 255;

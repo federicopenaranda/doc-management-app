@@ -5,8 +5,7 @@ import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
 import { ClientsApi } from './clients-api';
 import type { Client } from './client.model';
-
-type LoadState = 'loading' | 'ready' | 'error';
+import type { LoadState } from '../shared/load-state.model';
 
 @Component({
   selector: 'dms-clients-page',
