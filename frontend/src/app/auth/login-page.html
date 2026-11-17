@@ -1,0 +1,55 @@
+<main class="mx-auto flex max-w-sm flex-col gap-6 p-8">
+  <h1 class="text-2xl font-medium" i18n>Sign in</h1>
+
+  <form class="flex flex-col gap-4" (submit)="onSubmit($event)">
+    <mat-form-field>
+      <mat-label i18n>Email</mat-label>
+      <input
+        #emailInput
+        matInput
+        type="email"
+        name="email"
+        autocomplete="username"
+        required
+        [value]="email()"
+        (input)="email.set(emailInput.value)"
+      />
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label i18n>Password</mat-label>
+      <input
+        #passwordInput
+        matInput
+        type="password"
+        name="password"
+        autocomplete="current-password"
+        required
+        [value]="password()"
+        (input)="password.set(passwordInput.value)"
+      />
+      <dms-password-toggle matSuffix [input]="passwordInput" />
+    </mat-form-field>
+
+    @if (error(); as kind) {
+      <p role="alert" class="text-red-800">
+        @if (kind === 'invalid') {
+          <ng-container i18n>Invalid email or password</ng-container>
+        } @else {
+          <ng-container i18n>Could not sign in, please try again later</ng-container>
+        }
+      </p>
+    }
+
+    <button matButton="filled" type="submit" [disabled]="busy()" [attr.aria-busy]="busy()">
+      @if (busy()) {
+        <span class="inline-flex items-center gap-2">
+          <mat-progress-spinner mode="indeterminate" diameter="16" aria-hidden="true" />
+          <ng-container i18n>Signing in…</ng-container>
+        </span>
+      } @else {
+        <ng-container i18n>Sign in</ng-container>
+      }
+    </button>
+  </form>
+</main>

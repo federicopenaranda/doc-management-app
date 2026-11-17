@@ -12,16 +12,7 @@ import {
 @Component({
   selector: 'dms-archive-user-dialog',
   imports: [MatButton, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
-  template: `
-    <h2 mat-dialog-title i18n>Archive {{ data.name }}?</h2>
-    <mat-dialog-content i18n>
-      They will not be able to sign in and will disappear from this list. Their history is kept.
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button matButton [mat-dialog-close]="false" cdkFocusInitial i18n>Cancel</button>
-      <button matButton="filled" [mat-dialog-close]="true" i18n>Archive</button>
-    </mat-dialog-actions>
-  `,
+  templateUrl: './archive-user-dialog.html',
 })
 export class ArchiveUserDialog {
   protected readonly data = inject<{ name: string }>(MAT_DIALOG_DATA);

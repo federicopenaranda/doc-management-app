@@ -28,24 +28,7 @@ import { LanguageSwitchDialog } from './language-switch-dialog';
     MatOption,
     MatSelect,
   ],
-  template: `
-    <h2 mat-dialog-title i18n>Preferences</h2>
-    <mat-dialog-content>
-      <mat-form-field class="w-full">
-        <mat-label i18n>Language</mat-label>
-        <mat-select [value]="shown()" (selectionChange)="save($event.value)">
-          <mat-option value="en">English</mat-option>
-          <mat-option value="es">Español</mat-option>
-        </mat-select>
-      </mat-form-field>
-      @if (failed()) {
-        <p role="alert" class="text-red-800" i18n>Could not save the language</p>
-      }
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button matButton type="button" (click)="ref.close()" i18n>Close</button>
-    </mat-dialog-actions>
-  `,
+  templateUrl: './preferences-dialog.html',
 })
 export class PreferencesDialog {
   protected readonly ref = inject<MatDialogRef<PreferencesDialog>>(MatDialogRef);
