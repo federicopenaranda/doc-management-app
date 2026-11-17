@@ -159,7 +159,7 @@ export class Toolbar {
   }
 
   protected logout(): void {
-    this.auth.logout();
+    this.auth.logoutEverywhere();
     void this.router.navigateByUrl('/login');
   }
 

@@ -6,7 +6,7 @@ import { AppConfigService } from '../app-config.service';
 import { AuthService, type CurrentUser } from '../auth/auth.service';
 import { Toolbar } from './toolbar';
 
-const logout = vi.fn();
+const logoutEverywhere = vi.fn();
 const loadCurrentUser = vi.fn();
 
 function renderToolbar({
@@ -28,7 +28,12 @@ function renderToolbar({
       { provide: AppConfigService, useValue: { preferencesEnabled } },
       {
         provide: AuthService,
-        useValue: { logout, loadCurrentUser, currentUser: signal(user), setLanguage: vi.fn() },
+        useValue: {
+          logoutEverywhere,
+          loadCurrentUser,
+          currentUser: signal(user),
+          setLanguage: vi.fn(),
+        },
       },
     ],
   });
@@ -177,7 +182,7 @@ describe('Toolbar', () => {
   describe('log out in the user menu', () => {
     const openUserMenu = () => fireEvent.click(screen.getByRole('button', { name: /user menu/i }));
 
-    beforeEach(() => logout.mockClear());
+    beforeEach(() => logoutEverywhere.mockClear());
 
     it('is the last item of the menu', async () => {
       await renderToolbar();
@@ -188,14 +193,14 @@ describe('Toolbar', () => {
       expect(items.at(-1)?.textContent).toContain('Log out');
     });
 
-    it('forgets the session and goes to /login when clicked', async () => {
+    it('logs out in every tab and goes to /login when clicked', async () => {
       await renderToolbar();
       const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
       await openUserMenu();
 
       await fireEvent.click(await screen.findByRole('menuitem', { name: /log out/i }));
 
-      expect(logout).toHaveBeenCalledTimes(1);
+      expect(logoutEverywhere).toHaveBeenCalledTimes(1);
       expect(navigate).toHaveBeenCalledWith('/login');
     });
   });

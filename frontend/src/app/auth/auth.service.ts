@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { computed, inject, Service, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { API_URL } from '../api-url';
 import { LocaleService } from '../i18n/locale.service';
@@ -7,6 +8,9 @@ import { LocaleService } from '../i18n/locale.service';
 const ACCESS_KEY = 'dms.accessToken';
 const REFRESH_KEY = 'dms.refreshToken';
 const LANGUAGE_KEY = 'dms.language';
+// Tabs do not share a session (sessionStorage), so this channel is how they hear that someone logged out.
+const CHANNEL = 'dms-auth';
+const LOGOUT_MESSAGE = 'logout';
 
 export type Language = 'en' | 'es';
 
@@ -30,11 +34,21 @@ export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = inject(API_URL);
   private readonly locale = inject(LocaleService);
+  private readonly router = inject(Router);
+  private readonly channel = new BroadcastChannel(CHANNEL);
   private pendingRefresh: Promise<boolean> | null = null;
 
   readonly token = signal<string | null>(sessionStorage.getItem(ACCESS_KEY));
   readonly isAuthenticated = computed(() => this.token() !== null);
   readonly currentUser = signal<CurrentUser | null>(null);
+
+  constructor() {
+    this.channel.onmessage = ({ data }) => {
+      if (data !== LOGOUT_MESSAGE) return;
+      this.logout();
+      void this.router.navigateByUrl('/login');
+    };
+  }
 
   /** Asks the API who is logged in. Quiet on failure: the toolbar then just shows no name. */
   async loadCurrentUser(): Promise<void> {
@@ -72,6 +86,12 @@ export class AuthService {
         .post(`${this.apiUrl}/auth/logout`, { refreshToken })
         .subscribe({ error: () => undefined });
     }
+  }
+
+  /** The user chose to log out: this tab and every other open tab of the app end their session. */
+  logoutEverywhere(): void {
+    this.channel.postMessage(LOGOUT_MESSAGE);
+    this.logout();
   }
 
   /** Resolves true when logged in, false for wrong credentials; rejects on any other failure. */

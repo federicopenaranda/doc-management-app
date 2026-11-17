@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { API_URL } from '../api-url';
 import { LocaleService } from '../i18n/locale.service';
 import { AuthService } from './auth.service';
@@ -373,5 +374,89 @@ describe('AuthService current user', () => {
 
     await expect(saving).rejects.toBeTruthy();
     expect(sessionStorage.getItem('dms.language')).toBe('es');
+  });
+});
+
+describe('AuthService in several tabs', () => {
+  /** Stands in for the browser's channel; the tests play the other tab by hand through the last one made. */
+  class FakeChannel {
+    static last: FakeChannel;
+    postMessage = vi.fn();
+    onmessage: ((e: { data: unknown }) => void) | null = null;
+    constructor(readonly name: string) {
+      FakeChannel.last = this;
+    }
+  }
+  const channel = {
+    get name() {
+      return FakeChannel.last.name;
+    },
+    get postMessage() {
+      return FakeChannel.last.postMessage;
+    },
+    get onmessage() {
+      return FakeChannel.last.onmessage;
+    },
+  };
+  beforeEach(() => {
+    sessionStorage.clear();
+    vi.stubGlobal('BroadcastChannel', FakeChannel);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  function loggedIn() {
+    sessionStorage.setItem('dms.accessToken', 'access-1');
+    const ctx = setup();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    return { ...ctx, navigate };
+  }
+
+  it('logoutEverywhere() tells the other tabs on the dms-auth channel and logs out here', () => {
+    const { auth } = loggedIn();
+
+    auth.logoutEverywhere();
+
+    expect(channel.name).toBe('dms-auth');
+    expect(channel.postMessage).toHaveBeenCalledWith('logout');
+    expect(auth.isAuthenticated()).toBe(false);
+  });
+
+  it('logs out and goes to /login when another tab says logout', () => {
+    const { auth, navigate } = loggedIn();
+    expect(auth.isAuthenticated()).toBe(true);
+
+    channel.onmessage?.({ data: 'logout' });
+
+    expect(auth.isAuthenticated()).toBe(false);
+    expect(sessionStorage.getItem('dms.accessToken')).toBeNull();
+    expect(navigate).toHaveBeenCalledWith('/login');
+  });
+
+  it('revokes this tab refresh token when another tab logs out', () => {
+    sessionStorage.setItem('dms.refreshToken', 'refresh-2');
+    const { http } = loggedIn();
+
+    channel.onmessage?.({ data: 'logout' });
+
+    expect(http.expectOne('http://localhost:3000/auth/logout').request.body).toEqual({
+      refreshToken: 'refresh-2',
+    });
+  });
+
+  it('ignores any other message', () => {
+    const { auth, navigate } = loggedIn();
+
+    channel.onmessage?.({ data: 'something else' });
+
+    expect(auth.isAuthenticated()).toBe(true);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('plain logout() (a session that ended here) does not tell the other tabs', () => {
+    const { auth } = loggedIn();
+
+    auth.logout();
+
+    expect(channel.postMessage).not.toHaveBeenCalled();
   });
 });
