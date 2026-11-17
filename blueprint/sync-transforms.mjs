@@ -115,6 +115,28 @@ export const TRANSFORMS = {
 
   'frontend/src/app/auth/login-page.spec.ts': (t) => dropTest(t, 'shows the Nexo logo'),
 
+  // The project-specific head (architecture, GCP, Tika) is replaced by a generic one; the rules after it are kept.
+  'CLAUDE.md': (t) => {
+    const rules = t.indexOf('## 🤖 Integración con Claude Code y Git');
+    if (rules < 0) throw new Error('transform: CLAUDE.md has no "Integración con Claude Code y Git" section');
+    const head = [
+      '# CLAUDE.md - Guía de Desarrollo para __PROJECT_TITLE__',
+      '',
+      '## 🏗️ Visión General y Arquitectura',
+      '- **Proyecto:** __PROJECT_TITLE__. Describe aquí qué hace y para quién.',
+      '- **Repositorio único (monorepo):**',
+      '  - `/backend`: NestJS + SWC + PostgreSQL.',
+      '  - `/frontend`: Angular (v22+) + Signals + Tailwind CSS + Angular Material/CDK.',
+      '  - `/infrastructure`: infraestructura como código.',
+      '  - `/docs`: documentación técnica y especificaciones.',
+      '',
+      '---',
+      '',
+      '',
+    ].join('\n');
+    return head + t.slice(rules);
+  },
+
   'frontend/src/index.html': (t) => {
     t = swap(t, '<title>Nexo - DMS</title>', '<title>__PROJECT_TITLE__</title>');
     return cut(t, /^.*favicon\.png.*\n/m, 'png icon');

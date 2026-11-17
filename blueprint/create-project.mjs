@@ -178,7 +178,7 @@ function createRoot() {
     `# ${title}\n\nMonorepo created with the project blueprint.\n\n` +
       `- \`${feDir}/\` Angular app\n- \`${beDir}/\` NestJS API\n- \`docs/\` documentation (the API writes \`swagger.json\` here in development)\n` +
       `- \`infrastructure/\` Terraform / GCP\n\n## Getting started\n\n` +
-      `1. \`cp ${beDir}/.env.example ${beDir}/.env\` and fill in \`JWT_SECRET\` (32+ chars) and \`GCS_BUCKET\`\n` +
+      `1. \`cp ${beDir}/.env.example ${beDir}/.env\` and fill in \`JWT_SECRET\` (32+ chars) and \`DATABASE_URL\`\n` +
       `2. \`npm run start:dev\` in \`${beDir}/\`\n3. \`npm run start\` in \`${feDir}/\`\n`,
   );
   if (withGit) run('git init -b main', root);
@@ -332,7 +332,7 @@ Done${dry ? ' (dry run, nothing was written)' : ''}. Nothing has been committed 
 
 Next:
   1. cd ${relative(process.cwd(), root) || '.'}
-  ${withBackend ? `2. cp ${beDir}/.env.example ${beDir}/.env   then set JWT_SECRET (32+ chars) and GCS_BUCKET` : ''}
-  3. review CLAUDE.md${opt['no-claude'] ? ' (skipped)' : ' (it is copied from the blueprint and describes the original DMS project)'}
+  ${withBackend ? `2. cp ${beDir}/.env.example ${beDir}/.env   then set JWT_SECRET (32+ chars) and DATABASE_URL` : ''}
+  3. review CLAUDE.md${opt['no-claude'] ? ' (skipped)' : ' (the rules come from the blueprint; fill in what the project does)'}
   4. git add -A && git commit -m "chore: initial scaffold"
 `);

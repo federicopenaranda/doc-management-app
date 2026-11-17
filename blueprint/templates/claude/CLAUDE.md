@@ -1,31 +1,12 @@
-# CLAUDE.md - Guía de Desarrollo para el DMS (Enterprise)
+# CLAUDE.md - Guía de Desarrollo para __PROJECT_TITLE__
 
 ## 🏗️ Visión General y Arquitectura
-- **Proyecto:** Sistema de Gestión Documental (DMS) para PyMEs orientado a estándares ISO (15489, 30301) y modelo RiC-CM.
-- **Repositorio Único (Monorepo en GitHub):**
-  - `/backend`: NestJS + SWC + PostgreSQL (`pgvector`) + Apache Tika worker.
+- **Proyecto:** __PROJECT_TITLE__. Describe aquí qué hace y para quién.
+- **Repositorio único (monorepo):**
+  - `/backend`: NestJS + SWC + PostgreSQL.
   - `/frontend`: Angular (v22+) + Signals + Tailwind CSS + Angular Material/CDK.
-  - `/infrastructure`: Terraform + GCP.
-  - `/docs`: Documentación técnica y especificaciones.
-
----
-
-## ☁️ Infraestructura y Despliegue en GCP
-- **Entorno Core:** 100% Google Cloud Platform (GCP).
-- **Cómputo:** 
-  - **Cloud Run:** Los tres servicios corren como contenedores Docker livianos: **frontend** (Angular compilado, servido por nginx), **backend** (API NestJS) y **Apache Tika**.
-  - **App Engine no se usa:** se descartó (una sola app por proyecto, región inmutable, no puede correr Tika y sus servicios no encajan en Terraform).
-- **Almacenamiento y Mensajería:**
-  - **Google Cloud Storage (GCS):** Bucket principal de recepción de documentos origen y almacenamiento de archivos `.md` procesados.
-  - **GCP Pub/Sub:** Arquitectura orientada a eventos. GCS emite notificaciones a un tópico de Pub/Sub que despacha mensajes en modo *Push* hacia los workers de NestJS.
-- **Base de Datos y Datos Vectoriales:**
-  - **Cloud SQL (PostgreSQL):** Base de datos relacional con extensión `pgvector` activada para metadatos, estructuración RiC-CM y búsquedas semánticas.
-- **Automatización y CI/CD:**
-  - **Terraform:** Provisionamiento como código (IaC) de la infraestructura en GCP, en `/infrastructure`. El *state* es remoto, en el bucket GCS `<project-id>-tfstate` (con versionado), creado a mano una sola vez junto con la identidad de despliegue.
-  - **GitHub Actions:** Pipelines para compilación, tests TDD, análisis con `knip`, escaneo de vulnerabilidades y despliegue.
-    - Un PR que toque `infrastructure/**` ejecuta `terraform fmt -check`, `validate` y `plan` para ver qué cambiaría; al hacer merge a `main` se ejecuta `terraform apply`.
-    - Autenticación sin llaves guardadas: Workload Identity Federation hacia la cuenta de servicio `github-deployer`, limitada a este repositorio.
-- **Configuración y secretos:** la configuración de cada app vive en secretos JSON de Secret Manager, uno por app y entorno: `<app>-<local|sandbox|prod>` (por ejemplo `backend-local`, `frontend-sandbox`). Terraform crea los secretos y sus permisos; los valores los agrega el dueño a mano, nunca van al *state* ni al repositorio. En desarrollo local se descargan con `npm run env:pull` (backend, genera `.env`) y `npm run config:pull` (frontend, genera `public/config.json`, que solo puede contener valores públicos). Sandbox y prod son proyectos de GCP separados; por ahora solo existe sandbox. Detalles en `infrastructure/README.md`.
+  - `/infrastructure`: infraestructura como código.
+  - `/docs`: documentación técnica y especificaciones.
 
 ---
 
@@ -33,7 +14,8 @@
 - **Conectividad Directa al Repositorio:** Claude Code tiene acceso operativo al repositorio de GitHub y está autorizado para:
   - Crear ramas temáticas (`feature/`, `fix/`).
   - Escribir código y ejecutar pruebas bajo la metodología TDD.
-  - Abrir Pull Requests (PRs) automáticos con descripciones detalladas de los cambios realizados.
+  - Hacer **un commit por tarea** en la rama de trabajo (se trabaja en muchas tareas pequeñas).
+- **Pull Requests y merge:** Claude Code **no abre PRs ni hace merge por cuenta propia**. El dueño decide cuándo se crea el PR (después de varias tareas) y cuándo se hace merge a `main`; cada merge despliega, y se quiere desplegar menos veces. Al abrir el PR, la descripción detalla los cambios realizados.
 - **Git Hooks (Husky + lint-staged):**
   - Bloquear commits automáticamente si el código no pasa el linter o presenta errores de formato.
 - **Convenciones:** Usar Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`).
@@ -62,9 +44,16 @@
 ### 🔌 Backend (NestJS)
 - Compilación ultrarrápida con **SWC** (`nest-cli.json`).
 - DTOs validados estrictamente con `class-validator` (`whitelist: true`, `forbidNonWhitelisted: true`).
+- Las interfaces y tipos compartidos entre archivos van en un archivo `<feature>.model.ts` exportado, en la carpeta de la feature (por ejemplo `clients/client.model.ts`), nunca dentro de un servicio, repositorio o controlador. Se importan con `import type`. Los tipos internos de un solo archivo (por ejemplo las filas de la base de datos) y los derivados de un esquema `zod` pueden quedarse en su archivo.
+
+### 📁 Convenciones de archivos (FE y BE)
+- **Modelos:** `<feature>.model.ts`, siempre en singular (`user.model.ts`, no `users.model.ts`), con las interfaces y tipos compartidos.
+- **Templates de Angular:** más de 5 líneas van en su propio `<componente>.html` junto al componente (`templateUrl`); 5 líneas o menos pueden ir inline en `template`.
+- **Tipos compartidos de la UI** (por ejemplo `LoadState`) viven en `frontend/src/app/shared/*.model.ts`; no se duplican por componente.
 
 ### 🚩 Feature Flags
-- Implementar Feature Flags tanto en FE como en BE para cualquier funcionalidad nueva.
+- Usar Feature Flags **solo para trabajo incompleto**: una funcionalidad que se despliega a medio hacer y no debe verse todavía, tanto en FE como en BE. Una funcionalidad terminada dentro de su ticket se entrega sin flag (así cerramos los tickets más rápido).
+- No crear una flag nueva por costumbre ni para funcionalidades completas; si hay duda, preguntar al dueño.
 - **Regla de Limpieza:** Toda Feature Flag debe ser completamente eliminada del código tras **2 semanas** de estar activa en uso/producción.
 
 ---

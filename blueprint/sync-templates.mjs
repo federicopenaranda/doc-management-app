@@ -43,6 +43,9 @@ export const MANIFEST = [
   'backend/scripts/users-create.spec.mjs',
   'backend/test/auth.e2e-spec.ts',
   'backend/test/users.e2e-spec.ts',
+  // Claude rules (phase 5)
+  'CLAUDE.md',
+  'frontend/CLAUDE.md',
   // Frontend (phase 3)
   'frontend/src/app/api-url.ts',
   'frontend/src/app/api',
@@ -95,6 +98,9 @@ export const REPLACEMENTS = [
   [/\bNexo\b/g, '__PROJECT_TITLE__'],
 ];
 
+/** App files that live elsewhere in templates/ (the claude group is copied to the project root). */
+export const MOVES = { 'CLAUDE.md': 'claude/CLAUDE.md' };
+
 /** App files the blueprint does not have, inside folders that are copied whole. */
 export const EXCLUDE = [/\/language-switch-dialog\./];
 
@@ -136,7 +142,7 @@ export function plan(repo = REPO, manifest = MANIFEST) {
       // The working copy may have CRLF (autocrlf); the templates always have LF.
       let text = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
       if (TRANSFORMS[rel]) text = TRANSFORMS[rel](text);
-      files.push({ rel, content: applyReplacements(text) });
+      files.push({ rel: MOVES[rel] ?? rel, content: applyReplacements(text) });
     }
   }
   return files;
