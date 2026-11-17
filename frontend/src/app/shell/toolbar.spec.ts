@@ -61,7 +61,7 @@ describe('Toolbar', () => {
 
     const order = [
       screen.getByRole('button', { name: /open menu/i }),
-      screen.getByText('DMS'),
+      screen.getByText('Nexo'),
       screen.getByRole('searchbox', { name: /search/i }),
       screen.getByRole('button', { name: /create/i }),
       screen.getByRole('button', { name: /notifications/i }),
@@ -71,14 +71,15 @@ describe('Toolbar', () => {
     order.slice(1).forEach((element, i) => expect(follows(order[i], element)).toBe(true));
   });
 
-  it('has the icon and the DMS text as one link to the home route', async () => {
+  it('has the Nexo logo and the Nexo text as one link to the home route', async () => {
     await renderToolbar();
 
-    const link = screen.getByRole('link', { name: 'DMS' });
+    const link = screen.getByRole('link', { name: 'Nexo' });
 
     expect(link.getAttribute('href')).toBe('/');
-    expect(link.querySelector('mat-icon')).not.toBeNull();
-    expect(link.textContent).toContain('DMS');
+    expect(link.querySelector('img')?.getAttribute('src')).toBe('nexo-logo.png');
+    expect(link.querySelector('mat-icon')).toBeNull();
+    expect(link.textContent).toContain('Nexo');
   });
 
   it('emits menuToggle when the hamburger is clicked', async () => {
@@ -239,12 +240,12 @@ describe('Toolbar current user', () => {
 
   beforeEach(() => loadCurrentUser.mockClear());
 
-  it('shows the first and last name right after "DMS", in the muted gray of the theme', async () => {
+  it('shows the first and last name right after "Nexo", in the muted gray of the theme', async () => {
     await renderToolbar({ user: ana });
 
     const name = screen.getByTestId('current-user');
     expect(name.textContent?.trim()).toBe('Ana García');
-    expect(follows(screen.getByText('DMS'), name)).toBe(true);
+    expect(follows(screen.getByText('Nexo'), name)).toBe(true);
     expect(name.className).toContain('text-(--mat-sys-on-surface-variant)');
   });
 

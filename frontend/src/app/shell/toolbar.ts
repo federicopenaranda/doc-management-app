@@ -1,3 +1,4 @@
+import { NgOptimizedImage } from '@angular/common';
 import { Component, computed, ElementRef, inject, input, output, viewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AppConfigService } from '../app-config.service';
@@ -12,6 +13,7 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 
 @Component({
   imports: [
+    NgOptimizedImage,
     MatIconButton,
     MatIcon,
     MatMenu,
