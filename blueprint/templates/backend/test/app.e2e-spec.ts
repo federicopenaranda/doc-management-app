@@ -19,32 +19,43 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  it('has no endpoint at / any more (the Hello test endpoint is gone)', () => {
     return request(app.getHttpServer())
       .get('/')
-      .expect(200)
-      .expect('Hello World!');
+      .expect(404)
+      .expect((res) => {
+        expect(res.body).toMatchObject({
+          success: false,
+          code: 404,
+          meta: { path: '/' },
+        });
+      });
   });
 
   it('echoes a client x-correlation-id on successful responses', () => {
     return request(app.getHttpServer())
-      .get('/')
+      .get('/health')
       .set('x-correlation-id', 'client-id-1')
       .expect(200)
       .expect('x-correlation-id', 'client-id-1');
   });
 
-  it('unknown route returns the uniform error schema', () => {
+  it('unknown route returns the standard error shape', () => {
     return request(app.getHttpServer())
       .get('/does-not-exist')
       .expect(404)
       .expect((res) => {
-        expect(res.body).toMatchObject({
-          statusCode: 404,
-          path: '/does-not-exist',
-          errorCode: 'ERR_NOT_FOUND',
+        expect(res.body).toEqual({
+          success: false,
+          code: 404,
+          data: null,
+          errors: [{ errorCode: 'ERR_NOT_FOUND', message: expect.any(String) }],
+          meta: {
+            correlationId: res.headers['x-correlation-id'],
+            timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T.*Z$/),
+            path: '/does-not-exist',
+          },
         });
-        expect(res.body.correlationId).toBe(res.headers['x-correlation-id']);
       });
   });
 
@@ -127,15 +138,16 @@ describe('AppController (e2e)', () => {
 
   describe('rate limiting', () => {
     it('allows 100 requests per minute per IP, then answers 429', async () => {
+      // /health is exempt from throttling on purpose; an answer of 401 still counts toward the limit.
       for (let i = 0; i < 100; i++) {
-        await request(app.getHttpServer()).get('/').expect(200);
+        await request(app.getHttpServer()).get('/auth/me').expect(401);
       }
 
       await request(app.getHttpServer())
-        .get('/')
+        .get('/auth/me')
         .expect(429)
         .expect((res) => {
-          expect(res.body.errorCode).toBe('ERR_RATE_LIMITED');
+          expect(res.body.errors[0].errorCode).toBe('ERR_RATE_LIMITED');
         });
     });
   });

@@ -1,0 +1,183 @@
+# Infrastructure
+
+Terraform for the **sandbox** GCP project of __PROJECT_TITLE__ (`__PROJECT_NAME__-sandbox`, region `us-west1`; change both
+in the GitHub environment variables).
+
+## What it creates
+
+| Area | Resources |
+| --- | --- |
+| Cloud Run | `frontend` and `backend` (public) |
+| Identities | `frontend-run` and `backend-run` service accounts |
+| Secrets | `backend-local`, `backend-sandbox`, `frontend-local`, `frontend-sandbox` (JSON, see below) |
+| Database | Cloud SQL `__PROJECT_NAME__-postgres` (PostgreSQL 16, `db-f1-micro`, one zone, 10 GB HDD, no backups) with the database `__DB_NAME__`; the backend identity logs in with IAM (no password). See *Cloud SQL* below |
+| Registry | `apps` (the frontend and backend images) |
+
+## How changes reach GCP
+
+Only the pipeline applies changes (`.github/workflows/infrastructure.yml`):
+
+- A pull request touching `infrastructure/**` runs `fmt`, `validate`, the offline tests and a `plan`, and comments the plan on the pull request.
+- A merge to `main` runs `apply`.
+- It signs in with Workload Identity Federation as `github-deployer`. Inputs come from the GitHub environment `sandbox`
+  (variables `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`; secret `LOCAL_SECRET_READERS`).
+  The readers are a GitHub **secret** (not a variable) so Actions masks the addresses in logs of a public repository; Terraform
+  also marks it sensitive, so plans show `(sensitive value)`.
+  `*.tfvars` is gitignored, so values never live in the repository.
+
+Local checks (no GCP access needed, the Google provider is mocked):
+
+```bash
+cd infrastructure
+terraform init -backend=false
+terraform fmt -check -recursive
+terraform validate
+terraform test
+```
+
+
+## Secrets
+
+Terraform owns the secrets (and who may read them) but **never writes a version**, so no secret value ends up in the Terraform state and
+none of your values is hidden behind a newer one. The four sandbox secrets were created by hand, so Terraform adopts them
+(`imports.tf`, switched on by `TF_VAR_adopt_existing_secrets` in the workflow). Each secret needs at least one version before the Cloud
+Run service that mounts it can start; for a brand-new environment add the versions between its first apply and the next.
+You add the real values yourself; the newest version is always the one used (`latest`):
+
+```bash
+gcloud secrets versions add backend-sandbox --data-file=backend-sandbox.json --project __PROJECT_NAME__-sandbox
+```
+
+Each secret is one flat JSON object. Examples (replace the placeholders):
+
+```json
+// backend-local
+{
+  "NODE_ENV": "development",
+  "PORT": "3000",
+  "DATABASE_URL": "postgresql://user:password@localhost:5432/__DB_NAME__",
+  "JWT_SECRET": "<32+ random characters>",
+  "FRONTEND_URLS": "http://localhost:4200",
+  "LOG_LEVEL": "info"
+}
+
+// backend-sandbox: no PORT (Cloud Run sets it) and no FRONTEND_URLS (Terraform sets it as a plain env var, which wins)
+{
+  "NODE_ENV": "production",
+  "DATABASE_URL": "<until Cloud SQL exists, any valid postgres URL>",
+  "JWT_SECRET": "<a different 32+ character secret>",
+  "LOG_LEVEL": "info"
+}
+
+// frontend-local (public values only: config.json is downloaded by every visitor's browser)
+{ "apiUrl": "http://localhost:3000" }
+
+// frontend-sandbox (Terraform sets apiUrl itself)
+{}
+```
+
+Only the accounts in `LOCAL_SECRET_READERS` can read the `local` secrets. For local development:
+
+```bash
+gcloud auth application-default login
+cd backend  && npm run env:pull -- --env local --project __PROJECT_NAME__-sandbox     # writes backend/.env
+cd frontend && npm run config:pull -- --env local --project __PROJECT_NAME__-sandbox  # writes public/config.json
+```
+
+Both scripts validate the secret before writing anything and never print values.
+
+
+## Cloud SQL
+
+`sql.tf` creates the cheapest PostgreSQL Cloud SQL offers (shared-core `db-f1-micro`, one zone, a 10 GB HDD that cannot grow by itself, no
+paid backups, deletion protection on). Roughly under 10 USD a month while it runs; stopped, only the disk is billed (check Google's
+pricing page for current numbers). It has a public address but allows **no** networks: the backend reaches it through the Cloud SQL
+connector with its own service account (`roles/cloudsql.client` + `roles/cloudsql.instanceUser`, IAM database login), so there is no
+password in Terraform, its state or the secrets. The output `cloud_sql_instance` is the connection name (`project:region:name`).
+
+Stop it when you do not use it, start it when you do. Terraform ignores this setting, so an apply never starts it again:
+
+```bash
+gcloud sql instances patch __PROJECT_NAME__-postgres --activation-policy=NEVER  --project __PROJECT_NAME__-sandbox   # stop
+gcloud sql instances patch __PROJECT_NAME__-postgres --activation-policy=ALWAYS --project __PROJECT_NAME__-sandbox   # start
+```
+
+`github-deployer` needs `roles/cloudsql.admin` on the project (granted by hand, like the other deploy roles).
+
+The backend service gets `DATABASE_ENABLED` (feature flag), `CLOUD_SQL_INSTANCE`, `DB_NAME` and `DB_USER`, and exposes `GET /health/database`
+(a read of the `prueba` table; 503 while the instance is stopped, 404 while the flag is off). `GET /health` is not affected.
+
+### One-time database setup
+
+The built-in `postgres` admin has no usable password, and creating the table and the `vector` extension needs it. Set a random one,
+run the bootstrap (safe to repeat), then set another random one and forget it. Nobody keeps an admin password; reset it the same
+way whenever you need admin access again.
+
+```bash
+P=__PROJECT_NAME__-sandbox
+PW=$(openssl rand -base64 24)
+gcloud sql users set-password postgres --instance __PROJECT_NAME__-postgres --project $P --password "$PW"
+cd backend
+DB_ADMIN_PASSWORD="$PW" npm run db:bootstrap -- --instance $P:us-west1:__PROJECT_NAME__-postgres --iam-user backend-run@$P.iam
+gcloud sql users set-password postgres --instance __PROJECT_NAME__-postgres --project $P --password "$(openssl rand -base64 24)"
+```
+
+It needs `gcloud auth application-default login` with an account that has `roles/cloudsql.client`, and the instance must be running.
+
+If the command fails with `Project ... has been deleted`, your application-default login points at a deleted quota project: run
+`gcloud auth application-default set-quota-project __PROJECT_NAME__-sandbox` once.
+
+### Users and login
+
+`db:bootstrap` also creates the `users` table (`id`, `email` unique ignoring case, `password_hash`, `is_active`, `created_at`); the backend
+identity may only read it. Passwords are stored as scrypt hashes, never in clear. To create a user, use the same temporary admin password
+(between the two `set-password` commands above), with a password of 12 to 200 characters:
+
+```bash
+read -rs -p "Password for the new user (12+ characters): " USER_PASSWORD; export USER_PASSWORD   # typed hidden, not kept in shell history
+DB_ADMIN_PASSWORD="$PW" npm run users:create -- --instance $P:us-west1:__PROJECT_NAME__-postgres --email you@example.com
+```
+
+It leaves an existing email untouched. Then `POST /auth/login` with `{ "email", "password" }` returns `{ accessToken, expiresIn: 3600, refreshToken }`, and
+`GET /auth/me` with `Authorization: Bearer <accessToken>` returns who you are. Login needs `DATABASE_ENABLED` (users live in the
+database); the tokens are signed with `JWT_SECRET` from the backend secret. There is no login flag any more: the frontend asks for a login on every
+page except `/login`.
+
+To change a forgotten or mistyped password, add `--reset` to the `users:create` command.
+
+### Refresh tokens
+
+Login also returns a `refreshToken`, valid 7 days. `POST /auth/refresh`
+with `{ "refreshToken" }` swaps it for a new access token and a new refresh token; each token works once, and using an old one again revokes all
+of that user's refresh tokens. `POST /auth/logout` with the token revokes it (204). Only a SHA-256 hash is stored, in the `refresh_tokens` table
+that `db:bootstrap` creates (the backend identity may read, add and update it, never delete).
+
+**Run `db:bootstrap` (steps above) before deploying a backend that issues refresh tokens**, or every login fails: it tries to store the token in a
+table that does not exist yet.
+
+### User management
+
+Any logged-in user can call `GET /users` (the list, never with password
+hashes) and `POST /users` with `{ firstName, lastName, email, password }` (password 12 to 200 characters; 201 with the new user, 409 when the
+email exists). `GET /users/:id` returns one user and `PUT /users/:id` changes the email and the names (`{ firstName, lastName, email }`; 404 for an
+unknown user, 409 when another user has that email); passwords are not edited there. `GET /auth/me` returns `{ id, email, firstName, lastName }`
+read from the database. Until roles exist (SCRUM-17) there is no further check. `db:bootstrap` adds the `first_name` and `last_name` columns (users that
+already existed get empty names) and lets the backend identity read, add and update users (never delete).
+
+`PUT /users/:id/active` with `{ isActive }` turns a user on or off and `POST /users/:id/archive` archives one (204). Nobody can disable or archive
+themselves (409). Turning a user off, or archiving, revokes their refresh tokens, and every authenticated request checks that its user is still
+active (one query), so they are locked out at once and not when their access token expires. An archived user leaves the list and its by-id routes.
+
+Users are archived, never deleted: `db:bootstrap` adds `archived_at` and `archived_by` to `users`, and the backend identity has no `DELETE` right on
+any table. An archived user disappears from the list, cannot log in, and keeps their row, their email and their history.
+
+**Run `db:bootstrap` (steps above) before deploying a backend with the user routes**, or the list and the creation fail with a database
+error.
+
+
+## Things to know
+
+- Public access (`allUsers`) on the frontend and backend can be blocked by an organization policy; if `apply` fails on that, the policy needs an exception for this project.
+- Cloud Run services have `deletion_protection = true`; destroying one takes a deliberate first apply that turns it off.
+- The deterministic Cloud Run URLs are an assumption confirmed at the first real apply.
+- Prod will be its own GCP project with its own state bucket and a GitHub environment `prod` with required reviewers.

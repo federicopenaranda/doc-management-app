@@ -1,0 +1,49 @@
+import { Component, signal, viewChild } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+import { isTypingTarget } from './is-typing-target';
+import { SideMenu } from './side-menu';
+import { Toolbar } from './toolbar';
+
+@Component({
+  imports: [RouterOutlet, SideMenu, Toolbar],
+  selector: '__PREFIX__-shell',
+  host: { '(document:keydown)': 'onKeydown($event)' },
+  template: `
+    <__PREFIX__-toolbar [menuOpen]="menuOpen()" (menuToggle)="menuOpen.update((open) => !open)" />
+    <__PREFIX__-side-menu [open]="menuOpen()" (closed)="closeMenu()" />
+    <main><router-outlet /></main>
+  `,
+})
+export class Shell {
+  protected readonly menuOpen = signal(false);
+
+  private readonly toolbar = viewChild(Toolbar);
+
+  /** Closing removes the focused menu from the page, so focus goes back to the hamburger. */
+  protected closeMenu(): void {
+    this.menuOpen.set(false);
+    this.toolbar()?.focusMenuButton();
+  }
+
+  protected onKeydown(event: KeyboardEvent): void {
+    // A widget that already handled the key (e.g. a Material dropdown closing on Escape) owns it.
+    if (event.defaultPrevented) return;
+    if (event.key === 'Escape' && this.menuOpen()) {
+      this.closeMenu();
+      return;
+    }
+    if (
+      event.key !== '/' ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      isTypingTarget(event.target)
+    ) {
+      return;
+    }
+    const toolbar = this.toolbar();
+    if (!toolbar) return;
+    event.preventDefault();
+    toolbar.focusSearch();
+  }
+}

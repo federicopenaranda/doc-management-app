@@ -1,0 +1,81 @@
+import { provideHttpClient } from '@angular/common/http';
+import { signal } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
+import { API_URL } from './api-url';
+import { AppConfigService } from './app-config.service';
+import { routes } from './app.routes';
+import { AuthService } from './auth/auth.service';
+import { UsersApi } from './users/users-api';
+
+function setup() {
+  TestBed.configureTestingModule({
+    providers: [
+      provideRouter(routes),
+      provideHttpClient(),
+      { provide: API_URL, useValue: 'http://localhost:3000' },
+      { provide: AppConfigService, useValue: { preferencesEnabled: false } },
+      {
+        provide: AuthService,
+        useValue: {
+          isAuthenticated: () => true,
+          currentUser: signal(null),
+          loadCurrentUser: vi.fn(),
+          logout: vi.fn(),
+        },
+      },
+      { provide: UsersApi, useValue: { list: vi.fn().mockResolvedValue([]), create: vi.fn() } },
+    ],
+  });
+  return RouterTestingHarness.create();
+}
+
+describe('routes', () => {
+
+  it('lazy loads the home page at the root, the page after login', async () => {
+    const harness = await setup();
+
+    await harness.navigateByUrl('/');
+
+    expect(TestBed.inject(Router).url).toBe('/');
+    expect(harness.routeNativeElement?.querySelector('main h1')?.textContent).toContain('Home');
+  });
+  it('renders pages inside the shell main landmark', async () => {
+    const harness = await setup();
+
+    await harness.navigateByUrl('/users');
+
+    expect(
+      harness.routeNativeElement?.querySelector('main section'),
+    ).not.toBeNull();
+  });
+
+  it('lazy loads the users list', async () => {
+    const harness = await setup();
+
+    await harness.navigateByUrl('/users');
+
+    expect(harness.routeNativeElement?.querySelector('main section h2')?.textContent).toContain(
+      'Users',
+    );
+  });
+
+  it('lazy loads the new user form', async () => {
+    const harness = await setup();
+
+    await harness.navigateByUrl('/users/new');
+
+    expect(harness.routeNativeElement?.querySelector('main form')).not.toBeNull();
+  });
+
+  it('lazy loads the edit user form', async () => {
+    const harness = await setup();
+
+    await harness.navigateByUrl('/users/u1/edit');
+
+    expect(harness.routeNativeElement?.querySelector('main section')).not.toBeNull();
+  });
+
+
+});

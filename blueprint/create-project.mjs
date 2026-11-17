@@ -7,6 +7,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -117,7 +118,7 @@ if (withGit && !dry) {
   }
 }
 
-const TOKENS = { __PROJECT_NAME__: name, __PROJECT_TITLE__: title, __DB_NAME__: dbName };
+const TOKENS = { __PROJECT_NAME__: name, __PROJECT_TITLE__: title, __DB_NAME__: dbName, __PREFIX__: prefix };
 
 // ---------- helpers ----------
 const section = (text) => console.log(`\n=== ${text} ===`);
@@ -171,13 +172,14 @@ function createRoot() {
   if (!dry) mkdirSync(root, { recursive: true });
   copyTemplate('root', root);
   if (!opt['no-claude']) copyTemplate('claude', root);
-  for (const folder of ['docs', 'infrastructure']) write(join(root, folder, '.gitkeep'), '');
+  write(join(root, 'docs', '.gitkeep'), '');
+  copyTemplate('infrastructure', join(root, 'infrastructure'));
   write(
     join(root, 'README.md'),
     `# ${title}\n\nMonorepo created with the project blueprint.\n\n` +
       `- \`${feDir}/\` Angular app\n- \`${beDir}/\` NestJS API\n- \`docs/\` documentation (the API writes \`swagger.json\` here in development)\n` +
       `- \`infrastructure/\` Terraform / GCP\n\n## Getting started\n\n` +
-      `1. \`cp ${beDir}/.env.example ${beDir}/.env\` and fill in \`JWT_SECRET\` (32+ chars) and \`GCS_BUCKET\`\n` +
+      `1. \`cp ${beDir}/.env.example ${beDir}/.env\` and fill in \`JWT_SECRET\` (32+ chars) and \`DATABASE_URL\`\n` +
       `2. \`npm run start:dev\` in \`${beDir}/\`\n3. \`npm run start\` in \`${feDir}/\`\n`,
   );
   if (withGit) run('git init -b main', root);
@@ -194,12 +196,64 @@ function createFrontend() {
   for (const pkg of ['tailwindcss', '@angular/material', 'angular-eslint']) {
     run(`npx ng add ${pkg} --skip-confirmation --interactive=false`, fe);
   }
-  run('npm i -D @testing-library/angular @testing-library/dom prettier prettier-plugin-tailwindcss @playwright/test', fe);
+  run('npm i @angular/localize', fe);
+  run(
+    'npm i -D @testing-library/angular @testing-library/dom prettier prettier-plugin-tailwindcss @playwright/test @google-cloud/secret-manager',
+    fe,
+  );
   if (!opt['skip-playwright-browsers']) run('npx playwright install chromium', fe);
+  // The CLI's welcome page and its spec are replaced by the templates (the app has no such spec).
+  for (const file of ['app.spec.ts', 'app.scss']) {
+    console.log(`  remove src/app/${file}`);
+    if (!dry) rmSync(join(fe, 'src', 'app', file), { force: true });
+  }
   copyTemplate('frontend', fe);
-  run('npm pkg set scripts.e2e="playwright test"', fe);
+  enableI18n(fe);
+  patchJson(join(fe, 'package.json'), (c) => {
+    c.scripts = {
+      ...c.scripts,
+      'start:es': 'ng serve --configuration development,es',
+      e2e: 'playwright test',
+      'test:scripts': 'node --test "scripts/**/*.spec.mjs"',
+      'config:pull': 'node scripts/pull-config.mjs',
+      'test:image': 'node --test docker/image.spec.mjs',
+      'i18n:extract': 'ng extract-i18n --format json --output-path src/locale --out-file messages.source.json',
+    };
+  });
   appendMissingLines(join(fe, '.gitignore'), ['# Playwright', '/test-results/', '/playwright-report/']);
+  // Extract the texts of the copied screens, then keep only the Spanish translations that are still used.
+  run('npm run i18n:extract', fe);
+  pruneTranslations(fe);
   run('npx prettier --write .', fe);
+}
+
+/** English + Spanish builds, like the app: the CLI's angular.json gets the i18n settings. Fails when its shape is unexpected. */
+function enableI18n(fe) {
+  patchJson(join(fe, 'angular.json'), (config) => {
+    const project = config.projects?.[name];
+    const build = project?.architect?.build;
+    const serve = project?.architect?.serve;
+    if (!build?.options || !build.configurations?.production || !serve) {
+      throw new Error('angular.json has a shape this script does not know; add the i18n settings by hand');
+    }
+    build.options.polyfills = [...new Set([...(build.options.polyfills ?? []), '@angular/localize/init'])];
+    build.configurations.production = { ...build.configurations.production, localize: true, i18nMissingTranslation: 'error' };
+    build.configurations.es = { localize: ['es'] };
+    serve.configurations = { ...serve.configurations, es: { buildTarget: `${name}:build:development,es` } };
+    project.i18n = { sourceLocale: 'en', locales: { es: 'src/locale/messages.es.json' } };
+  });
+}
+
+/** Drops Spanish translations of texts the new project does not have; fails when a text has no translation. */
+function pruneTranslations(fe) {
+  if (dry) return;
+  const source = JSON.parse(readFileSync(join(fe, 'src/locale/messages.source.json'), 'utf8')).translations;
+  const file = join(fe, 'src/locale/messages.es.json');
+  const spanish = JSON.parse(readFileSync(file, 'utf8'));
+  spanish.translations = Object.fromEntries(Object.entries(spanish.translations).filter(([id]) => id in source));
+  const missing = Object.keys(source).filter((id) => !(id in spanish.translations));
+  if (missing.length) throw new Error(`${missing.length} texts have no Spanish translation: ${missing.join(', ')}`);
+  writeFileSync(file, `${JSON.stringify(spanish, null, 2)}\n`);
 }
 
 function createBackend() {
@@ -210,11 +264,17 @@ function createBackend() {
     root,
   );
   run(
-    'npm i class-validator class-transformer @nestjs/swagger @nestjs/config zod helmet @nestjs/throttler nestjs-pino pino pino-http @nestjs/terminus',
+    'npm i class-validator class-transformer @nestjs/swagger @nestjs/config zod helmet @nestjs/throttler nestjs-pino pino pino-http @nestjs/terminus pg @google-cloud/cloud-sql-connector @nestjs/jwt',
     be,
   );
-  run('npm i -D @swc/cli @swc/core pino-pretty', be);
+  run('npm i -D @swc/cli @swc/core pino-pretty @types/pg @google-cloud/secret-manager dotenv', be);
+  // The Nest scaffold's hello-world is replaced by the templates (the app has no endpoint at /).
+  for (const file of ['app.controller.ts', 'app.controller.spec.ts', 'app.service.ts']) {
+    console.log(`  remove src/${file}`);
+    if (!dry) rmSync(join(be, 'src', file), { force: true });
+  }
   copyTemplate('backend', be);
+  run('npm pkg set scripts.env:pull="node scripts/pull-env.mjs"', be);
   patchJson(join(be, '.oxlintrc.json'), (c) => {
     c.rules = { ...c.rules, 'typescript/no-explicit-any': 'error' }; // zero-any policy
   });
@@ -251,6 +311,18 @@ function verify() {
     const be = join(root, beDir);
     for (const cmd of ['npm run lint', 'npm test', 'npm run test:e2e', 'npx nest build', 'npx prettier --check .']) run(cmd, be);
   }
+  // Terraform is optional: checked only when it is installed (the Google provider is mocked, no GCP access needed).
+  let terraform = false;
+  try {
+    execSync('terraform version', { stdio: 'ignore' });
+    terraform = true;
+  } catch {
+    console.log('\n(terraform is not installed: the infrastructure checks were skipped)');
+  }
+  if (terraform) {
+    const infra = join(root, 'infrastructure');
+    for (const cmd of ['terraform init -backend=false -input=false', 'terraform fmt -check -recursive', 'terraform validate', 'terraform test']) run(cmd, infra);
+  }
 }
 
 // ---------- main ----------
@@ -273,7 +345,7 @@ Done${dry ? ' (dry run, nothing was written)' : ''}. Nothing has been committed 
 
 Next:
   1. cd ${relative(process.cwd(), root) || '.'}
-  ${withBackend ? `2. cp ${beDir}/.env.example ${beDir}/.env   then set JWT_SECRET (32+ chars) and GCS_BUCKET` : ''}
-  3. review CLAUDE.md${opt['no-claude'] ? ' (skipped)' : ' (it is copied from the blueprint and describes the original DMS project)'}
+  ${withBackend ? `2. cp ${beDir}/.env.example ${beDir}/.env   then set JWT_SECRET (32+ chars) and DATABASE_URL` : ''}
+  3. review CLAUDE.md${opt['no-claude'] ? ' (skipped)' : ' (the rules come from the blueprint; fill in what the project does)'}
   4. git add -A && git commit -m "chore: initial scaffold"
 `);
