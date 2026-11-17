@@ -3,15 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env.validation.js';
 import { documentFolder } from './document-key.js';
 import { buildOkf } from './okf.js';
-import { OBJECT_STORE, type ObjectStore } from './object-store.js';
+import { OBJECT_STORE } from './object-store.js';
+import type { ObjectStore } from './document.model.js';
 import { TikaClient } from './tika.client.js';
-
-export interface DocumentEvent {
-  bucket: string;
-  name: string;
-  generation: string;
-  contentType?: string | undefined;
-}
+import type { DocumentEvent } from './document.model.js';
 
 @Injectable()
 export class DocumentsService {

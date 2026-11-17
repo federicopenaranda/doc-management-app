@@ -1,8 +1,4 @@
-export interface TikaResult {
-  title: string | undefined;
-  content: string;
-  metadata: Record<string, string | string[]>;
-}
+import type { TikaResult } from './document.model.js';
 
 type TikaEntry = Record<string, unknown>;
 

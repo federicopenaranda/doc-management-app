@@ -7,11 +7,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import {
-  correlationIdOf,
-  type ApiErrorItem,
-  type ApiFailure,
-} from '../api-response.js';
+import { correlationIdOf } from '../api-response.js';
+import type { ApiErrorItem, ApiFailure } from '../api-response.model.js';
 
 const ERROR_CODES: Record<number, string> = {
   [HttpStatus.BAD_REQUEST]: 'ERR_INVALID_PAYLOAD',

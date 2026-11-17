@@ -13,11 +13,9 @@ import {
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
-import {
-  JwtAuthGuard,
-  type AuthenticatedRequest,
-} from '../auth/jwt-auth.guard.js';
-import type { ArchivedUser, UserSummary } from '../auth/users.repository.js';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import type { AuthenticatedRequest } from '../auth/auth.model.js';
+import type { ArchivedUser, UserSummary } from '../auth/user.model.js';
 import { parseBody } from '../common/validation.js';
 import { UsersService } from './users.service.js';
 

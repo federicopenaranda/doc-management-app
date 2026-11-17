@@ -3,11 +3,9 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { hashPassword, verifyPassword } from './password.js';
 import { RefreshTokensRepository } from './refresh-tokens.repository.js';
-import {
-  UsersRepository,
-  type Language,
-  type UserRecord,
-} from './users.repository.js';
+import { UsersRepository } from './users.repository.js';
+import type { Language, UserRecord } from './user.model.js';
+import type { Profile, LoginResult } from './auth.model.js';
 
 /** Seconds. */
 const ACCESS_TOKEN_SECONDS = 3600;
@@ -19,21 +17,6 @@ const INVALID_REFRESH = 'Invalid refresh token';
 
 // Checked when the email is unknown, so that case takes as long as a real one.
 let dummyHash: Promise<string> | undefined;
-
-/** Who the logged-in user is, as the toolbar shows it. */
-export interface Profile {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  language: Language;
-}
-
-export interface LoginResult {
-  accessToken: string;
-  expiresIn: number;
-  refreshToken: string;
-}
 
 /** The database keeps this, never the token itself. SHA-256 is enough: the token is 256 random bits. */
 const hashToken = (token: string) =>

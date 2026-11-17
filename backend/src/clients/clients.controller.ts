@@ -14,7 +14,7 @@ import { z } from 'zod';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { parseBody } from '../common/validation.js';
 import { ClientsEnabledGuard } from './clients-enabled.guard.js';
-import type { ClientSummary } from './clients.repository.js';
+import type { ClientSummary } from './client.model.js';
 import { ClientsService } from './clients.service.js';
 
 // An optional field may arrive empty: it is stored as null, never as an empty string.

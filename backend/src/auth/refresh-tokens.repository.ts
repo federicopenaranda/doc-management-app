@@ -1,11 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
-
-export type ConsumeResult =
-  | { status: 'ok'; userId: string }
-  // The token was already used or revoked: someone is replaying it.
-  | { status: 'reused'; userId: string }
-  | { status: 'invalid' };
+import type { ConsumeResult } from './auth.model.js';
 
 /** Only the hash of a refresh token is ever stored or looked up. */
 @Injectable()

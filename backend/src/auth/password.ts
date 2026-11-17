@@ -5,6 +5,7 @@ import {
   type ScryptOptions,
 } from 'node:crypto';
 import { promisify } from 'node:util';
+import type { ScryptParams } from './auth.model.js';
 
 const scrypt = promisify(scryptCallback) as (
   password: string,
@@ -12,13 +13,6 @@ const scrypt = promisify(scryptCallback) as (
   keylength: number,
   options: ScryptOptions,
 ) => Promise<Buffer>;
-
-export interface ScryptParams {
-  /** CPU/memory cost, a power of two. */
-  N: number;
-  r: number;
-  p: number;
-}
 
 /** OWASP's recommended scrypt setting (64 MiB, about 0.1 s). Every hash stores the parameters it used. */
 export const SCRYPT_PARAMS: ScryptParams = { N: 2 ** 16, r: 8, p: 1 };

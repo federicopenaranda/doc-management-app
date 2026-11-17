@@ -3,11 +3,10 @@ import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service.js';
 import { hashPassword, verifyPassword } from './password.js';
-import type {
-  ConsumeResult,
-  RefreshTokensRepository,
-} from './refresh-tokens.repository.js';
-import type { UserRecord, UsersRepository } from './users.repository.js';
+import type { RefreshTokensRepository } from './refresh-tokens.repository.js';
+import type { ConsumeResult } from './auth.model.js';
+import type { UsersRepository } from './users.repository.js';
+import type { UserRecord } from './user.model.js';
 
 vi.mock('./password.js', async (importOriginal) => {
   const original = await importOriginal<typeof import('./password.js')>();

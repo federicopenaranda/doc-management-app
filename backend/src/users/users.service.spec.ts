@@ -1,11 +1,8 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { verifyPassword } from '../auth/password.js';
 import type { RefreshTokensRepository } from '../auth/refresh-tokens.repository.js';
-import type {
-  UpdateResult,
-  UserSummary,
-  UsersRepository,
-} from '../auth/users.repository.js';
+import type { UsersRepository } from '../auth/users.repository.js';
+import type { UpdateResult, UserSummary } from '../auth/user.model.js';
 import { UsersService } from './users.service.js';
 
 const created: UserSummary = {

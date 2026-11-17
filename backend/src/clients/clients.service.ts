@@ -3,12 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import {
-  ClientsRepository,
-  type ClientInput,
-  type ClientSummary,
-  type SaveResult,
-} from './clients.repository.js';
+import { ClientsRepository } from './clients.repository.js';
+import type { ClientInput, ClientSummary, SaveResult } from './client.model.js';
 
 const NOT_FOUND = 'Client not found';
 
