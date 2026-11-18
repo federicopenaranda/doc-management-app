@@ -17,6 +17,24 @@ export const routes: Routes = [
         loadComponent: () => import('./home/home-page').then((m) => m.HomePage),
       },
       {
+        path: 'clients',
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            loadComponent: () => import('./clients/clients-page').then((m) => m.ClientsPage),
+          },
+          {
+            path: 'new',
+            loadComponent: () => import('./clients/client-form-page').then((m) => m.ClientFormPage),
+          },
+          {
+            path: ':id/edit',
+            loadComponent: () => import('./clients/client-form-page').then((m) => m.ClientFormPage),
+          },
+        ],
+      },
+      {
         path: 'users',
         children: [
           {

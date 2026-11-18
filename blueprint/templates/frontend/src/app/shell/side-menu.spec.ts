@@ -8,9 +8,7 @@ async function setup(open: boolean) {
     inputs: { open },
     on: { closed },
     // A catch-all route, so clicking a link has somewhere to go.
-    providers: [
-      provideRouter([{ path: '**', children: [] }]),
-    ],
+    providers: [provideRouter([{ path: '**', children: [] }])],
   });
   return { closed };
 }
@@ -40,7 +38,11 @@ describe('SideMenu', () => {
     expect(link.getAttribute('href')).toBe('/users');
   });
 
+  it('has a Clients entry linking to /clients', async () => {
+    await setup(true);
 
+    expect(screen.getByRole('link', { name: 'Clients' }).getAttribute('href')).toBe('/clients');
+  });
 
   it('emits closed when the Users entry is clicked', async () => {
     const { closed } = await setup(true);

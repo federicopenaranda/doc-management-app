@@ -8,6 +8,8 @@ import type {
   NewUser,
   EditedUser,
   UpdateResult,
+  Role,
+  RoleKey,
 } from './user.model.js';
 
 interface UserRow {
@@ -24,14 +26,17 @@ interface SummaryRow {
   last_name: string;
   is_active: boolean;
   created_at: Date;
+  client_id: string | null;
+  roles: RoleKey[];
 }
 
 interface ArchivedRow extends SummaryRow {
   archived_at: Date;
 }
 
+// The active roles are read in the same statement, so a user is never returned without them.
 const SUMMARY_COLUMNS =
-  'id, email, first_name, last_name, is_active, created_at';
+  "id, email, first_name, last_name, is_active, created_at, client_id, COALESCE((SELECT array_agg(role_key ORDER BY role_key) FROM user_roles WHERE user_roles.user_id = users.id AND user_roles.revoked_at IS NULL), '{}') AS roles";
 
 const toSummary = (row: SummaryRow): UserSummary => ({
   id: row.id,
@@ -40,6 +45,8 @@ const toSummary = (row: SummaryRow): UserSummary => ({
   lastName: row.last_name,
   isActive: row.is_active,
   createdAt: row.created_at,
+  clientId: row.client_id,
+  roles: row.roles,
 });
 
 @Injectable()
@@ -114,13 +121,41 @@ export class UsersRepository {
   }
 
   /** Null when the email is taken (the unique index ignores letter case). */
-  async create(user: NewUser): Promise<UserSummary | null> {
+  async create(user: NewUser, grantedBy: string): Promise<UserSummary | null> {
     if (!this.db) throw new Error('The database feature is not enabled');
-    const { rows } = await this.db.pool.query<SummaryRow>(
-      `INSERT INTO users (email, first_name, last_name, password_hash) VALUES ($1, $2, $3, $4) ON CONFLICT (lower(email)) DO NOTHING RETURNING ${SUMMARY_COLUMNS}`,
-      [user.email, user.firstName, user.lastName, user.passwordHash],
+    // One statement, so a user never exists without their roles.
+    const { rows } = await this.db.pool.query<{ id: string }>(
+      'WITH u AS (INSERT INTO users (email, first_name, last_name, password_hash, client_id) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (lower(email)) DO NOTHING RETURNING id), r AS (INSERT INTO user_roles (user_id, role_key, granted_by) SELECT u.id, k, $7 FROM u, unnest($6::text[]) AS k) SELECT id FROM u',
+      [
+        user.email,
+        user.firstName,
+        user.lastName,
+        user.passwordHash,
+        user.clientId,
+        user.roles,
+        grantedBy,
+      ],
     );
-    return rows[0] ? toSummary(rows[0]) : null;
+    return rows[0] ? this.getSummary(rows[0].id) : null;
+  }
+
+  /** The roles of the screens' role pickers, in their usual order. */
+  async listRoles(): Promise<Role[]> {
+    if (!this.db) throw new Error('The database feature is not enabled');
+    const { rows } = await this.db.pool.query<Role>(
+      "SELECT key, name FROM roles ORDER BY array_position(ARRAY['viewer', 'editor', 'admin', 'site_admin'], key)",
+    );
+    return rows;
+  }
+
+  /** True for a client that exists and is not disabled. */
+  async clientIsActive(id: string): Promise<boolean> {
+    if (!this.db) throw new Error('The database feature is not enabled');
+    const { rows } = await this.db.pool.query<{ id: string }>(
+      'SELECT id FROM clients WHERE id = $1 AND disabled_at IS NULL',
+      [id],
+    );
+    return rows.length > 0;
   }
 
   async getSummary(id: string): Promise<UserSummary | null> {
@@ -132,17 +167,31 @@ export class UsersRepository {
     return rows[0] ? toSummary(rows[0]) : null;
   }
 
-  /** Only the email and the names: the password and the active flag have their own changes. */
-  async update(id: string, user: EditedUser): Promise<UpdateResult> {
+  /**
+   * The email, the names, the client and the roles: the password and the active flag have their own changes. Roles that
+   * are no longer wanted are revoked (never deleted, so the history stays) and new ones granted, all in one statement.
+   */
+  async update(
+    id: string,
+    user: EditedUser,
+    actorId: string,
+  ): Promise<UpdateResult> {
     if (!this.db) throw new Error('The database feature is not enabled');
     try {
-      const { rows } = await this.db.pool.query<SummaryRow>(
-        `UPDATE users SET email = $2, first_name = $3, last_name = $4 WHERE id = $1 AND archived_at IS NULL RETURNING ${SUMMARY_COLUMNS}`,
-        [id, user.email, user.firstName, user.lastName],
+      const { rows } = await this.db.pool.query<{ id: string }>(
+        'WITH u AS (UPDATE users SET email = $2, first_name = $3, last_name = $4, client_id = $5 WHERE id = $1 AND archived_at IS NULL RETURNING id), revoked AS (UPDATE user_roles SET revoked_at = now(), revoked_by = $7 WHERE user_id IN (SELECT id FROM u) AND revoked_at IS NULL AND role_key <> ALL($6::text[])), added AS (INSERT INTO user_roles (user_id, role_key, granted_by) SELECT u.id, k, $7 FROM u, unnest($6::text[]) AS k WHERE NOT EXISTS (SELECT 1 FROM user_roles r WHERE r.user_id = u.id AND r.role_key = k AND r.revoked_at IS NULL)) SELECT id FROM u',
+        [
+          id,
+          user.email,
+          user.firstName,
+          user.lastName,
+          user.clientId,
+          user.roles,
+          actorId,
+        ],
       );
-      return rows[0]
-        ? { status: 'ok', user: toSummary(rows[0]) }
-        : { status: 'not-found' };
+      const saved = rows[0] ? await this.getSummary(rows[0].id) : null;
+      return saved ? { status: 'ok', user: saved } : { status: 'not-found' };
     } catch (error) {
       // 23505: the unique index on lower(email) refused it, so another user has that email.
       if ((error as { code?: string }).code === '23505') {

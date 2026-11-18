@@ -1,3 +1,5 @@
+import { BACKEND_TRANSFORMS } from './sync-transforms-backend.mjs';
+
 // Edits applied to app files on their way into blueprint/templates/, for the parts of the app the blueprint does not have
 // (clients, uploads, the Nexo artwork, feature flags). Every edit must match: when the app changes and an edit no longer
 // finds its text, the sync fails loudly instead of copying something half removed.
@@ -63,53 +65,19 @@ const noAlertVar = (t) => cut(t, /^ *alert_email\s*= "alerts@example\.com"\n/m, 
 const noLogoLines =(text) => cut(text, /^.*nexo-logo\.png.*\n/gm, 'logo line');
 
 export const TRANSFORMS = {
-  'frontend/src/app/app.routes.ts': (t) => {
-    t = cut(t, "import { inject } from '@angular/core';\n");
-    t = cut(t, "import { AppConfigService } from './app-config.service';\n");
-    t = cut(t, /      \{\n        path: 'upload',[\s\S]*?\n      \},\n/, 'upload route');
-    return cut(t, /      \{\n        path: 'clients',[\s\S]*?\n      \},\n(?=      \{\n        path: 'users')/, 'clients route');
-  },
+  ...BACKEND_TRANSFORMS,
+
+  // A developer edits this file locally (feature flags, another API address): the template is always the plain one.
+  'frontend/public/config.json': () => '{\n  "apiUrl": "http://localhost:3000"\n}\n',
+
+  'frontend/src/app/app.routes.ts': (t) => cut(t, /      \{\n        path: 'upload',[\s\S]*?\n      \},\n/, 'upload route'),
 
   'frontend/src/app/app.routes.spec.ts': (t) => {
-    t = cut(t, "import { ClientsApi } from './clients/clients-api';\n");
     t = cut(t, "import { UploadApi } from './uploads/upload-api';\n");
-    t = cut(t, /^.*provide: (ClientsApi|UploadApi).*\n/gm, 'api providers');
-    t = swap(t, 'function setup(clientsEnabled = false) {', 'function setup() {');
-    t = swap(t, '{ preferencesEnabled: false, clientsEnabled }', '{ preferencesEnabled: false }');
+    t = cut(t, /^.*provide: UploadApi.*\n/gm, 'upload api provider');
     t = dropTest(t, 'lazy loads the upload page');
-    t = dropTest(t, 'lazy loads the clients list and the client forms');
-    t = dropTest(t, 'has no clients routes while the clients flag is off');
     t = swap(t, "navigateByUrl('/upload')", "navigateByUrl('/users')");
     return swap(t, `'main [data-testid="drop-zone"]'`, `'main section'`);
-  },
-
-  'frontend/src/app/app-config.service.ts': (t) => {
-    t = cut(t, /  \/\*\* Feature flag for the Clients screens[^\n]*\n  clientsEnabled: boolean;\n/, 'interface flag');
-    t = cut(t, "    clientsEnabled: parseFlag(object, 'clientsEnabled'),\n");
-    return cut(t, /  get clientsEnabled\(\): boolean \{[\s\S]*?\n  \}\n\n/, 'getter');
-  },
-
-  'frontend/src/app/app-config.service.spec.ts': (t) => {
-    const start = t.indexOf("  it.each([\n    [{ apiUrl: 'http://localhost:3000' }, false],\n    [{ apiUrl: 'http://localhost:3000', clientsEnabled");
-    if (start < 0) throw new Error('transform: no clientsEnabled test in app-config.service.spec.ts');
-    const end = t.indexOf('\n  });\n', start) + '\n  });\n'.length;
-    return t.slice(0, start) + t.slice(end).replace(/^\n/, '');
-  },
-
-  'frontend/src/app/shell/side-menu.html': (t) => cut(t, /    @if \(clientsEnabled\) \{[\s\S]*?\n    \}\n/, 'clients entry'),
-
-  'frontend/src/app/shell/side-menu.ts': (t) => {
-    t = cut(t, "import { AppConfigService } from '../app-config.service';\n");
-    t = cut(t, "\n  protected readonly clientsEnabled = inject(AppConfigService).clientsEnabled;\n");
-    return swap(t, '  inject,\n', '');
-  },
-
-  'frontend/src/app/shell/side-menu.spec.ts': (t) => {
-    t = cut(t, "import { AppConfigService } from '../app-config.service';\n");
-    t = cut(t, /^.*provide: AppConfigService.*\n/gm, 'config provider');
-    t = swap(t, 'async function setup(open: boolean, clientsEnabled = false) {', 'async function setup(open: boolean) {');
-    t = dropTest(t, 'has a Clients entry linking');
-    return dropTest(t, 'has no Clients entry');
   },
 
   'frontend/src/app/shell/preferences-dialog.ts': (t) => {

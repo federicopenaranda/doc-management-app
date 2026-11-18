@@ -9,14 +9,24 @@
 
   @switch (loadState()) {
     @case ('loading') {
-      <p role="status" i18n>Loading user…</p>
+      <p role="status">
+        @if (editing) {
+          <ng-container i18n>Loading user…</ng-container>
+        } @else {
+          <ng-container i18n>Loading…</ng-container>
+        }
+      </p>
     }
     @case ('not-found') {
       <p role="alert" class="text-red-800" i18n>User not found</p>
     }
     @case ('error') {
       <p role="alert" class="flex items-center gap-2 text-red-800">
-        <ng-container i18n>Could not load the user</ng-container>
+        @if (editing) {
+          <ng-container i18n>Could not load the user</ng-container>
+        } @else {
+          <ng-container i18n>Could not load the clients</ng-container>
+        }
         <button matButton type="button" (click)="load()" i18n>Try again</button>
       </p>
     }
@@ -58,6 +68,28 @@
           />
           <mat-error i18n>Enter a valid email</mat-error>
         </mat-form-field>
+
+        <mat-form-field>
+          <mat-label i18n>Roles</mat-label>
+          <mat-select formControlName="roles" multiple required [errorStateMatcher]="showWhenTyped">
+            @for (key of roleKeys; track key) {
+              <mat-option [value]="key">{{ roleLabel(key) }}</mat-option>
+            }
+          </mat-select>
+          <mat-error i18n>Choose at least one role</mat-error>
+        </mat-form-field>
+
+        @if (!isSiteAdmin()) {
+          <mat-form-field>
+            <mat-label i18n>Client</mat-label>
+            <mat-select formControlName="clientId" required [errorStateMatcher]="showWhenTyped">
+              @for (client of clients(); track client.id) {
+                <mat-option [value]="client.id">{{ client.name }}</mat-option>
+              }
+            </mat-select>
+            <mat-error i18n>Choose a client</mat-error>
+          </mat-form-field>
+        }
 
         @if (!editing) {
           <mat-form-field>
@@ -101,6 +133,8 @@
           <p role="alert" class="text-red-800">
             @if (kind === 'taken') {
               <ng-container i18n>A user with this email already exists</ng-container>
+            } @else if (kind === 'client') {
+              <ng-container i18n>Choose an active client</ng-container>
             } @else {
               <ng-container i18n> Could not save the user, please try again later </ng-container>
             }

@@ -13,7 +13,7 @@ export default defineConfig({
       LOG_LEVEL: 'silent',
       // A developer's .env may turn the database on (and point it at a real instance); tests that need it say so themselves.
       DATABASE_ENABLED: 'false',
-      DATABASE_URL: 'postgresql://user:pass@localhost:5432/__DB_NAME___test',
+      DATABASE_URL: 'postgresql://user:pass@localhost:5432/dms_test',
       JWT_SECRET: 'test-secret-test-secret-test-secret-1234',
       FRONTEND_URLS: 'http://localhost:4200,https://__PROJECT_NAME__.example.com',
     },

@@ -54,6 +54,16 @@
             <td mat-cell *matCellDef="let user">{{ user.email }}</td>
           </ng-container>
 
+          <ng-container matColumnDef="roles">
+            <th mat-header-cell *matHeaderCellDef i18n>Roles</th>
+            <td mat-cell *matCellDef="let user">{{ rolesLabel(user) }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="client">
+            <th mat-header-cell *matHeaderCellDef i18n>Client</th>
+            <td mat-cell *matCellDef="let user">{{ clientName(user) }}</td>
+          </ng-container>
+
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef i18n>Status</th>
             <td mat-cell *matCellDef="let user">

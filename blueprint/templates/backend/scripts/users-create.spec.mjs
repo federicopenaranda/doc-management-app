@@ -1,5 +1,5 @@
 import { verifyPassword } from '../src/auth/password.ts';
-import { buildInsert, validateNewUser } from './users-create.mjs';
+import { buildGrant, buildInsert, validateNewUser } from './users-create.mjs';
 
 describe('validateNewUser', () => {
   it('returns the email trimmed and lower-cased', () => {
@@ -75,5 +75,19 @@ describe('buildInsert', () => {
     expect(values[1]).toMatch(/^scrypt\$/);
     expect(values[1]).not.toContain(password);
     expect(await verifyPassword(password, values[1])).toBe(true);
+  });
+});
+
+describe('buildGrant', () => {
+  it('gives the site_admin role to a user that has no active role, and never to one that has', () => {
+    const { text, values } = buildGrant('ana@example.com');
+
+    expect(text).toMatch(/^INSERT INTO user_roles \(user_id, role_key\)/);
+    expect(text).toContain("'site_admin'");
+    expect(text).toMatch(
+      /NOT EXISTS \(SELECT 1 FROM user_roles r WHERE r\.user_id = u\.id AND r\.revoked_at IS NULL\)/,
+    );
+    expect(text).toContain('lower(u.email) = lower($1)');
+    expect(values).toEqual(['ana@example.com']);
   });
 });

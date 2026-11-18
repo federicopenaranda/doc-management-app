@@ -2,6 +2,8 @@ import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/angular';
 import { AuthService } from '../auth/auth.service';
+import { ClientsApi } from '../clients/clients-api';
+import type { Client } from '../clients/client.model';
 import type { CurrentUser } from '../auth/auth.model';
 import { UsersApi } from './users-api';
 import type { ArchivedUser, User } from './user.model';
@@ -14,6 +16,8 @@ const user = (over: Partial<User>): User => ({
   lastName: 'García',
   isActive: true,
   createdAt: '2026-11-09T12:00:00.000Z',
+  clientId: 'c1',
+  roles: ['editor'],
   ...over,
 });
 
@@ -39,7 +43,22 @@ const archivedBea: ArchivedUser = {
   archivedAt: '2026-11-10T09:00:00.000Z',
 };
 
+const acmeClient = {
+  id: 'c1',
+  name: 'Acme',
+  prefix: 'ACM',
+  email: 'info@acme.com',
+  address: null,
+  code: null,
+  phone: null,
+  isActive: true,
+  createdAt: '2026-11-13T12:00:00.000Z',
+  updatedAt: '2026-11-13T12:00:00.000Z',
+} satisfies Client;
+
 interface Options {
+  /** What GET /clients answers; the page shows client names with it. */
+  clients?: () => Promise<Client[]>;
   /** What GET /users/archived answers; later calls see the state after archive and restore. */
   archived?: ArchivedUser[];
   restore?: (id: string) => Promise<void>;
@@ -94,6 +113,10 @@ async function setup(list: () => Promise<User[]>, options: Options = {}) {
     providers: [
       provideRouter([]),
       { provide: UsersApi, useValue: api },
+      {
+        provide: ClientsApi,
+        useValue: { list: vi.fn(options.clients ?? (async () => [acmeClient])) },
+      },
       { provide: AuthService, useValue: { currentUser: signal(options.me ?? null) } },
     ],
   });
@@ -119,7 +142,15 @@ describe('UsersPage', () => {
     await screen.findByRole('table');
 
     const headers = screen.getAllByRole('columnheader').map((h) => h.textContent?.trim());
-    expect(headers).toEqual(['First name', 'Last name', 'Email', 'Status', 'Actions']);
+    expect(headers).toEqual([
+      'First name',
+      'Last name',
+      'Email',
+      'Roles',
+      'Client',
+      'Status',
+      'Actions',
+    ]);
   });
 
   it('shows one row per user with names, email and a status', async () => {
@@ -132,8 +163,44 @@ describe('UsersPage', () => {
       within(row)
         .getAllByRole('cell')
         .map((c) => c.textContent?.trim());
-    expect(cells(anaRow).slice(0, 4)).toEqual(['Ana', 'García', 'ana@example.com', 'Active']);
-    expect(cells(luisRow).slice(0, 4)).toEqual(['Luis', 'Pérez', 'luis@example.com', 'Disabled']);
+    expect(cells(anaRow)).toEqual(
+      expect.arrayContaining(['Ana', 'García', 'ana@example.com', 'Active']),
+    );
+    expect(cells(luisRow)).toEqual(
+      expect.arrayContaining(['Luis', 'Pérez', 'luis@example.com', 'Disabled']),
+    );
+  });
+
+  it("shows each user's roles, by name, and the client they work for", async () => {
+    await setup(async () => [
+      user({ roles: ['viewer', 'admin'] }),
+      user({ id: 'u2', email: 'root@example.com', roles: ['site_admin'], clientId: null }),
+    ]);
+
+    const table = await screen.findByRole('table');
+
+    const [, first, second] = within(table).getAllByRole('row');
+    const cells = (row: HTMLElement) =>
+      within(row)
+        .getAllByRole('cell')
+        .map((c) => c.textContent?.trim());
+    expect(cells(first)).toEqual(expect.arrayContaining(['Viewer, Admin', 'Acme']));
+    expect(cells(second)).toEqual(expect.arrayContaining(['Site admin', '—']));
+  });
+
+  it('still shows the users when the clients cannot be loaded, with a dash for the client', async () => {
+    await setup(async () => [ana], {
+      clients: () => Promise.reject(new Error('boom')),
+    });
+
+    const table = await screen.findByRole('table');
+
+    expect(
+      within(table)
+        .getAllByRole('cell')
+        .map((c) => c.textContent?.trim()),
+    ).toEqual(expect.arrayContaining(['Editor', '—']));
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('shows a dash for a user without names', async () => {
@@ -225,7 +292,7 @@ describe('UsersPage edit links', () => {
 describe('UsersPage disable and enable', () => {
   const statusOf = (name: string) =>
     within(screen.getByRole('row', { name: new RegExp(name) }))
-      .getAllByRole('cell')[3]
+      .getAllByRole('cell')[5]
       .textContent?.trim();
 
   it('disables an active user: asks the API, then shows Disabled and offers Enable', async () => {

@@ -6,8 +6,13 @@ import request from 'supertest';
 const PASSWORD = 'a long enough password';
 // The logged-in admin: it exists for the "is this user still active?" check, but it is not one of the listed users.
 const ADMIN_ID = '00000000-0000-4000-8000-0000000000aa';
+// The client every test user works for (active), and one that is disabled.
+const CLIENT_ID = '00000000-0000-4000-8000-0000000000c1';
+const DISABLED_CLIENT_ID = '00000000-0000-4000-8000-0000000000c2';
 const adminRow = {
   id: ADMIN_ID,
+  client_id: null,
+  roles: ['site_admin'],
   email: 'admin@example.com',
   first_name: 'Admin',
   last_name: 'User',
@@ -19,6 +24,8 @@ const newUser = {
   lastName: 'García',
   email: 'ana@example.com',
   password: PASSWORD,
+  clientId: CLIENT_ID,
+  roles: ['editor'],
 };
 
 // ConfigModule.forRoot() validates the environment when AppModule is first imported,
@@ -35,6 +42,8 @@ async function createApp() {
   const rows: Record<string, unknown>[] = [];
   const stored: unknown[][] = [];
   const revoked: string[] = [];
+  /** Every create or update of roles: who they were for, which, and who granted them. */
+  const grants: { user: unknown; roles: unknown; by: unknown }[] = [];
   const live = () => rows.filter((r) => !r.archived_at);
   const query = (sql: string, params: unknown[] = []) => {
     if (sql.startsWith('UPDATE refresh_tokens')) {
@@ -72,7 +81,7 @@ async function createApp() {
       row.is_active = params[1];
       return Promise.resolve({ rows: [row] });
     }
-    if (sql.startsWith('INSERT INTO users')) {
+    if (sql.startsWith('WITH u AS (INSERT INTO users')) {
       stored.push(params);
       const taken = rows.some(
         (row) =>
@@ -88,11 +97,29 @@ async function createApp() {
         password_hash: params[3],
         is_active: true,
         created_at: new Date('2026-11-09T12:00:00Z'),
+        client_id: params[4],
+        roles: [...(params[5] as string[])].sort(),
       };
       rows.push(row);
-      return Promise.resolve({ rows: [row] });
+      grants.push({ user: row.id, roles: params[5], by: params[6] });
+      return Promise.resolve({ rows: [{ id: row.id }] });
     }
-    if (sql.startsWith('UPDATE users SET')) {
+    if (sql.startsWith('SELECT id FROM clients WHERE id = $1')) {
+      return Promise.resolve({
+        rows: params[0] === CLIENT_ID ? [{ id: CLIENT_ID }] : [],
+      });
+    }
+    if (sql.startsWith('SELECT key, name FROM roles')) {
+      return Promise.resolve({
+        rows: [
+          { key: 'viewer', name: 'Viewer' },
+          { key: 'editor', name: 'Editor' },
+          { key: 'admin', name: 'Admin' },
+          { key: 'site_admin', name: 'Site admin' },
+        ],
+      });
+    }
+    if (sql.startsWith('WITH u AS (UPDATE users SET')) {
       const row = live().find((r) => r.id === params[0]);
       if (!row) return Promise.resolve({ rows: [] });
       const taken = rows.some(
@@ -109,7 +136,10 @@ async function createApp() {
       row.email = params[1];
       row.first_name = params[2];
       row.last_name = params[3];
-      return Promise.resolve({ rows: [row] });
+      row.client_id = params[4];
+      row.roles = [...(params[5] as string[])].sort();
+      grants.push({ user: row.id, roles: params[5], by: params[6] });
+      return Promise.resolve({ rows: [{ id: row.id }] });
     }
     if (sql.includes('FROM users WHERE lower(email) = lower($1)')) {
       const row = rows.find(
@@ -144,7 +174,7 @@ async function createApp() {
   /** A token for any user, as if that user had logged in earlier. */
   const tokenFor = (id: string) =>
     jwt.sign({ sub: id, email: 'x@example.com' });
-  return { app, token, stored, revoked, tokenFor };
+  return { app, token, stored, revoked, tokenFor, grants };
 }
 
 const authed = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -197,6 +227,8 @@ describe('users (e2e)', () => {
         lastName: 'García',
         isActive: true,
         createdAt: '2026-11-09T12:00:00.000Z',
+        clientId: CLIENT_ID,
+        roles: ['editor'],
       });
       expect(JSON.stringify(response.body.data)).not.toMatch(
         /scrypt|password/i,
@@ -363,6 +395,8 @@ describe('users by id (e2e)', () => {
         lastName: 'García',
         isActive: true,
         createdAt: '2026-11-09T12:00:00.000Z',
+        clientId: CLIENT_ID,
+        roles: ['editor'],
       });
       await app.close();
     });
@@ -386,6 +420,8 @@ describe('users by id (e2e)', () => {
       firstName: 'Ana María',
       lastName: 'García López',
       email: 'ana.garcia@example.com',
+      clientId: CLIENT_ID,
+      roles: ['editor'],
     };
 
     it('changes the names and the email, trimmed, and the list shows it', async () => {
@@ -399,6 +435,8 @@ describe('users by id (e2e)', () => {
           firstName: '  Ana María ',
           lastName: ' García López  ',
           email: ' ana.garcia@example.com ',
+          clientId: CLIENT_ID,
+          roles: ['editor'],
         })
         .expect(200);
 
@@ -624,6 +662,8 @@ describe('users status and archive (e2e)', () => {
           firstName: 'Ana',
           lastName: 'García',
           email: 'ana@example.com',
+          clientId: CLIENT_ID,
+          roles: ['editor'],
         })
         .expect(404);
       await app.close();
@@ -949,5 +989,175 @@ describe('users status and archive (e2e)', () => {
         .expect(401);
       await app.close();
     });
+  });
+});
+
+describe('roles and clients of users (e2e)', () => {
+  afterEach(() => {
+    delete process.env.DATABASE_ENABLED;
+  });
+
+  const post = (
+    server: ReturnType<NestExpressApplication['getHttpServer']>,
+    token: string,
+    body: object,
+  ) => request(server).post('/users').set(authed(token)).send(body);
+
+  it('lists the four roles for the form', async () => {
+    const { app, token } = await createApp();
+
+    const response = await request(app.getHttpServer())
+      .get('/roles')
+      .set(authed(token))
+      .expect(200);
+
+    expect(response.body.data.map((r: { key: string }) => r.key)).toEqual([
+      'viewer',
+      'editor',
+      'admin',
+      'site_admin',
+    ]);
+    await app.close();
+  });
+
+  it('needs a token to list the roles', async () => {
+    const { app } = await createApp();
+
+    await request(app.getHttpServer()).get('/roles').expect(401);
+    await app.close();
+  });
+
+  it('creates a user with several roles, on behalf of the logged-in user, and returns them sorted', async () => {
+    const { app, token, grants } = await createApp();
+
+    const response = await post(app.getHttpServer(), token, {
+      ...newUser,
+      roles: ['viewer', 'editor', 'viewer'],
+    }).expect(201);
+
+    expect(response.body.data).toMatchObject({
+      clientId: CLIENT_ID,
+      roles: ['editor', 'viewer'],
+    });
+    expect(grants).toEqual([
+      {
+        user: response.body.data.id,
+        roles: ['viewer', 'editor'],
+        by: ADMIN_ID,
+      },
+    ]);
+    await app.close();
+  });
+
+  it('answers 400 naming roles for no roles, an empty list, or a role that does not exist', async () => {
+    const { app, token } = await createApp();
+    const server = app.getHttpServer();
+
+    for (const roles of [undefined, [], ['superuser'], 'editor']) {
+      const response = await post(server, token, { ...newUser, roles }).expect(
+        400,
+      );
+      expect(response.body.errors[0].field).toMatch(/^roles/);
+    }
+    await app.close();
+  });
+
+  it('answers 400 naming clientId when a user who is not a site admin has no client, a disabled one, or something that is not an id', async () => {
+    const { app, token } = await createApp();
+    const server = app.getHttpServer();
+
+    for (const clientId of [undefined, null, DISABLED_CLIENT_ID, 'not-an-id']) {
+      const response = await post(server, token, {
+        ...newUser,
+        clientId,
+      }).expect(400);
+      expect(response.body.errors[0].field).toBe('clientId');
+    }
+    const list = await request(server).get('/users').set(authed(token));
+    expect(list.body.data).toEqual([]);
+    await app.close();
+  });
+
+  it('lets a site admin have no client, and drops the client that was sent', async () => {
+    const { app, token } = await createApp();
+    const server = app.getHttpServer();
+
+    const without = await post(server, token, {
+      ...newUser,
+      roles: ['site_admin'],
+      clientId: null,
+    }).expect(201);
+    const sent = await post(server, token, {
+      ...newUser,
+      email: 'luis@example.com',
+      roles: ['site_admin', 'viewer'],
+      clientId: CLIENT_ID,
+    }).expect(201);
+
+    expect(without.body.data).toMatchObject({
+      clientId: null,
+      roles: ['site_admin'],
+    });
+    expect(sent.body.data).toMatchObject({
+      clientId: null,
+      roles: ['site_admin', 'viewer'],
+    });
+    await app.close();
+  });
+
+  it('changes the roles and the client of a user, on behalf of the logged-in user', async () => {
+    const { app, token, grants } = await createApp();
+    const server = app.getHttpServer();
+    const created = await post(server, token, newUser).expect(201);
+    const id = created.body.data.id as string;
+
+    const updated = await request(server)
+      .put(`/users/${id}`)
+      .set(authed(token))
+      .send({
+        firstName: 'Ana',
+        lastName: 'García',
+        email: 'ana@example.com',
+        clientId: null,
+        roles: ['admin', 'site_admin'],
+      })
+      .expect(200);
+
+    expect(updated.body.data).toMatchObject({
+      clientId: null,
+      roles: ['admin', 'site_admin'],
+    });
+    expect(grants.at(-1)).toEqual({
+      user: id,
+      roles: ['admin', 'site_admin'],
+      by: ADMIN_ID,
+    });
+    const list = await request(server).get('/users').set(authed(token));
+    expect(list.body.data[0].roles).toEqual(['admin', 'site_admin']);
+    await app.close();
+  });
+
+  it('refuses to save a user with no roles, and keeps what they had', async () => {
+    const { app, token } = await createApp();
+    const server = app.getHttpServer();
+    const created = await post(server, token, newUser).expect(201);
+    const id = created.body.data.id as string;
+
+    const response = await request(server)
+      .put(`/users/${id}`)
+      .set(authed(token))
+      .send({
+        firstName: 'Ana',
+        lastName: 'García',
+        email: 'ana@example.com',
+        clientId: CLIENT_ID,
+        roles: [],
+      })
+      .expect(400);
+
+    expect(response.body.errors[0].field).toMatch(/^roles/);
+    const one = await request(server).get(`/users/${id}`).set(authed(token));
+    expect(one.body.data.roles).toEqual(['editor']);
+    await app.close();
   });
 });

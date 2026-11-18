@@ -1,11 +1,4 @@
-import {
-  afterRenderEffect,
-  Component,
-  ElementRef,
-  input,
-  output,
-  viewChild,
-} from '@angular/core';
+import { afterRenderEffect, Component, ElementRef, input, output, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 @Component({
