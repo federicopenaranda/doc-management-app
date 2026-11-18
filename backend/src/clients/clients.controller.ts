@@ -13,7 +13,6 @@ import { ApiExcludeController } from '@nestjs/swagger';
 import { z } from 'zod';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { parseBody } from '../common/validation.js';
-import { ClientsEnabledGuard } from './clients-enabled.guard.js';
 import type { ClientSummary } from './client.model.js';
 import { ClientsService } from './clients.service.js';
 
@@ -54,7 +53,7 @@ function clientId(id: string): string {
 /** Any logged-in user can manage clients until roles exist (SCRUM-17). Clients are disabled, never deleted. */
 @ApiExcludeController()
 @Controller('clients')
-@UseGuards(ClientsEnabledGuard, JwtAuthGuard)
+@UseGuards(JwtAuthGuard)
 export class ClientsController {
   constructor(private readonly clients: ClientsService) {}
 

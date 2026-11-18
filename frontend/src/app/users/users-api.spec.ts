@@ -13,6 +13,8 @@ const ana: User = {
   lastName: 'García',
   isActive: true,
   createdAt: '2026-11-09T12:00:00.000Z',
+  clientId: 'c1',
+  roles: ['editor'],
 };
 
 function setup() {
@@ -45,6 +47,8 @@ describe('UsersApi', () => {
       lastName: 'García',
       email: 'ana@example.com',
       password: 'a long enough password',
+      clientId: 'c1',
+      roles: ['editor' as const],
     };
 
     const result = api.create(input);
@@ -64,6 +68,8 @@ describe('UsersApi', () => {
       lastName: 'García',
       email: 'ana@example.com',
       password: 'a long enough password',
+      clientId: 'c1',
+      roles: ['editor' as const],
     });
     http.expectOne(`${API}/users`).flush({}, { status: 409, statusText: 'Conflict' });
 
@@ -72,7 +78,13 @@ describe('UsersApi', () => {
 });
 
 describe('UsersApi edit', () => {
-  const edit = { firstName: 'Ana María', lastName: 'García', email: 'ana@example.com' };
+  const edit = {
+    firstName: 'Ana María',
+    lastName: 'García',
+    email: 'ana@example.com',
+    clientId: 'c1',
+    roles: ['editor' as const],
+  };
 
   it('get() GETs /users/:id and returns the user', async () => {
     const { api, http } = setup();
@@ -85,7 +97,7 @@ describe('UsersApi edit', () => {
     await expect(result).resolves.toEqual(ana);
   });
 
-  it('update() PUTs exactly the three editable fields to /users/:id and returns the user', async () => {
+  it('update() PUTs exactly the editable fields (names, email, client, roles) to /users/:id and returns the user', async () => {
     const { api, http } = setup();
 
     const result = api.update('u1', edit);

@@ -11,13 +11,13 @@ import { ClientsApi } from './clients/clients-api';
 import { UploadApi } from './uploads/upload-api';
 import { UsersApi } from './users/users-api';
 
-function setup(clientsEnabled = false) {
+function setup() {
   TestBed.configureTestingModule({
     providers: [
       provideRouter(routes),
       provideHttpClient(),
       { provide: API_URL, useValue: 'http://localhost:3000' },
-      { provide: AppConfigService, useValue: { preferencesEnabled: false, clientsEnabled } },
+      { provide: AppConfigService, useValue: { preferencesEnabled: false } },
       {
         provide: AuthService,
         useValue: {
@@ -76,6 +76,9 @@ describe('routes', () => {
     const harness = await setup();
 
     await harness.navigateByUrl('/users/new');
+    // The form shows once the clients have loaded.
+    await harness.fixture.whenStable();
+    harness.detectChanges();
 
     expect(harness.routeNativeElement?.querySelector('main form')).not.toBeNull();
   });
@@ -88,8 +91,8 @@ describe('routes', () => {
     expect(harness.routeNativeElement?.querySelector('main section')).not.toBeNull();
   });
 
-  it('lazy loads the clients list and the client forms while the clients flag is on', async () => {
-    const harness = await setup(true);
+  it('lazy loads the clients list and the client forms', async () => {
+    const harness = await setup();
 
     await harness.navigateByUrl('/clients');
     expect(harness.routeNativeElement?.querySelector('main h2')?.textContent).toContain('Clients');
@@ -99,11 +102,5 @@ describe('routes', () => {
 
     await harness.navigateByUrl('/clients/c1/edit');
     expect(harness.routeNativeElement?.querySelector('main section')).not.toBeNull();
-  });
-
-  it('has no clients routes while the clients flag is off', async () => {
-    const harness = await setup(false);
-
-    await expect(harness.navigateByUrl('/clients')).rejects.toThrow();
   });
 });

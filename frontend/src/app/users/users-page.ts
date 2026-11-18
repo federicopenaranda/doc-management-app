@@ -7,8 +7,10 @@ import { MatIcon } from '@angular/material/icon';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
+import { ClientsApi } from '../clients/clients-api';
 import { ArchiveUserDialog } from './archive-user-dialog';
 import { ChangePasswordDialog } from './change-password-dialog';
+import { roleLabel } from './role-label';
 import { UsersApi } from './users-api';
 import type { ArchivedUser, User } from './user.model';
 import type { LoadState } from '../shared/load-state.model';
@@ -22,14 +24,25 @@ type ActionError = 'update' | 'archive' | 'restore' | null;
 })
 export class UsersPage {
   private readonly api = inject(UsersApi);
+  private readonly clientsApi = inject(ClientsApi);
   private readonly auth = inject(AuthService);
   private readonly dialog = inject(MatDialog);
 
-  protected readonly columns = ['firstName', 'lastName', 'email', 'status', 'actions'];
+  protected readonly columns = [
+    'firstName',
+    'lastName',
+    'email',
+    'roles',
+    'client',
+    'status',
+    'actions',
+  ];
   protected readonly archivedColumns = ['firstName', 'lastName', 'email', 'archivedAt', 'actions'];
   protected readonly state = signal<LoadState>('loading');
   protected readonly users = signal<User[]>([]);
   protected readonly archived = signal<ArchivedUser[]>([]);
+  /** Client names by id, for the Client column. Empty when the clients cannot be loaded. */
+  private readonly clientNames = signal<Record<string, string>>({});
   /** Set while a disable, enable or archive request runs: only one at a time. */
   protected readonly busy = signal(false);
   protected readonly actionError = signal<ActionError>(null);
@@ -52,9 +65,15 @@ export class UsersPage {
 
   /** Both lists change together (archive and restore move a user from one to the other). */
   private async refresh(): Promise<void> {
-    const [users, archived] = await Promise.all([this.api.list(), this.api.listArchived()]);
+    const [users, archived, clients] = await Promise.all([
+      this.api.list(),
+      this.api.listArchived(),
+      // Names are a nicety: without them the Client column shows a dash and the page still works.
+      this.clientsApi.list().catch(() => []),
+    ]);
     this.users.set(users);
     this.archived.set(archived);
+    this.clientNames.set(Object.fromEntries(clients.map((client) => [client.id, client.name])));
   }
 
   /** Nobody can disable or archive themselves (the API refuses too), and nothing is sent twice. */
@@ -142,6 +161,14 @@ export class UsersPage {
 
   protected restoreLabel(user: User): string {
     return $localize`:@@users.restore-aria:Restore ${this.label(user)}:name:`;
+  }
+
+  protected rolesLabel(user: User): string {
+    return user.roles.map(roleLabel).join(', ');
+  }
+
+  protected clientName(user: User): string {
+    return (user.clientId && this.clientNames()[user.clientId]) || '—';
   }
 
   protected label(user: User): string {

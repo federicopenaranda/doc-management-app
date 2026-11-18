@@ -24,9 +24,8 @@ const acme = {
 
 // ConfigModule.forRoot() validates the environment when AppModule is first imported,
 // so each case re-imports the app after setting the flags.
-async function createApp(clientsEnabled = true) {
+async function createApp() {
   process.env.DATABASE_ENABLED = 'true';
-  process.env.CLIENTS_ENABLED = String(clientsEnabled);
   vi.resetModules();
   const { AppModule } = await import('./../src/app.module.js');
   const { setupApp } = await import('./../src/app.setup.js');
@@ -130,14 +129,6 @@ const authed = (token: string) => ({ Authorization: `Bearer ${token}` });
 describe('clients (e2e)', () => {
   afterEach(() => {
     delete process.env.DATABASE_ENABLED;
-    delete process.env.CLIENTS_ENABLED;
-  });
-
-  it('answers 404 to everything while CLIENTS_ENABLED is off, even without a token', async () => {
-    const { app } = await createApp(false);
-
-    await request(app.getHttpServer()).get('/clients').expect(404);
-    await app.close();
   });
 
   it('answers 401 without a login token', async () => {

@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { verifyPassword } from '../auth/password.js';
 import type { RefreshTokensRepository } from '../auth/refresh-tokens.repository.js';
 import type { UsersRepository } from '../auth/users.repository.js';
@@ -12,11 +16,14 @@ const created: UserSummary = {
   lastName: 'García',
   isActive: true,
   createdAt: new Date('2026-11-09T12:00:00Z'),
+  clientId: 'c1',
+  roles: ['editor'],
 };
 
 function setup(
   result: UserSummary | null = created,
   update: UpdateResult = { status: 'ok', user: created },
+  clientIsActive = true,
 ) {
   const repository = {
     create: vi.fn().mockResolvedValue(result),
@@ -28,6 +35,8 @@ function setup(
     listArchived: vi.fn().mockResolvedValue([]),
     setPasswordHash: vi.fn().mockResolvedValue(result !== null),
     restore: vi.fn().mockResolvedValue(result !== null),
+    listRoles: vi.fn().mockResolvedValue([{ key: 'viewer', name: 'Viewer' }]),
+    clientIsActive: vi.fn().mockResolvedValue(clientIsActive),
   };
   const refreshTokens = {
     revokeAllForUser: vi.fn().mockResolvedValue(undefined),
@@ -47,26 +56,44 @@ const input = {
   firstName: 'Ana',
   lastName: 'García',
   password: 'a long enough password',
+  clientId: 'c1',
+  roles: ['editor' as const],
 };
 
+/** What a 400 about one field carries. */
+const fieldError = (field: string) =>
+  expect.objectContaining({
+    response: {
+      errors: [{ field, message: expect.any(String) }],
+    },
+  });
+
 describe('UsersService.create', () => {
-  it('stores a scrypt hash that verifies, never the password, and returns the new user', async () => {
+  it('stores a scrypt hash that verifies, never the password, grants the roles on behalf of the actor, and returns the new user', async () => {
     const { service, repository } = setup();
 
-    const user = await service.create(input);
+    const user = await service.create('admin-1', input);
 
     expect(user).toEqual(created);
-    const stored = repository.create.mock.calls[0][0] as {
-      email: string;
-      firstName: string;
-      lastName: string;
-      passwordHash: string;
-    };
+    const [stored, grantedBy] = repository.create.mock.calls[0] as [
+      {
+        email: string;
+        firstName: string;
+        lastName: string;
+        passwordHash: string;
+        clientId: string | null;
+        roles: string[];
+      },
+      string,
+    ];
     expect(stored).toMatchObject({
       email: 'ana@example.com',
       firstName: 'Ana',
       lastName: 'García',
+      clientId: 'c1',
+      roles: ['editor'],
     });
+    expect(grantedBy).toBe('admin-1');
     expect(stored.passwordHash).toMatch(/^scrypt\$/);
     expect(JSON.stringify(stored)).not.toContain(input.password);
     expect(await verifyPassword(input.password, stored.passwordHash)).toBe(
@@ -78,10 +105,49 @@ describe('UsersService.create', () => {
   it('answers 409 when the email already exists', async () => {
     const { service } = setup(null);
 
-    await expect(service.create(input)).rejects.toThrow(ConflictException);
-    await expect(service.create(input)).rejects.toThrow(
+    await expect(service.create('admin-1', input)).rejects.toThrow(
+      ConflictException,
+    );
+    await expect(service.create('admin-1', input)).rejects.toThrow(
       'A user with this email already exists',
     );
+  });
+
+  it('answers 400 naming clientId when a user without the site_admin role has no client, and stores nothing', async () => {
+    const { service, repository } = setup();
+
+    await expect(
+      service.create('admin-1', { ...input, clientId: null }),
+    ).rejects.toEqual(fieldError('clientId'));
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it('answers 400 naming clientId when the client is disabled or does not exist', async () => {
+    const { service, repository } = setup(created, undefined, false);
+
+    await expect(service.create('admin-1', input)).rejects.toThrow(
+      BadRequestException,
+    );
+    await expect(service.create('admin-1', input)).rejects.toEqual(
+      fieldError('clientId'),
+    );
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it('gives a site admin no client, whatever was sent, and checks no client', async () => {
+    const { service, repository } = setup();
+
+    await service.create('admin-1', {
+      ...input,
+      roles: ['site_admin', 'viewer'],
+      clientId: 'c1',
+    });
+
+    expect(repository.create.mock.calls[0][0]).toMatchObject({
+      clientId: null,
+      roles: ['site_admin', 'viewer'],
+    });
+    expect(repository.clientIsActive).not.toHaveBeenCalled();
   });
 });
 
@@ -90,6 +156,16 @@ describe('UsersService.list', () => {
     const { service } = setup();
 
     await expect(service.list()).resolves.toEqual([created]);
+  });
+});
+
+describe('UsersService.listRoles', () => {
+  it('returns the roles from the repository', async () => {
+    const { service } = setup();
+
+    await expect(service.listRoles()).resolves.toEqual([
+      { key: 'viewer', name: 'Viewer' },
+    ]);
   });
 });
 
@@ -113,19 +189,23 @@ describe('UsersService.update', () => {
     email: 'ana.garcia@example.com',
     firstName: 'Ana',
     lastName: 'García',
+    clientId: 'c1',
+    roles: ['editor' as const, 'viewer' as const],
   };
 
-  it('passes the new email and names to the repository and returns the user', async () => {
+  it('passes the new fields, client and roles to the repository, on behalf of the actor, and returns the user', async () => {
     const { service, repository } = setup();
 
-    await expect(service.update('u1', edit)).resolves.toEqual(created);
-    expect(repository.update).toHaveBeenCalledWith('u1', edit);
+    await expect(service.update('admin-1', 'u1', edit)).resolves.toEqual(
+      created,
+    );
+    expect(repository.update).toHaveBeenCalledWith('u1', edit, 'admin-1');
   });
 
   it('answers 404 for a user that does not exist', async () => {
     const { service } = setup(created, { status: 'not-found' });
 
-    await expect(service.update('nope', edit)).rejects.toThrow(
+    await expect(service.update('admin-1', 'nope', edit)).rejects.toThrow(
       NotFoundException,
     );
   });
@@ -133,10 +213,41 @@ describe('UsersService.update', () => {
   it('answers 409 when the email belongs to another user', async () => {
     const { service } = setup(created, { status: 'email-taken' });
 
-    await expect(service.update('u1', edit)).rejects.toThrow(
+    await expect(service.update('admin-1', 'u1', edit)).rejects.toThrow(
       'A user with this email already exists',
     );
-    await expect(service.update('u1', edit)).rejects.toThrow(ConflictException);
+    await expect(service.update('admin-1', 'u1', edit)).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('answers 400 naming clientId for a user without the site_admin role and without an active client', async () => {
+    const noClient = setup();
+    const disabled = setup(created, undefined, false);
+
+    await expect(
+      noClient.service.update('admin-1', 'u1', { ...edit, clientId: null }),
+    ).rejects.toEqual(fieldError('clientId'));
+    await expect(
+      disabled.service.update('admin-1', 'u1', edit),
+    ).rejects.toEqual(fieldError('clientId'));
+    expect(noClient.repository.update).not.toHaveBeenCalled();
+    expect(disabled.repository.update).not.toHaveBeenCalled();
+  });
+
+  it('clears the client of a user who becomes a site admin', async () => {
+    const { service, repository } = setup();
+
+    await service.update('admin-1', 'u1', {
+      ...edit,
+      roles: ['site_admin'],
+    });
+
+    expect(repository.update).toHaveBeenCalledWith(
+      'u1',
+      { ...edit, roles: ['site_admin'], clientId: null },
+      'admin-1',
+    );
   });
 });
 

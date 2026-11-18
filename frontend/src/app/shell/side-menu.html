@@ -44,15 +44,13 @@
       i18n
       >Users</a
     >
-    @if (clientsEnabled) {
-      <a
-        routerLink="/clients"
-        (click)="closed.emit()"
-        class="rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
-        i18n
-        >Clients</a
-      >
-    }
+    <a
+      routerLink="/clients"
+      (click)="closed.emit()"
+      class="rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
+      i18n
+      >Clients</a
+    >
     <button
       type="button"
       (click)="closed.emit()"

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -9,6 +10,8 @@ import { UsersRepository } from '../auth/users.repository.js';
 import type {
   ArchivedUser,
   EditedUser,
+  Role,
+  RoleKey,
   UserSummary,
 } from '../auth/user.model.js';
 import type { CreateUserInput } from './user.model.js';
@@ -21,6 +24,10 @@ export class UsersService {
     private readonly users: UsersRepository,
     private readonly refreshTokens: RefreshTokensRepository,
   ) {}
+
+  listRoles(): Promise<Role[]> {
+    return this.users.listRoles();
+  }
 
   list(): Promise<UserSummary[]> {
     return this.users.list();
@@ -51,9 +58,31 @@ export class UsersService {
     return user;
   }
 
-  /** The email and the names only: the password is not edited here. */
-  async update(id: string, edit: EditedUser): Promise<UserSummary> {
-    const result = await this.users.update(id, edit);
+  /**
+   * A site admin works for no client; anyone else needs an active one. A wrong client is a 400 about that field.
+   * Returns the client to store.
+   */
+  private async clientFor(
+    roles: RoleKey[],
+    clientId: string | null,
+  ): Promise<string | null> {
+    if (roles.includes('site_admin')) return null;
+    if (!clientId || !(await this.users.clientIsActive(clientId))) {
+      throw new BadRequestException({
+        errors: [{ field: 'clientId', message: 'Choose an active client' }],
+      });
+    }
+    return clientId;
+  }
+
+  /** The email, names, client and roles: the password is not edited here. */
+  async update(
+    actorId: string,
+    id: string,
+    edit: EditedUser,
+  ): Promise<UserSummary> {
+    const clientId = await this.clientFor(edit.roles, edit.clientId);
+    const result = await this.users.update(id, { ...edit, clientId }, actorId);
     if (result.status === 'not-found') {
       throw new NotFoundException('User not found');
     }
@@ -91,11 +120,15 @@ export class UsersService {
     await this.refreshTokens.revokeAllForUser(id);
   }
 
-  async create({ password, ...user }: CreateUserInput): Promise<UserSummary> {
-    const created = await this.users.create({
-      ...user,
-      passwordHash: await hashPassword(password),
-    });
+  async create(
+    actorId: string,
+    { password, ...user }: CreateUserInput,
+  ): Promise<UserSummary> {
+    const clientId = await this.clientFor(user.roles, user.clientId);
+    const created = await this.users.create(
+      { ...user, clientId, passwordHash: await hashPassword(password) },
+      actorId,
+    );
     if (!created) {
       throw new ConflictException({ message: EMAIL_TAKEN, field: 'email' });
     }

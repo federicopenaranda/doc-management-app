@@ -15,7 +15,12 @@ import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import type { AuthenticatedRequest } from '../auth/auth.model.js';
-import type { ArchivedUser, UserSummary } from '../auth/user.model.js';
+import {
+  ROLE_KEYS,
+  type ArchivedUser,
+  type Role,
+  type UserSummary,
+} from '../auth/user.model.js';
 import { parseBody } from '../common/validation.js';
 import { UsersService } from './users.service.js';
 
@@ -24,8 +29,26 @@ const name = z.string().trim().min(1).max(100);
 // Trimmed first: an email pasted from a mail client often carries a space.
 const email = z.string().trim().pipe(z.email());
 
-/** What the edit form sends. The password is not edited here: unknown keys are dropped. */
-const editUserSchema = z.object({ firstName: name, lastName: name, email });
+// At least one role, each a known one; a repeated role counts once.
+const roles = z
+  .array(z.enum(ROLE_KEYS))
+  .min(1)
+  .transform((keys) => [...new Set(keys)]);
+
+/**
+ * What the edit form sends. The password is not edited here: unknown keys are dropped. The client is checked by the
+ * service, because it depends on the roles (a site admin has none).
+ */
+const editUserSchema = z.object({
+  firstName: name,
+  lastName: name,
+  email,
+  clientId: z
+    .uuid()
+    .nullish()
+    .transform((id) => id ?? null),
+  roles,
+});
 
 // The bounds match the users:create script; the upper one keeps a huge body from turning into a huge hashing job.
 const password = z.string().min(12).max(200);
@@ -75,8 +98,14 @@ export class UsersController {
   @Post()
   @HttpCode(201)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  create(@Body() body: unknown): Promise<UserSummary> {
-    return this.users.create(parseBody(createUserSchema, body));
+  create(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: unknown,
+  ): Promise<UserSummary> {
+    return this.users.create(
+      request.user.id,
+      parseBody(createUserSchema, body),
+    );
   }
 
   /** Turns a user on or off. Nobody can disable themselves; turning a user off ends their sessions at once. */
@@ -121,9 +150,30 @@ export class UsersController {
     return this.users.restore(userId(id));
   }
 
-  /** The email and the names. Changing a password is a separate feature. */
+  /** The email, the names, the client and the roles. Changing a password is a separate feature. */
   @Put(':id')
-  update(@Param('id') id: string, @Body() body: unknown): Promise<UserSummary> {
-    return this.users.update(userId(id), parseBody(editUserSchema, body));
+  update(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<UserSummary> {
+    return this.users.update(
+      request.user.id,
+      userId(id),
+      parseBody(editUserSchema, body),
+    );
+  }
+}
+
+/** The roles a user can be given, for the screens' role pickers. */
+@ApiExcludeController()
+@Controller('roles')
+@UseGuards(JwtAuthGuard)
+export class RolesController {
+  constructor(private readonly users: UsersService) {}
+
+  @Get()
+  list(): Promise<Role[]> {
+    return this.users.listRoles();
   }
 }

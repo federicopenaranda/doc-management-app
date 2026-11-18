@@ -125,6 +125,16 @@
     "2942230580917375982": "Prefijo",
     "258081780591445337": "Ingresa un prefijo de hasta 10 caracteres",
     "4489343118359698360": "Ya existe un cliente con este correo",
-    "7908396701700465462": "Ya existe un cliente con este prefijo"
+    "7908396701700465462": "Ya existe un cliente con este prefijo",
+    "role.viewer": "Lector",
+    "role.editor": "Editor",
+    "role.admin": "Administrador",
+    "role.site-admin": "Administrador del sitio",
+    "2369742814572661392": "Cargando…",
+    "795890916060309463": "Roles",
+    "2437162991341910895": "Elige al menos un rol",
+    "3014142150963657456": "Cliente",
+    "4710352692474021065": "Elige un cliente",
+    "2321907004200553354": "Elige un cliente activo"
   }
 }
