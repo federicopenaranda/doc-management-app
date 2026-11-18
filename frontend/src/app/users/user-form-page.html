@@ -82,17 +82,11 @@
         @if (!isSiteAdmin()) {
           <mat-form-field>
             <mat-label i18n>Client</mat-label>
-            <select
-              matNativeControl
-              formControlName="clientId"
-              required
-              [errorStateMatcher]="showWhenTyped"
-            >
-              <option value=""></option>
+            <mat-select formControlName="clientId" required [errorStateMatcher]="showWhenTyped">
               @for (client of clients(); track client.id) {
-                <option [value]="client.id">{{ client.name }}</option>
+                <mat-option [value]="client.id">{{ client.name }}</mat-option>
               }
-            </select>
+            </mat-select>
             <mat-error i18n>Choose a client</mat-error>
           </mat-form-field>
         }

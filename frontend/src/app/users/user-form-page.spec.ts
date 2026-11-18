@@ -61,12 +61,19 @@ async function setup(
     for (const name of names) {
       await fireEvent.click(await screen.findByRole('option', { name }));
     }
-    await fireEvent.keyDown(document.body, { key: 'Escape' });
+    await fireEvent.keyDown(screen.getByRole('combobox', { name: /^roles/i }), { key: 'Escape' });
   };
-  const pickClient = (id: string) =>
-    fireEvent.change(screen.getByLabelText(/^client/i), { target: { value: id } });
+  const clientSelect = () => screen.getByRole('combobox', { name: /^client/i });
+  /** Opens the Client select and picks a client by name. */
+  const pickClient = async (name: string) => {
+    await fireEvent.click(clientSelect());
+    await fireEvent.click(await screen.findByRole('option', { name }));
+  };
   const fill = async (
-    over: Partial<Record<'first' | 'last' | 'email' | 'password' | 'confirm', string>> = {},
+    over: Partial<Record<'first' | 'last' | 'email' | 'password' | 'confirm', string>> & {
+      /** Leave the client unpicked. */
+      noClient?: boolean;
+    } = {},
   ) => {
     type(/^first name/i, over.first ?? 'Ana');
     type(/^last name/i, over.last ?? 'García');
@@ -75,10 +82,10 @@ async function setup(
     type(/^confirm password/i, over.confirm ?? GOOD);
     // A valid user by default: the Editor role, working for Acme.
     await role('Editor');
-    pickClient('c1');
+    if (!over.noClient) await pickClient('Acme');
   };
   const submit = () => screen.getByRole('button', { name: /create user/i }) as HTMLButtonElement;
-  return { api, navigate, fill, type, submit, role, pickClient };
+  return { api, navigate, fill, type, submit, role, pickClient, clientSelect };
 }
 
 describe('UserFormPage', () => {
@@ -249,11 +256,12 @@ describe('UserFormPage', () => {
         .getAllByRole('option')
         .map((o) => o.textContent?.trim());
       expect(names).toEqual(['Viewer', 'Editor', 'Admin', 'Site admin']);
-      await fireEvent.keyDown(document.body, { key: 'Escape' });
-      const options = Array.from(
-        (screen.getByLabelText(/^client/i) as HTMLSelectElement).options,
-      ).map((o) => o.textContent?.trim());
-      expect(options).toEqual(['', 'Acme', 'Globex']);
+      await fireEvent.click(screen.getByRole('combobox', { name: /^client/i }));
+      // The roles panel may still be closing: the client list is the last one.
+      const clientNames = within((await screen.findAllByRole('listbox')).at(-1) as HTMLElement)
+        .getAllByRole('option')
+        .map((o) => o.textContent?.trim());
+      expect(clientNames).toEqual(['Acme', 'Globex']);
     });
 
     it('says a role is needed and keeps Create disabled until one is picked', async () => {
@@ -271,21 +279,23 @@ describe('UserFormPage', () => {
     });
 
     it('needs a client, unless Site admin is picked: then the client select is gone', async () => {
-      const { fill, submit, role, pickClient } = await setup();
-      await fill();
-      pickClient('');
+      const { fill, submit, role, clientSelect } = await setup();
+      await fill({ noClient: true });
+      // Visiting the field without picking shows what is missing.
+      await fireEvent.focus(clientSelect());
+      await fireEvent.blur(clientSelect());
 
       expect(submit().disabled).toBe(true);
       expect(await screen.findByText('Choose a client')).toBeTruthy();
 
       await role('Site admin');
 
-      await waitFor(() => expect(screen.queryByLabelText(/^client/i)).toBeNull());
+      await waitFor(() => expect(screen.queryByRole('combobox', { name: /^client/i })).toBeNull());
       expect(submit().disabled).toBe(false);
 
       await role('Site admin');
 
-      expect(await screen.findByLabelText(/^client/i)).toBeTruthy();
+      expect(await screen.findByRole('combobox', { name: /^client/i })).toBeTruthy();
       expect(submit().disabled).toBe(true);
     });
 
@@ -381,7 +391,7 @@ describe('UserFormPage editing', () => {
       for (const name of names) {
         await fireEvent.click(await screen.findByRole('option', { name }));
       }
-      await fireEvent.keyDown(document.body, { key: 'Escape' });
+      await fireEvent.keyDown(screen.getByRole('combobox', { name: /^roles/i }), { key: 'Escape' });
     };
     return { api, navigate, type, save, role };
   }
@@ -405,7 +415,7 @@ describe('UserFormPage editing', () => {
     expect(screen.getByRole('combobox', { name: /^roles/i }).textContent?.trim()).toBe(
       'Viewer, Admin',
     );
-    expect((screen.getByLabelText(/^client/i) as HTMLSelectElement).value).toBe('c2');
+    expect(screen.getByRole('combobox', { name: /^client/i }).textContent?.trim()).toBe('Globex');
   });
 
   it('shows a site admin with no client select', async () => {
@@ -415,7 +425,7 @@ describe('UserFormPage editing', () => {
     expect(screen.getByRole('combobox', { name: /^roles/i }).textContent?.trim()).toBe(
       'Site admin',
     );
-    expect(screen.queryByLabelText(/^client/i)).toBeNull();
+    expect(screen.queryByRole('combobox', { name: /^client/i })).toBeNull();
   });
 
   it('saves changed roles, and keeps Save disabled when the last role is removed', async () => {
