@@ -76,6 +76,9 @@ describe('routes', () => {
     const harness = await setup();
 
     await harness.navigateByUrl('/users/new');
+    // The form shows once the clients have loaded.
+    await harness.fixture.whenStable();
+    harness.detectChanges();
 
     expect(harness.routeNativeElement?.querySelector('main form')).not.toBeNull();
   });

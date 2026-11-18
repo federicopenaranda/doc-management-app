@@ -3,6 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { fireEvent, render, screen, waitFor } from '@testing-library/angular';
 import { AuthService } from '../auth/auth.service';
+import { ClientsApi } from '../clients/clients-api';
+import type { Client } from '../clients/client.model';
 import { UserFormPage } from './user-form-page';
 import { UsersApi } from './users-api';
 import type { NewUser, User } from './user.model';
@@ -14,22 +16,48 @@ const created: User = {
   lastName: 'García',
   isActive: true,
   createdAt: '2026-11-09T12:00:00.000Z',
+  clientId: 'c1',
+  roles: ['editor'],
 };
+
+const client = (id: string, name: string, isActive = true): Client => ({
+  id,
+  name,
+  prefix: id.toUpperCase(),
+  email: id + '@example.com',
+  address: null,
+  code: null,
+  phone: null,
+  isActive,
+  createdAt: '2026-11-13T12:00:00.000Z',
+  updatedAt: '2026-11-13T12:00:00.000Z',
+});
+// Two active clients and a disabled one, which cannot be picked.
+const clients = [client('c1', 'Acme'), client('c2', 'Globex'), client('c3', 'Old Co', false)];
 
 const GOOD = 'a long enough password';
 
-async function setup(create: (user: NewUser) => Promise<User> = async () => created) {
+async function setup(
+  create: (user: NewUser) => Promise<User> = async () => created,
+  listClients: () => Promise<Client[]> = async () => clients,
+) {
   const api = { create: vi.fn(create) };
   await render(UserFormPage, {
     providers: [
       provideRouter([]),
       { provide: UsersApi, useValue: api },
+      { provide: ClientsApi, useValue: { list: vi.fn(listClients) } },
       { provide: AuthService, useValue: { loadCurrentUser: vi.fn() } },
     ],
   });
+  // The clients arrive first; the form shows after that.
+  await screen.findByLabelText(/^first name/i);
   const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
   const type = (label: RegExp, value: string) =>
     fireEvent.input(screen.getByLabelText(label), { target: { value } });
+  const role = (name: string) => fireEvent.click(screen.getByLabelText(name));
+  const pickClient = (id: string) =>
+    fireEvent.change(screen.getByLabelText(/^client/i), { target: { value: id } });
   const fill = (
     over: Partial<Record<'first' | 'last' | 'email' | 'password' | 'confirm', string>> = {},
   ) => {
@@ -38,9 +66,12 @@ async function setup(create: (user: NewUser) => Promise<User> = async () => crea
     type(/^email/i, over.email ?? 'ana@example.com');
     type(/^password/i, over.password ?? GOOD);
     type(/^confirm password/i, over.confirm ?? GOOD);
+    // A valid user by default: the Editor role, working for Acme.
+    role('Editor');
+    pickClient('c1');
   };
   const submit = () => screen.getByRole('button', { name: /create user/i }) as HTMLButtonElement;
-  return { api, navigate, fill, type, submit };
+  return { api, navigate, fill, type, submit, role, pickClient };
 }
 
 describe('UserFormPage', () => {
@@ -152,6 +183,8 @@ describe('UserFormPage', () => {
       lastName: 'García',
       email: 'ana@example.com',
       password: GOOD,
+      clientId: 'c1',
+      roles: ['editor'],
     });
     expect(Object.keys(api.create.mock.calls[0][0])).not.toContain('confirm');
   });
@@ -197,6 +230,113 @@ describe('UserFormPage', () => {
 
     expect(screen.getByRole('link', { name: /cancel/i }).getAttribute('href')).toBe('/users');
   });
+
+  describe('roles and client', () => {
+    it('has a checkbox for each of the four roles, none ticked, and a client select with only the active clients', async () => {
+      await setup();
+
+      for (const name of ['Viewer', 'Editor', 'Admin', 'Site admin']) {
+        expect((screen.getByLabelText(name) as HTMLInputElement).checked).toBe(false);
+      }
+      const options = Array.from(
+        (screen.getByLabelText(/^client/i) as HTMLSelectElement).options,
+      ).map((o) => o.textContent?.trim());
+      expect(options).toEqual(['', 'Acme', 'Globex']);
+    });
+
+    it('says a role is needed and keeps Create disabled until one is ticked', async () => {
+      const { fill, submit, role } = await setup();
+      fill();
+      role('Editor');
+
+      expect(submit().disabled).toBe(true);
+      expect((await screen.findByText('Choose at least one role')).id).toBe('roles-error');
+
+      role('Admin');
+
+      expect(submit().disabled).toBe(false);
+      await waitFor(() => expect(screen.queryByText('Choose at least one role')).toBeNull());
+    });
+
+    it('needs a client, unless Site admin is ticked: then the client select is gone', async () => {
+      const { fill, submit, role, pickClient } = await setup();
+      fill();
+      pickClient('');
+
+      expect(submit().disabled).toBe(true);
+      expect(await screen.findByText('Choose a client')).toBeTruthy();
+
+      role('Site admin');
+
+      await waitFor(() => expect(screen.queryByLabelText(/^client/i)).toBeNull());
+      expect(submit().disabled).toBe(false);
+
+      role('Site admin');
+
+      expect(await screen.findByLabelText(/^client/i)).toBeTruthy();
+      expect(submit().disabled).toBe(true);
+    });
+
+    it('creates a site admin without a client, and sends several roles in their usual order', async () => {
+      const { api, navigate, fill, role, submit } = await setup();
+      fill();
+      role('Viewer');
+      role('Site admin');
+
+      await fireEvent.click(submit());
+
+      await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/users'));
+      expect(api.create.mock.calls[0][0]).toMatchObject({
+        clientId: null,
+        roles: ['viewer', 'editor', 'site_admin'],
+      });
+    });
+
+    it('says to choose an active client when the API refuses the client (a 400 about clientId)', async () => {
+      const { navigate, fill, submit } = await setup(() =>
+        Promise.reject(
+          new HttpErrorResponse({
+            status: 400,
+            error: { errors: [{ field: 'clientId', message: 'Choose an active client' }] },
+          }),
+        ),
+      );
+      fill();
+
+      await fireEvent.click(submit());
+
+      expect((await screen.findByRole('alert')).textContent).toContain('Choose an active client');
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('says it could not load the clients, and retries on request', async () => {
+      let calls = 0;
+      await render(UserFormPage, {
+        providers: [
+          provideRouter([]),
+          { provide: UsersApi, useValue: { create: vi.fn() } },
+          {
+            provide: ClientsApi,
+            useValue: {
+              list: vi.fn(async () => {
+                calls++;
+                if (calls === 1) throw new Error('boom');
+                return clients;
+              }),
+            },
+          },
+          { provide: AuthService, useValue: { loadCurrentUser: vi.fn() } },
+        ],
+      });
+
+      expect((await screen.findByRole('alert')).textContent).toContain(
+        'Could not load the clients',
+      );
+      await fireEvent.click(screen.getByRole('button', { name: /try again/i }));
+
+      expect(await screen.findByLabelText(/^first name/i)).toBeTruthy();
+    });
+  });
 });
 
 describe('UserFormPage editing', () => {
@@ -212,6 +352,7 @@ describe('UserFormPage editing', () => {
       providers: [
         provideRouter([]),
         { provide: UsersApi, useValue: api },
+        { provide: ClientsApi, useValue: { list: vi.fn(async () => clients) } },
         { provide: AuthService, useValue: { loadCurrentUser } },
         {
           provide: ActivatedRoute,
@@ -223,7 +364,8 @@ describe('UserFormPage editing', () => {
     const type = (label: RegExp, value: string) =>
       fireEvent.input(screen.getByLabelText(label), { target: { value } });
     const save = () => screen.getByRole('button', { name: /save changes/i }) as HTMLButtonElement;
-    return { api, navigate, type, save };
+    const role = (name: string) => fireEvent.click(screen.getByLabelText(name));
+    return { api, navigate, type, save, role };
   }
 
   it('loads the user and fills the form, under an "Edit user" heading', async () => {
@@ -236,6 +378,40 @@ describe('UserFormPage editing', () => {
     expect((screen.getByLabelText(/^last name/i) as HTMLInputElement).value).toBe('García');
     expect((screen.getByLabelText(/^email/i) as HTMLInputElement).value).toBe('ana@example.com');
     expect(api.get).toHaveBeenCalledWith('u1');
+  });
+
+  it('shows the roles and the client the user has', async () => {
+    await setupEdit(async () => ({ ...created, roles: ['admin', 'viewer'], clientId: 'c2' }));
+    await screen.findByLabelText(/^first name/i);
+
+    expect((screen.getByLabelText('Admin') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText('Viewer') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText('Editor') as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByLabelText(/^client/i) as HTMLSelectElement).value).toBe('c2');
+  });
+
+  it('shows a site admin with no client select', async () => {
+    await setupEdit(async () => ({ ...created, roles: ['site_admin'], clientId: null }));
+    await screen.findByLabelText(/^first name/i);
+
+    expect((screen.getByLabelText('Site admin') as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByLabelText(/^client/i)).toBeNull();
+  });
+
+  it('saves changed roles, and keeps Save disabled when the last role is unticked', async () => {
+    const { api, navigate, role, save } = await setupEdit();
+    await waitFor(() => expect(save().disabled).toBe(false));
+
+    role('Editor');
+    expect(save().disabled).toBe(true);
+    role('Admin');
+    await fireEvent.click(save());
+
+    await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/users'));
+    expect(api.update).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ roles: ['admin'], clientId: 'c1' }),
+    );
   });
 
   it('has no show password button either', async () => {
@@ -292,6 +468,8 @@ describe('UserFormPage editing', () => {
       firstName: 'Ana María',
       lastName: 'García',
       email: 'ana.garcia@example.com',
+      clientId: 'c1',
+      roles: ['editor'],
     });
     expect(loadCurrentUser).toHaveBeenCalledTimes(1);
   });
