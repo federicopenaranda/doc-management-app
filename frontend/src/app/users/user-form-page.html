@@ -69,19 +69,15 @@
           <mat-error i18n>Enter a valid email</mat-error>
         </mat-form-field>
 
-        <fieldset class="flex flex-col gap-1" aria-describedby="roles-error">
-          <legend class="mb-1 font-medium" i18n>Roles</legend>
-          @for (key of roleKeys; track key) {
-            <mat-checkbox
-              [checked]="form.controls.roles.value.includes(key)"
-              (change)="toggleRole(key, $event.checked)"
-              >{{ roleLabel(key) }}</mat-checkbox
-            >
-          }
-          @if (form.controls.roles.invalid && form.controls.roles.dirty) {
-            <p id="roles-error" class="text-sm text-red-800" i18n>Choose at least one role</p>
-          }
-        </fieldset>
+        <mat-form-field>
+          <mat-label i18n>Roles</mat-label>
+          <mat-select formControlName="roles" multiple required [errorStateMatcher]="showWhenTyped">
+            @for (key of roleKeys; track key) {
+              <mat-option [value]="key">{{ roleLabel(key) }}</mat-option>
+            }
+          </mat-select>
+          <mat-error i18n>Choose at least one role</mat-error>
+        </mat-form-field>
 
         @if (!isSiteAdmin()) {
           <mat-form-field>

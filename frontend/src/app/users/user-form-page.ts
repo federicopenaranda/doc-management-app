@@ -8,10 +8,10 @@ import {
   Validators,
 } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
-import { MatCheckbox } from '@angular/material/checkbox';
 import { ErrorStateMatcher } from '@angular/material/core';
 import { MatError, MatFormField, MatLabel, MatSuffix } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatOption, MatSelect } from '@angular/material/select';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { PasswordToggle } from '../shared/password-toggle';
@@ -53,11 +53,12 @@ function failure(error: unknown): FormError {
   selector: 'dms-user-form-page',
   imports: [
     MatButton,
-    MatCheckbox,
     MatError,
     MatFormField,
     MatLabel,
     MatInput,
+    MatOption,
+    MatSelect,
     MatSuffix,
     PasswordToggle,
     ReactiveFormsModule,
@@ -124,14 +125,6 @@ export class UserFormPage {
       this.form.controls.confirm.disable();
     }
     void this.load();
-  }
-
-  /** Ticks or unticks a role; the list keeps the usual order. */
-  protected toggleRole(key: RoleKey, checked: boolean): void {
-    const control = this.form.controls.roles;
-    const next = checked ? [...control.value, key] : control.value.filter((k) => k !== key);
-    control.setValue(ROLE_KEYS.filter((k) => next.includes(k)));
-    control.markAsDirty();
   }
 
   protected async load(): Promise<void> {

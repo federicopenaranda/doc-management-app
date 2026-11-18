@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
-import { fireEvent, render, screen, waitFor } from '@testing-library/angular';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/angular';
 import { AuthService } from '../auth/auth.service';
 import { ClientsApi } from '../clients/clients-api';
 import type { Client } from '../clients/client.model';
@@ -55,10 +55,17 @@ async function setup(
   const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
   const type = (label: RegExp, value: string) =>
     fireEvent.input(screen.getByLabelText(label), { target: { value } });
-  const role = (name: string) => fireEvent.click(screen.getByLabelText(name));
+  /** Opens the Roles select, toggles each role, and closes the panel. */
+  const role = async (...names: string[]) => {
+    await fireEvent.click(screen.getByRole('combobox', { name: /^roles/i }));
+    for (const name of names) {
+      await fireEvent.click(await screen.findByRole('option', { name }));
+    }
+    await fireEvent.keyDown(document.body, { key: 'Escape' });
+  };
   const pickClient = (id: string) =>
     fireEvent.change(screen.getByLabelText(/^client/i), { target: { value: id } });
-  const fill = (
+  const fill = async (
     over: Partial<Record<'first' | 'last' | 'email' | 'password' | 'confirm', string>> = {},
   ) => {
     type(/^first name/i, over.first ?? 'Ana');
@@ -67,7 +74,7 @@ async function setup(
     type(/^password/i, over.password ?? GOOD);
     type(/^confirm password/i, over.confirm ?? GOOD);
     // A valid user by default: the Editor role, working for Acme.
-    role('Editor');
+    await role('Editor');
     pickClient('c1');
   };
   const submit = () => screen.getByRole('button', { name: /create user/i }) as HTMLButtonElement;
@@ -107,7 +114,7 @@ describe('UserFormPage', () => {
     const { fill, submit } = await setup();
     expect(submit().disabled).toBe(true);
 
-    fill();
+    await fill();
 
     expect(submit().disabled).toBe(false);
   });
@@ -121,7 +128,7 @@ describe('UserFormPage', () => {
   ])('stays disabled while the %s is not valid', async (_label, over) => {
     const { fill, submit } = await setup();
 
-    fill(over);
+    await fill(over);
 
     expect(submit().disabled).toBe(true);
   });
@@ -173,7 +180,7 @@ describe('UserFormPage', () => {
 
   it('creates the user without the confirmation, trimming the text fields, then goes back to the list', async () => {
     const { api, navigate, fill, submit } = await setup();
-    fill({ first: '  Ana ', last: ' García  ', email: ' ana@example.com ' });
+    await fill({ first: '  Ana ', last: ' García  ', email: ' ana@example.com ' });
 
     await fireEvent.click(submit());
 
@@ -193,7 +200,7 @@ describe('UserFormPage', () => {
     const { navigate, fill, submit } = await setup(() =>
       Promise.reject(new HttpErrorResponse({ status: 409 })),
     );
-    fill();
+    await fill();
 
     await fireEvent.click(submit());
 
@@ -206,7 +213,7 @@ describe('UserFormPage', () => {
 
   it('says to try again later on any other failure', async () => {
     const { navigate, fill, submit } = await setup(() => Promise.reject(new Error('boom')));
-    fill();
+    await fill();
 
     await fireEvent.click(submit());
 
@@ -216,7 +223,7 @@ describe('UserFormPage', () => {
 
   it('sends nothing twice while the first request is still running', async () => {
     const { api, fill, submit } = await setup(() => new Promise<User>(() => undefined));
-    fill();
+    await fill();
 
     await fireEvent.click(submit());
     await fireEvent.click(submit());
@@ -232,46 +239,51 @@ describe('UserFormPage', () => {
   });
 
   describe('roles and client', () => {
-    it('has a checkbox for each of the four roles, none ticked, and a client select with only the active clients', async () => {
+    it('has a Roles select with the four roles, none picked, and a client select with only the active clients', async () => {
       await setup();
 
-      for (const name of ['Viewer', 'Editor', 'Admin', 'Site admin']) {
-        expect((screen.getByLabelText(name) as HTMLInputElement).checked).toBe(false);
-      }
+      const roles = screen.getByRole('combobox', { name: /^roles/i });
+      expect(roles.textContent?.trim()).toBe('');
+      await fireEvent.click(roles);
+      const names = within(await screen.findByRole('listbox'))
+        .getAllByRole('option')
+        .map((o) => o.textContent?.trim());
+      expect(names).toEqual(['Viewer', 'Editor', 'Admin', 'Site admin']);
+      await fireEvent.keyDown(document.body, { key: 'Escape' });
       const options = Array.from(
         (screen.getByLabelText(/^client/i) as HTMLSelectElement).options,
       ).map((o) => o.textContent?.trim());
       expect(options).toEqual(['', 'Acme', 'Globex']);
     });
 
-    it('says a role is needed and keeps Create disabled until one is ticked', async () => {
+    it('says a role is needed and keeps Create disabled until one is picked', async () => {
       const { fill, submit, role } = await setup();
-      fill();
-      role('Editor');
+      await fill();
+      await role('Editor');
 
       expect(submit().disabled).toBe(true);
-      expect((await screen.findByText('Choose at least one role')).id).toBe('roles-error');
+      expect(await screen.findByText('Choose at least one role')).toBeTruthy();
 
-      role('Admin');
+      await role('Admin');
 
       expect(submit().disabled).toBe(false);
       await waitFor(() => expect(screen.queryByText('Choose at least one role')).toBeNull());
     });
 
-    it('needs a client, unless Site admin is ticked: then the client select is gone', async () => {
+    it('needs a client, unless Site admin is picked: then the client select is gone', async () => {
       const { fill, submit, role, pickClient } = await setup();
-      fill();
+      await fill();
       pickClient('');
 
       expect(submit().disabled).toBe(true);
       expect(await screen.findByText('Choose a client')).toBeTruthy();
 
-      role('Site admin');
+      await role('Site admin');
 
       await waitFor(() => expect(screen.queryByLabelText(/^client/i)).toBeNull());
       expect(submit().disabled).toBe(false);
 
-      role('Site admin');
+      await role('Site admin');
 
       expect(await screen.findByLabelText(/^client/i)).toBeTruthy();
       expect(submit().disabled).toBe(true);
@@ -279,9 +291,8 @@ describe('UserFormPage', () => {
 
     it('creates a site admin without a client, and sends several roles in their usual order', async () => {
       const { api, navigate, fill, role, submit } = await setup();
-      fill();
-      role('Viewer');
-      role('Site admin');
+      await fill();
+      await role('Viewer', 'Site admin');
 
       await fireEvent.click(submit());
 
@@ -301,7 +312,7 @@ describe('UserFormPage', () => {
           }),
         ),
       );
-      fill();
+      await fill();
 
       await fireEvent.click(submit());
 
@@ -364,7 +375,14 @@ describe('UserFormPage editing', () => {
     const type = (label: RegExp, value: string) =>
       fireEvent.input(screen.getByLabelText(label), { target: { value } });
     const save = () => screen.getByRole('button', { name: /save changes/i }) as HTMLButtonElement;
-    const role = (name: string) => fireEvent.click(screen.getByLabelText(name));
+    /** Opens the Roles select, toggles each role, and closes the panel. */
+    const role = async (...names: string[]) => {
+      await fireEvent.click(screen.getByRole('combobox', { name: /^roles/i }));
+      for (const name of names) {
+        await fireEvent.click(await screen.findByRole('option', { name }));
+      }
+      await fireEvent.keyDown(document.body, { key: 'Escape' });
+    };
     return { api, navigate, type, save, role };
   }
 
@@ -384,9 +402,9 @@ describe('UserFormPage editing', () => {
     await setupEdit(async () => ({ ...created, roles: ['admin', 'viewer'], clientId: 'c2' }));
     await screen.findByLabelText(/^first name/i);
 
-    expect((screen.getByLabelText('Admin') as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByLabelText('Viewer') as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByLabelText('Editor') as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByRole('combobox', { name: /^roles/i }).textContent?.trim()).toBe(
+      'Viewer, Admin',
+    );
     expect((screen.getByLabelText(/^client/i) as HTMLSelectElement).value).toBe('c2');
   });
 
@@ -394,17 +412,19 @@ describe('UserFormPage editing', () => {
     await setupEdit(async () => ({ ...created, roles: ['site_admin'], clientId: null }));
     await screen.findByLabelText(/^first name/i);
 
-    expect((screen.getByLabelText('Site admin') as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole('combobox', { name: /^roles/i }).textContent?.trim()).toBe(
+      'Site admin',
+    );
     expect(screen.queryByLabelText(/^client/i)).toBeNull();
   });
 
-  it('saves changed roles, and keeps Save disabled when the last role is unticked', async () => {
+  it('saves changed roles, and keeps Save disabled when the last role is removed', async () => {
     const { api, navigate, role, save } = await setupEdit();
     await waitFor(() => expect(save().disabled).toBe(false));
 
-    role('Editor');
+    await role('Editor');
     expect(save().disabled).toBe(true);
-    role('Admin');
+    await role('Admin');
     await fireEvent.click(save());
 
     await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/users'));
