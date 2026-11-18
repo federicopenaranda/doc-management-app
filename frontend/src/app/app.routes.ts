@@ -1,6 +1,4 @@
 import { Routes } from '@angular/router';
-import { inject } from '@angular/core';
-import { AppConfigService } from './app-config.service';
 import { authGuard } from './auth/auth.guard';
 
 export const routes: Routes = [
@@ -24,8 +22,6 @@ export const routes: Routes = [
       },
       {
         path: 'clients',
-        // Feature flag: while it is off the routes do not exist.
-        canMatch: [() => inject(AppConfigService).clientsEnabled],
         children: [
           {
             path: '',

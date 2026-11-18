@@ -1,14 +1,5 @@
-import {
-  afterRenderEffect,
-  Component,
-  ElementRef,
-  inject,
-  input,
-  output,
-  viewChild,
-} from '@angular/core';
+import { afterRenderEffect, Component, ElementRef, input, output, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { AppConfigService } from '../app-config.service';
 
 @Component({
   imports: [RouterLink],
@@ -18,8 +9,6 @@ import { AppConfigService } from '../app-config.service';
 export class SideMenu {
   readonly open = input.required<boolean>();
   readonly closed = output<void>();
-
-  protected readonly clientsEnabled = inject(AppConfigService).clientsEnabled;
 
   private readonly first = viewChild<ElementRef<HTMLElement>>('first');
 
