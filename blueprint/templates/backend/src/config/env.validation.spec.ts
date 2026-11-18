@@ -62,6 +62,7 @@ describe('validateEnv', () => {
       validateEnv({ ...valid, JWT_SECRET: 'short-secret' }),
     ).not.toThrow(/short-secret/);
   });
+
 });
 
 describe('validateEnv: database', () => {

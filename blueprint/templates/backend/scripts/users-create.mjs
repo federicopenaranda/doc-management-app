@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Creates an app user (email + hashed password) as the built-in `postgres` admin. Safe to repeat:
-// an email that already exists is left untouched. Used until the user screens exist (SCRUM-18).
+// an email that already exists is left untouched. A user without a role gets site_admin (every user needs one).
 //
 //   USER_PASSWORD=... DB_ADMIN_PASSWORD=... npm run users:create -- \
 //     --instance <project>:<region>:<instance> --email someone@example.com
@@ -42,6 +42,17 @@ export async function buildInsert(email, password, { reset = false } = {}) {
   };
 }
 
+/**
+ * Every user needs a role: this one is created by hand, so it gets site_admin when it has none. A user that already
+ * has an active role is left as it is.
+ */
+export function buildGrant(email) {
+  return {
+    text: "INSERT INTO user_roles (user_id, role_key) SELECT u.id, 'site_admin' FROM users u WHERE lower(u.email) = lower($1) AND NOT EXISTS (SELECT 1 FROM user_roles r WHERE r.user_id = u.id AND r.revoked_at IS NULL)",
+    values: [email],
+  };
+}
+
 async function main() {
   const { values } = parseArgs({
     options: {
@@ -74,6 +85,7 @@ async function main() {
     },
     async (client) => {
       const { rowCount } = await client.query(insert);
+      await client.query(buildGrant(email));
       console.log(
         rowCount === 1
           ? `users:create ok: ${email} ${values.reset ? 'saved (new password if it already existed)' : 'created'}`

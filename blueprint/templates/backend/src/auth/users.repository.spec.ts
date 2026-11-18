@@ -83,6 +83,10 @@ describe('UsersRepository.findById', () => {
   });
 });
 
+// What every statement that returns a user selects: the active roles come from user_roles in the same statement.
+const COLUMNS =
+  "id, email, first_name, last_name, is_active, created_at, client_id, COALESCE((SELECT array_agg(role_key ORDER BY role_key) FROM user_roles WHERE user_roles.user_id = users.id AND user_roles.revoked_at IS NULL), '{}') AS roles";
+
 const summaryRow = {
   id: 'u1',
   email: 'ana@example.com',
@@ -90,6 +94,8 @@ const summaryRow = {
   last_name: 'García',
   is_active: true,
   created_at: new Date('2026-11-09T12:00:00Z'),
+  client_id: 'c1',
+  roles: ['editor', 'viewer'],
 };
 const summary = {
   id: 'u1',
@@ -98,17 +104,19 @@ const summary = {
   lastName: 'García',
   isActive: true,
   createdAt: new Date('2026-11-09T12:00:00Z'),
+  clientId: 'c1',
+  roles: ['editor', 'viewer'],
 };
 
 describe('UsersRepository.list', () => {
-  it('lists every user oldest first, without the password hash', async () => {
+  it('lists every user oldest first, with their roles, without the password hash', async () => {
     const { repository, query } = setup([summaryRow]);
 
     const users = await repository.list();
 
     const [sql] = query.mock.calls[0] as [string];
     expect(sql).toBe(
-      'SELECT id, email, first_name, last_name, is_active, created_at FROM users WHERE archived_at IS NULL ORDER BY created_at, id',
+      `SELECT ${COLUMNS} FROM users WHERE archived_at IS NULL ORDER BY created_at, id`,
     );
     expect(sql).not.toContain('password_hash');
     expect(users).toEqual([summary]);
@@ -122,34 +130,44 @@ describe('UsersRepository.create', () => {
     firstName: 'Ana',
     lastName: 'García',
     passwordHash: 'scrypt$x',
+    clientId: 'c1',
+    roles: ['editor', 'viewer'] as ('editor' | 'viewer')[],
   };
 
-  it('inserts with bound parameters and returns the new user without the hash', async () => {
+  it('inserts the user and their roles in one statement with bound parameters, then returns the user without the hash', async () => {
     const { repository, query } = setup([summaryRow]);
 
-    const created = await repository.create(input);
+    const created = await repository.create(input, 'admin-1');
 
-    const [sql, params] = query.mock.calls[0] as [string, string[]];
+    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
     expect(sql).toBe(
-      'INSERT INTO users (email, first_name, last_name, password_hash) VALUES ($1, $2, $3, $4) ON CONFLICT (lower(email)) DO NOTHING RETURNING id, email, first_name, last_name, is_active, created_at',
+      'WITH u AS (INSERT INTO users (email, first_name, last_name, password_hash, client_id) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (lower(email)) DO NOTHING RETURNING id), r AS (INSERT INTO user_roles (user_id, role_key, granted_by) SELECT u.id, k, $7 FROM u, unnest($6::text[]) AS k) SELECT id FROM u',
     );
-    expect(params).toEqual(['ana@example.com', 'Ana', 'García', 'scrypt$x']);
+    expect(params).toEqual([
+      'ana@example.com',
+      'Ana',
+      'García',
+      'scrypt$x',
+      'c1',
+      ['editor', 'viewer'],
+      'admin-1',
+    ]);
     expect(created).toEqual(summary);
   });
 
   it('returns null when the email already exists, whatever its letter case', async () => {
     const { repository } = setup([]);
 
-    expect(await repository.create(input)).toBeNull();
+    expect(await repository.create(input, 'admin-1')).toBeNull();
   });
 
   it('never builds the statement from the input', async () => {
     const { repository, query } = setup([summaryRow]);
 
-    await repository.create({
-      ...input,
-      firstName: "x'); DROP TABLE users;--",
-    });
+    await repository.create(
+      { ...input, firstName: "x'); DROP TABLE users;--" },
+      'admin-1',
+    );
 
     const [sql] = query.mock.calls[0] as [string];
     expect(sql).not.toContain('DROP TABLE');
@@ -157,13 +175,13 @@ describe('UsersRepository.create', () => {
 });
 
 describe('UsersRepository.getSummary', () => {
-  it('looks one user up by id with a bound parameter and returns it without the hash', async () => {
+  it('looks one user up by id with a bound parameter and returns it with their roles, without the hash', async () => {
     const { repository, query } = setup([summaryRow]);
 
     const user = await repository.getSummary('u1');
 
     expect(query).toHaveBeenCalledWith(
-      'SELECT id, email, first_name, last_name, is_active, created_at FROM users WHERE id = $1 AND archived_at IS NULL',
+      `SELECT ${COLUMNS} FROM users WHERE id = $1 AND archived_at IS NULL`,
       ['u1'],
     );
     expect(user).toEqual(summary);
@@ -181,24 +199,43 @@ describe('UsersRepository.update', () => {
     email: 'ana@example.com',
     firstName: 'Ana',
     lastName: 'García',
+    clientId: 'c1',
+    roles: ['editor', 'viewer'] as ('editor' | 'viewer')[],
   };
 
-  it('changes the email and the names of one user with bound parameters and returns it', async () => {
+  it('changes the fields, revokes the roles no longer wanted and grants the new ones, in one statement', async () => {
     const { repository, query } = setup([summaryRow]);
 
-    const result = await repository.update('u1', input);
+    const result = await repository.update('u1', input, 'admin-1');
 
-    expect(query).toHaveBeenCalledWith(
-      'UPDATE users SET email = $2, first_name = $3, last_name = $4 WHERE id = $1 AND archived_at IS NULL RETURNING id, email, first_name, last_name, is_active, created_at',
-      ['u1', 'ana@example.com', 'Ana', 'García'],
+    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toBe(
+      'WITH u AS (UPDATE users SET email = $2, first_name = $3, last_name = $4, client_id = $5 WHERE id = $1 AND archived_at IS NULL RETURNING id), revoked AS (UPDATE user_roles SET revoked_at = now(), revoked_by = $7 WHERE user_id IN (SELECT id FROM u) AND revoked_at IS NULL AND role_key <> ALL($6::text[])), added AS (INSERT INTO user_roles (user_id, role_key, granted_by) SELECT u.id, k, $7 FROM u, unnest($6::text[]) AS k WHERE NOT EXISTS (SELECT 1 FROM user_roles r WHERE r.user_id = u.id AND r.role_key = k AND r.revoked_at IS NULL)) SELECT id FROM u',
     );
+    expect(params).toEqual([
+      'u1',
+      'ana@example.com',
+      'Ana',
+      'García',
+      'c1',
+      ['editor', 'viewer'],
+      'admin-1',
+    ]);
     expect(result).toEqual({ status: 'ok', user: summary });
+  });
+
+  it('never deletes a role assignment: a removed role is revoked, so its history stays', async () => {
+    const { repository, query } = setup([summaryRow]);
+
+    await repository.update('u1', input, 'admin-1');
+
+    expect((query.mock.calls[0] as [string])[0]).not.toMatch(/DELETE/i);
   });
 
   it('never touches the password hash or the active flag', async () => {
     const { repository, query } = setup([summaryRow]);
 
-    await repository.update('u1', input);
+    await repository.update('u1', input, 'admin-1');
 
     const [sql] = query.mock.calls[0] as [string];
     expect(sql).not.toMatch(/password_hash|is_active =/);
@@ -207,7 +244,7 @@ describe('UsersRepository.update', () => {
   it('reports a user that does not exist', async () => {
     const { repository } = setup([]);
 
-    expect(await repository.update('missing', input)).toEqual({
+    expect(await repository.update('missing', input, 'admin-1')).toEqual({
       status: 'not-found',
     });
   });
@@ -222,7 +259,7 @@ describe('UsersRepository.update', () => {
       pool: { query },
     } as unknown as DatabaseService);
 
-    expect(await repository.update('u1', input)).toEqual({
+    expect(await repository.update('u1', input, 'admin-1')).toEqual({
       status: 'email-taken',
     });
   });
@@ -233,7 +270,7 @@ describe('UsersRepository.update', () => {
       pool: { query },
     } as unknown as DatabaseService);
 
-    await expect(repository.update('u1', input)).rejects.toThrow(
+    await expect(repository.update('u1', input, 'admin-1')).rejects.toThrow(
       'connection lost',
     );
   });
@@ -246,7 +283,7 @@ describe('UsersRepository.setActive', () => {
     const user = await repository.setActive('u1', false);
 
     expect(query).toHaveBeenCalledWith(
-      'UPDATE users SET is_active = $2 WHERE id = $1 AND archived_at IS NULL RETURNING id, email, first_name, last_name, is_active, created_at',
+      `UPDATE users SET is_active = $2 WHERE id = $1 AND archived_at IS NULL RETURNING ${COLUMNS}`,
       ['u1', false],
     );
     expect(user).toEqual({ ...summary, isActive: false });
@@ -256,6 +293,41 @@ describe('UsersRepository.setActive', () => {
     const { repository } = setup([]);
 
     expect(await repository.setActive('missing', true)).toBeNull();
+  });
+});
+
+describe('UsersRepository.listRoles', () => {
+  it('lists the roles in their usual order', async () => {
+    const { repository, query } = setup([
+      { key: 'viewer', name: 'Viewer' },
+      { key: 'site_admin', name: 'Site admin' },
+    ]);
+
+    expect(await repository.listRoles()).toEqual([
+      { key: 'viewer', name: 'Viewer' },
+      { key: 'site_admin', name: 'Site admin' },
+    ]);
+    expect((query.mock.calls[0] as [string])[0]).toBe(
+      "SELECT key, name FROM roles ORDER BY array_position(ARRAY['viewer', 'editor', 'admin', 'site_admin'], key)",
+    );
+  });
+});
+
+describe('UsersRepository.clientIsActive', () => {
+  it('is true for an existing client that is not disabled', async () => {
+    const { repository, query } = setup([{ id: 'c1' }]);
+
+    expect(await repository.clientIsActive('c1')).toBe(true);
+    expect(query).toHaveBeenCalledWith(
+      'SELECT id FROM clients WHERE id = $1 AND disabled_at IS NULL',
+      ['c1'],
+    );
+  });
+
+  it('is false for a client that does not exist or is disabled', async () => {
+    const { repository } = setup([]);
+
+    expect(await repository.clientIsActive('c1')).toBe(false);
   });
 });
 
@@ -292,7 +364,7 @@ describe('UsersRepository.listArchived', () => {
 
     const [sql] = query.mock.calls[0] as [string];
     expect(sql).toBe(
-      'SELECT id, email, first_name, last_name, is_active, created_at, archived_at FROM users WHERE archived_at IS NOT NULL ORDER BY archived_at DESC, id',
+      `SELECT ${COLUMNS}, archived_at FROM users WHERE archived_at IS NOT NULL ORDER BY archived_at DESC, id`,
     );
     expect(sql).not.toContain('password_hash');
     expect(users).toEqual([{ ...summary, archivedAt }]);

@@ -7,6 +7,7 @@ import { API_URL } from './api-url';
 import { AppConfigService } from './app-config.service';
 import { routes } from './app.routes';
 import { AuthService } from './auth/auth.service';
+import { ClientsApi } from './clients/clients-api';
 import { UsersApi } from './users/users-api';
 
 function setup() {
@@ -25,6 +26,7 @@ function setup() {
           logout: vi.fn(),
         },
       },
+      { provide: ClientsApi, useValue: { list: vi.fn().mockResolvedValue([]) } },
       { provide: UsersApi, useValue: { list: vi.fn().mockResolvedValue([]), create: vi.fn() } },
     ],
   });
@@ -65,6 +67,9 @@ describe('routes', () => {
     const harness = await setup();
 
     await harness.navigateByUrl('/users/new');
+    // The form shows once the clients have loaded.
+    await harness.fixture.whenStable();
+    harness.detectChanges();
 
     expect(harness.routeNativeElement?.querySelector('main form')).not.toBeNull();
   });
@@ -77,5 +82,16 @@ describe('routes', () => {
     expect(harness.routeNativeElement?.querySelector('main section')).not.toBeNull();
   });
 
+  it('lazy loads the clients list and the client forms', async () => {
+    const harness = await setup();
 
+    await harness.navigateByUrl('/clients');
+    expect(harness.routeNativeElement?.querySelector('main h2')?.textContent).toContain('Clients');
+
+    await harness.navigateByUrl('/clients/new');
+    expect(harness.routeNativeElement?.querySelector('main form')).not.toBeNull();
+
+    await harness.navigateByUrl('/clients/c1/edit');
+    expect(harness.routeNativeElement?.querySelector('main section')).not.toBeNull();
+  });
 });

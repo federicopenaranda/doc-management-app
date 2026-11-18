@@ -62,6 +62,48 @@ export function bootstrapStatements(iamUser) {
   created_at timestamptz NOT NULL DEFAULT now()
 )`,
     `GRANT SELECT, INSERT, UPDATE ON refresh_tokens TO ${quoteIdent(iamUser)}`,
+    // Clients: a client is disabled (disabled_at set), never deleted. Name, prefix (up to 10 characters) and email are
+    // required; email and prefix are unique ignoring letter case. The code is optional, but unique when present.
+    `CREATE TABLE IF NOT EXISTS clients (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  prefix text NOT NULL CHECK (char_length(prefix) <= 10),
+  address text,
+  code text,
+  phone text,
+  email text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  disabled_at timestamptz
+)`,
+    'CREATE UNIQUE INDEX IF NOT EXISTS clients_code_lower_key ON clients (lower(code)) WHERE code IS NOT NULL',
+    'CREATE UNIQUE INDEX IF NOT EXISTS clients_email_lower_key ON clients (lower(email))',
+    'CREATE UNIQUE INDEX IF NOT EXISTS clients_prefix_lower_key ON clients (lower(prefix))',
+    `GRANT SELECT, INSERT, UPDATE ON clients TO ${quoteIdent(iamUser)}`,
+    // Roles (the four basic ones). A user has one or more; a role taken away is revoked, never deleted (history), because the
+    // backend identity has no DELETE right. Everyone who exists when this first runs becomes site_admin, as they could do
+    // everything before roles existed.
+    `CREATE TABLE IF NOT EXISTS roles (
+  key text PRIMARY KEY,
+  name text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+)`,
+    `INSERT INTO roles (key, name) VALUES ('viewer', 'Viewer'), ('editor', 'Editor'), ('admin', 'Admin'), ('site_admin', 'Site admin') ON CONFLICT (key) DO NOTHING`,
+    `GRANT SELECT ON roles TO ${quoteIdent(iamUser)}`,
+    `CREATE TABLE IF NOT EXISTS user_roles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id),
+  role_key text NOT NULL REFERENCES roles(key),
+  granted_at timestamptz NOT NULL DEFAULT now(),
+  granted_by uuid REFERENCES users(id),
+  revoked_at timestamptz,
+  revoked_by uuid REFERENCES users(id)
+)`,
+    'CREATE UNIQUE INDEX IF NOT EXISTS user_roles_active_key ON user_roles (user_id, role_key) WHERE revoked_at IS NULL',
+    `GRANT SELECT, INSERT, UPDATE ON user_roles TO ${quoteIdent(iamUser)}`,
+    // One client per user (roles apply inside it); site admins have none.
+    'ALTER TABLE users ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id)',
+    `INSERT INTO user_roles (user_id, role_key) SELECT u.id, 'site_admin' FROM users u WHERE NOT EXISTS (SELECT 1 FROM user_roles r WHERE r.user_id = u.id AND r.revoked_at IS NULL)`,
   ];
 }
 
@@ -69,7 +111,7 @@ async function main() {
   const { values } = parseArgs({
     options: {
       instance: { type: 'string' },
-      database: { type: 'string', default: 'dms' },
+      database: { type: 'string', default: '__DB_NAME__' },
       'iam-user': { type: 'string' },
     },
   });
