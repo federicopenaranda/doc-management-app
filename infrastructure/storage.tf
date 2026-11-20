@@ -14,7 +14,7 @@ resource "google_storage_bucket" "documents" {
   cors {
     origin          = [local.frontend_url]
     method          = ["PUT"]
-    response_header = ["Content-Type", "x-goog-if-generation-match"]
+    response_header = ["Content-Type", "x-goog-if-generation-match", "x-goog-meta-uploaded-by"]
     max_age_seconds = 3600
   }
 

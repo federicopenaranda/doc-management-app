@@ -23,6 +23,11 @@ run "landing_bucket_accepts_browser_uploads_from_the_frontend_only" {
     condition     = [for m in one(google_storage_bucket.documents.cors).method : m] == ["PUT"] && contains([for h in one(google_storage_bucket.documents.cors).response_header : h], "Content-Type")
     error_message = "browser uploads are PUT requests that send Content-Type"
   }
+
+  assert {
+    condition     = contains([for h in one(google_storage_bucket.documents.cors).response_header : h], "x-goog-meta-uploaded-by")
+    error_message = "the upload sends the uploader id as object metadata, so the preflight must allow that header"
+  }
 }
 
 # The service account email is only known after apply (provider is mocked).
