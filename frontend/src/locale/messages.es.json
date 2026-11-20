@@ -15,7 +15,6 @@
     "7819314041543176992": "Cerrar",
     "8359660888243306571": "Menú principal",
     "2821179408673282599": "Inicio",
-    "5785688200569158629": " Documentos ",
     "329406837759048287": " Compartidos ",
     "4555457172864212828": "Usuarios",
     "4426319772533875265": " Configuración ",
@@ -137,6 +136,13 @@
     "4710352692474021065": "Elige un cliente",
     "2321907004200553354": "Elige un cliente activo",
     "6932865105766151309": "Subir",
-    "2066439472769436597": "No tienes permiso para subir archivos"
+    "2066439472769436597": "No tienes permiso para subir archivos",
+    "8755623497968342897": "No se pudo abrir el documento",
+    "5807087529688726204": "Cargando documentos…",
+    "5431517582501812497": "No se pudieron cargar los documentos",
+    "7469379322474876687": "Aún no hay documentos",
+    "45739481977493163": "Tamaño",
+    "2509141182388535183": "Ver",
+    "documents.view-aria": "Ver {$name}"
   }
 }

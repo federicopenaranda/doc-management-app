@@ -38,6 +38,12 @@ describe('SideMenu', () => {
     expect(link.getAttribute('href')).toBe('/users');
   });
 
+  it('has a Documents entry linking to /documents', async () => {
+    await setup(true);
+
+    expect(screen.getByRole('link', { name: 'Documents' }).getAttribute('href')).toBe('/documents');
+  });
+
   it('has an Upload entry linking to /upload only for a user who can upload', async () => {
     await setup(true, true);
 
@@ -75,7 +81,7 @@ describe('SideMenu', () => {
   it('emits closed when an entry is clicked', async () => {
     const { closed } = await setup(true);
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Documents' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Shared' }));
 
     expect(closed).toHaveBeenCalledTimes(1);
   });

@@ -1,3 +1,4 @@
+import { formatSize } from '../shared/file-size';
 import { Component, computed, inject, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
@@ -43,9 +44,5 @@ export class UploadPage {
     void this.store.retry(id);
   }
 
-  protected formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
+  protected readonly formatSize = formatSize;
 }
