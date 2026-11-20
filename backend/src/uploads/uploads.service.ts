@@ -30,6 +30,8 @@ export class UploadsService {
     }
     const bucket = this.config.get('GCS_BUCKET', { infer: true });
     const expires = new Date(this.now().getTime() + VALID_FOR_MS);
+    // Object metadata of the upload: the worker reads who uploaded the file from here (it cannot be changed, it is signed).
+    const uploadedBy = { 'x-goog-meta-uploaded-by': userId };
     return Promise.all(
       files.map(async ({ name, contentType }) => ({
         name,
@@ -38,10 +40,12 @@ export class UploadsService {
           originalKey(folder, name),
           contentType,
           expires,
+          uploadedBy,
         ),
         headers: {
           'Content-Type': contentType,
           'x-goog-if-generation-match': '0',
+          ...uploadedBy,
         },
       })),
     );

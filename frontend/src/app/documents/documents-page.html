@@ -1,0 +1,55 @@
+<section aria-labelledby="documents-title" class="mx-auto flex max-w-5xl flex-col gap-4 p-8">
+  <h2 id="documents-title" class="text-2xl font-medium" i18n>Documents</h2>
+
+  @if (viewError()) {
+    <p role="alert" class="text-red-800" i18n>Could not open the document</p>
+  }
+
+  @switch (state()) {
+    @case ('loading') {
+      <p role="status" i18n>Loading documents…</p>
+    }
+    @case ('error') {
+      <p role="alert" class="flex items-center gap-2 text-red-800">
+        <ng-container i18n>Could not load the documents</ng-container>
+        <button matButton type="button" (click)="load()" i18n>Try again</button>
+      </p>
+    }
+    @default {
+      @if (documents().length === 0) {
+        <p role="status" i18n>No documents yet</p>
+      } @else {
+        <table mat-table [dataSource]="documents()" class="w-full">
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef i18n>Name</th>
+            <td mat-cell *matCellDef="let document" class="break-all">{{ document.name }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="size">
+            <th mat-header-cell *matHeaderCellDef i18n>Size</th>
+            <td mat-cell *matCellDef="let document">{{ formatSize(document.sizeBytes) }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef i18n>Actions</th>
+            <td mat-cell *matCellDef="let document">
+              <button
+                matButton
+                type="button"
+                [disabled]="busy()"
+                [attr.aria-label]="viewLabel(document)"
+                (click)="view(document)"
+              >
+                <mat-icon aria-hidden="true" fontIcon="open_in_new" />
+                <ng-container i18n>View</ng-container>
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="columns"></tr>
+          <tr mat-row *matRowDef="let row; columns: columns"></tr>
+        </table>
+      }
+    }
+  }
+</section>

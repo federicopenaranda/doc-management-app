@@ -7,6 +7,8 @@ import { URL_SIGNER, gcsUrlSigner } from './url-signer.js';
 @Module({
   imports: [AuthModule],
   controllers: [UploadsController],
+  // The documents list signs read links with the same signer.
+  exports: [URL_SIGNER, NOW],
   providers: [
     UploadsService,
     { provide: URL_SIGNER, useFactory: () => gcsUrlSigner() },

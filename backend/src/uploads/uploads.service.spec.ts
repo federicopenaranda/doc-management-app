@@ -16,6 +16,7 @@ function setup(folder: string | null = FOLDER) {
         name: string,
         contentType: string,
         expires: Date,
+        headers: Record<string, string>,
       ) => Promise<string>
     >()
     .mockImplementation((_b, name) =>
@@ -29,9 +30,14 @@ function setup(folder: string | null = FOLDER) {
   return {
     sign,
     uploadFolderOf,
-    service: new UploadsService({ sign }, config, () => NOW, {
-      uploadFolderOf,
-    } as unknown as UsersRepository),
+    service: new UploadsService(
+      { sign, signRead: vi.fn() },
+      config,
+      () => NOW,
+      {
+        uploadFolderOf,
+      } as unknown as UsersRepository,
+    ),
   };
 }
 
@@ -50,6 +56,7 @@ describe('UploadsService.sign', () => {
       originalKey(FOLDER, 'a.pdf'),
       'application/pdf',
       new Date('2026-11-05T12:15:00.000Z'),
+      { 'x-goog-meta-uploaded-by': 'u1' },
     );
     expect(result).toEqual([
       {
@@ -58,6 +65,7 @@ describe('UploadsService.sign', () => {
         headers: {
           'Content-Type': 'application/pdf',
           'x-goog-if-generation-match': '0',
+          'x-goog-meta-uploaded-by': 'u1',
         },
       },
       {
@@ -66,6 +74,7 @@ describe('UploadsService.sign', () => {
         headers: {
           'Content-Type': 'text/plain',
           'x-goog-if-generation-match': '0',
+          'x-goog-meta-uploaded-by': 'u1',
         },
       },
     ]);

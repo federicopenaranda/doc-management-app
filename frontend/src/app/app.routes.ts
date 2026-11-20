@@ -17,6 +17,10 @@ export const routes: Routes = [
         loadComponent: () => import('./home/home-page').then((m) => m.HomePage),
       },
       {
+        path: 'documents',
+        loadComponent: () => import('./documents/documents-page').then((m) => m.DocumentsPage),
+      },
+      {
         path: 'upload',
         canMatch: [uploadGuard],
         loadComponent: () => import('./uploads/upload-page').then((m) => m.UploadPage),

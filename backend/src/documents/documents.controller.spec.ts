@@ -11,6 +11,8 @@ const validEvent = {
   name: 'originals/acme-20261103-3f9a1c2b/a-1234abcd/a.pdf',
   generation: '3',
   contentType: 'application/pdf',
+  size: '1234',
+  metadata: { 'uploaded-by': '6f1e0f0e-5d3c-4b7a-9d52-0a1f3c2b7e11' },
 };
 
 function setup() {
@@ -27,13 +29,17 @@ describe('DocumentsController.receive', () => {
 
     await controller.receive(push(validEvent));
 
-    expect(service.process).toHaveBeenCalledWith(validEvent);
+    expect(service.process).toHaveBeenCalledWith({
+      ...validEvent,
+      size: 1234,
+    });
   });
 
   it.each([
     ['no message', {}],
     ['data that is not base64 json', { message: { data: '!!!' } }],
     ['an event without a name', push({ bucket: 'b' })],
+    ['an event without a size', push({ ...validEvent, size: undefined })],
     ['a folder marker', push({ ...validEvent, name: 'folder/' })],
     [
       'a processed document (written by the worker itself)',

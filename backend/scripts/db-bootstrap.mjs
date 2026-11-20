@@ -117,6 +117,22 @@ export function bootstrapStatements(iamUser) {
     // One client per user (roles apply inside it); site admins have none.
     'ALTER TABLE users ADD COLUMN IF NOT EXISTS client_id uuid REFERENCES clients(id)',
     `INSERT INTO user_roles (user_id, role_key) SELECT u.id, 'site_admin' FROM users u WHERE NOT EXISTS (SELECT 1 FROM user_roles r WHERE r.user_id = u.id AND r.revoked_at IS NULL)`,
+    // Documents: one row per uploaded original, written by the document worker when the file lands in the bucket (so the
+    // size is the real one). The path is unique, so a redelivered message updates the row instead of adding another. Never
+    // deleted: the backend identity has no DELETE right.
+    `CREATE TABLE IF NOT EXISTS documents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id uuid NOT NULL REFERENCES clients(id),
+  storage_path text NOT NULL,
+  original_name text NOT NULL,
+  size_bytes bigint NOT NULL,
+  uploaded_by uuid NOT NULL REFERENCES users(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+)`,
+    'CREATE UNIQUE INDEX IF NOT EXISTS documents_storage_path_key ON documents (storage_path)',
+    'CREATE INDEX IF NOT EXISTS documents_client_id_idx ON documents (client_id, created_at DESC)',
+    `GRANT SELECT, INSERT, UPDATE ON documents TO ${quoteIdent(iamUser)}`,
     `INSERT INTO prueba (mensaje) SELECT 'hola desde db:bootstrap' WHERE NOT EXISTS (SELECT 1 FROM prueba)`,
   ];
 }

@@ -1,4 +1,9 @@
-import { docFolder, originalKey, processedKey } from './document-key.js';
+import {
+  docFolder,
+  originalKey,
+  parseOriginal,
+  processedKey,
+} from './document-key.js';
 
 describe('object keys of a client', () => {
   const folder = 'acme-corp-20261103-3f9a1c2b';
@@ -40,4 +45,25 @@ describe('object keys of a client', () => {
   ])('has no processed key for "%s", which is not an original', (name) => {
     expect(processedKey(name)).toBeUndefined();
   });
+});
+
+describe('parseOriginal', () => {
+  it('splits an original into its client folder, doc folder and file name', () => {
+    expect(
+      parseOriginal(
+        'originals/acme-20261103-3f9a1c2b/report-9c1e47ab/Report Q3.pdf',
+      ),
+    ).toEqual({
+      clientFolder: 'acme-20261103-3f9a1c2b',
+      docFolder: 'report-9c1e47ab',
+      fileName: 'Report Q3.pdf',
+    });
+  });
+
+  it.each(['processed/a/b/document.md', 'originals/a/file.pdf', 'x.pdf'])(
+    'is undefined for "%s", which is not an original',
+    (name) => {
+      expect(parseOriginal(name)).toBeUndefined();
+    },
+  );
 });

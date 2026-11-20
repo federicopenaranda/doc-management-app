@@ -8,6 +8,7 @@ import { AppConfigService } from './app-config.service';
 import { routes } from './app.routes';
 import { AuthService } from './auth/auth.service';
 import { ClientsApi } from './clients/clients-api';
+import { DocumentsApi } from './documents/documents-api';
 import { UploadApi } from './uploads/upload-api';
 import { UsersApi } from './users/users-api';
 
@@ -28,6 +29,10 @@ function setup(canUpload = true) {
         },
       },
       { provide: UploadApi, useValue: { sign: vi.fn() } },
+      {
+        provide: DocumentsApi,
+        useValue: { list: vi.fn().mockResolvedValue([]), viewUrl: vi.fn() },
+      },
       { provide: ClientsApi, useValue: { list: vi.fn().mockResolvedValue([]) } },
       { provide: UsersApi, useValue: { list: vi.fn().mockResolvedValue([]), create: vi.fn() } },
     ],
@@ -68,6 +73,16 @@ describe('routes', () => {
     expect(
       harness.routeNativeElement?.querySelector('main [data-testid="drop-zone"]'),
     ).not.toBeNull();
+  });
+
+  it('lazy loads the documents list', async () => {
+    const harness = await setup();
+
+    await harness.navigateByUrl('/documents');
+
+    expect(harness.routeNativeElement?.querySelector('main section h2')?.textContent).toContain(
+      'Documents',
+    );
   });
 
   it('lazy loads the users list', async () => {

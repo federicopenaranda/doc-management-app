@@ -116,6 +116,7 @@ describe('POST /uploads/sign (e2e)', () => {
           headers: {
             'Content-Type': 'application/pdf',
             'x-goog-if-generation-match': '0',
+            'x-goog-meta-uploaded-by': 'user-1',
           },
         },
       ],
