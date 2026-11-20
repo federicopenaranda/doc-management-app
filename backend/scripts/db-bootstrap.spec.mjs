@@ -211,6 +211,55 @@ describe('bootstrapStatements', () => {
     });
   });
 
+  describe('documents', () => {
+    const documents = sql.find((s) =>
+      s.includes('CREATE TABLE IF NOT EXISTS documents'),
+    );
+    const at = (text) => sql.findIndex((s) => s.includes(text));
+
+    it('has a uuid id and a required client, storage path, original name, size, uploader, creation and update time', () => {
+      expect(documents).toMatch(
+        /id uuid PRIMARY KEY DEFAULT gen_random_uuid\(\)/,
+      );
+      expect(documents).toMatch(
+        /client_id uuid NOT NULL REFERENCES clients\(id\)/,
+      );
+      expect(documents).toMatch(/storage_path text NOT NULL/);
+      expect(documents).toMatch(/original_name text NOT NULL/);
+      expect(documents).toMatch(/size_bytes bigint NOT NULL/);
+      expect(documents).toMatch(
+        /uploaded_by uuid NOT NULL REFERENCES users\(id\)/,
+      );
+      expect(documents).toMatch(
+        /created_at timestamptz NOT NULL DEFAULT now\(\)/,
+      );
+      expect(documents).toMatch(
+        /updated_at timestamptz NOT NULL DEFAULT now\(\)/,
+      );
+    });
+
+    it('allows one row per storage path (a redelivered message updates it) and indexes the list by client', () => {
+      expect(sql).toContain(
+        'CREATE UNIQUE INDEX IF NOT EXISTS documents_storage_path_key ON documents (storage_path)',
+      );
+      expect(sql).toContain(
+        'CREATE INDEX IF NOT EXISTS documents_client_id_idx ON documents (client_id, created_at DESC)',
+      );
+    });
+
+    it('is created after clients and users, and the backend identity may read, add and update it, never delete', () => {
+      expect(at('CREATE TABLE IF NOT EXISTS documents')).toBeGreaterThan(
+        at('CREATE TABLE IF NOT EXISTS clients'),
+      );
+      expect(at('CREATE TABLE IF NOT EXISTS documents')).toBeGreaterThan(
+        at('CREATE TABLE IF NOT EXISTS users'),
+      );
+      expect(sql).toContain(
+        `GRANT SELECT, INSERT, UPDATE ON documents TO "${iamUser}"`,
+      );
+    });
+  });
+
   it('inserts one starter row only when the table is empty', () => {
     const insert = sql.find((s) => s.startsWith('INSERT INTO prueba'));
 
