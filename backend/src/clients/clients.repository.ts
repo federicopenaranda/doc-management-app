@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
+import { clientFolder } from './client-folder.js';
 import type { ClientSummary, ClientInput, SaveResult } from './client.model.js';
 
 interface ClientRow {
@@ -10,13 +12,14 @@ interface ClientRow {
   phone: string | null;
   email: string;
   prefix: string;
+  storage_folder: string;
   created_at: Date;
   updated_at: Date;
   disabled_at: Date | null;
 }
 
 const COLUMNS =
-  'id, name, address, code, phone, email, prefix, created_at, updated_at, disabled_at';
+  'id, name, address, code, phone, email, prefix, storage_folder, created_at, updated_at, disabled_at';
 
 const toSummary = (row: ClientRow): ClientSummary => ({
   id: row.id,
@@ -26,6 +29,7 @@ const toSummary = (row: ClientRow): ClientSummary => ({
   phone: row.phone,
   email: row.email,
   prefix: row.prefix,
+  storageFolder: row.storage_folder,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
   isActive: row.disabled_at === null,
@@ -73,15 +77,21 @@ export class ClientsRepository {
   }
 
   create(input: ClientInput): Promise<SaveResult> {
+    // The id and the time are made here because the storage folder is built from them.
+    const id = randomUUID();
+    const createdAt = new Date();
     return this.save(
-      `INSERT INTO clients (name, address, code, phone, email, prefix) VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COLUMNS}`,
+      `INSERT INTO clients (id, name, address, code, phone, email, prefix, created_at, storage_folder) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING ${COLUMNS}`,
       [
+        id,
         input.name,
         input.address,
         input.code,
         input.phone,
         input.email,
         input.prefix,
+        createdAt,
+        clientFolder(input.name, createdAt, id),
       ],
     );
   }

@@ -185,6 +185,32 @@ describe('bootstrapStatements', () => {
         `GRANT SELECT, INSERT, UPDATE ON clients TO "${iamUser}"`,
       );
     });
+
+    it('gives a client a unique storage folder: added, filled for old clients, then required and unique', () => {
+      const at = (text) => sql.findIndex((s) => s.includes(text));
+      const add =
+        'ALTER TABLE clients ADD COLUMN IF NOT EXISTS storage_folder text';
+      const backfill = sql.find(
+        (s) =>
+          s.startsWith('UPDATE clients SET storage_folder') &&
+          s.includes('WHERE storage_folder IS NULL'),
+      );
+      const required =
+        'ALTER TABLE clients ALTER COLUMN storage_folder SET NOT NULL';
+      const unique =
+        'CREATE UNIQUE INDEX IF NOT EXISTS clients_storage_folder_key ON clients (storage_folder)';
+
+      expect(sql).toContain(add);
+      expect(backfill).toBeDefined();
+      expect(sql).toContain(required);
+      expect(sql).toContain(unique);
+      expect(at(add)).toBeGreaterThan(
+        at('CREATE TABLE IF NOT EXISTS clients'),
+      );
+      expect(at(backfill)).toBeGreaterThan(at(add));
+      expect(at(required)).toBeGreaterThan(at(backfill));
+      expect(at(unique)).toBeGreaterThan(at(required));
+    });
   });
 
   it('inserts one starter row only when the table is empty', () => {

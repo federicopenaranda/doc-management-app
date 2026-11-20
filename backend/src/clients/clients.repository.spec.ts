@@ -1,4 +1,5 @@
 import type { DatabaseService } from '../database/database.service.js';
+import { clientFolder } from './client-folder.js';
 import { ClientsRepository } from './clients.repository.js';
 
 const row = {
@@ -9,6 +10,7 @@ const row = {
   phone: '123',
   email: 'info@acme.com',
   prefix: 'ACM',
+  storage_folder: 'acme-20261113-c1',
   created_at: new Date('2026-11-13T12:00:00Z'),
   updated_at: new Date('2026-11-13T12:00:00Z'),
   disabled_at: null,
@@ -21,6 +23,7 @@ const summary = {
   phone: '123',
   email: 'info@acme.com',
   prefix: 'ACM',
+  storageFolder: 'acme-20261113-c1',
   createdAt: row.created_at,
   updatedAt: row.updated_at,
   isActive: true,
@@ -66,7 +69,7 @@ describe('ClientsRepository', () => {
     expect(params).toEqual(["x' OR 1=1 --"]);
   });
 
-  it('create() inserts with bound parameters and returns the client', async () => {
+  it('create() inserts a new id, the creation time and the storage folder made from them', async () => {
     const { repository, query } = setup();
 
     expect(await repository.create(input)).toEqual({
@@ -76,7 +79,21 @@ describe('ClientsRepository', () => {
 
     const [sql, params] = query.mock.calls[0] as [string, unknown[]];
     expect(sql).toMatch(/^INSERT INTO clients/);
-    expect(params).toEqual([
+    expect(sql).toContain('storage_folder');
+    const [id, name, address, code, phone, email, prefix, createdAt, folder] =
+      params as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        Date,
+        string,
+      ];
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect([name, address, code, phone, email, prefix]).toEqual([
       'Acme',
       'Calle 1',
       'ACME',
@@ -84,6 +101,8 @@ describe('ClientsRepository', () => {
       'info@acme.com',
       'ACM',
     ]);
+    expect(createdAt).toBeInstanceOf(Date);
+    expect(folder).toBe(clientFolder('Acme', createdAt, id));
   });
 
   it.each([
@@ -123,6 +142,7 @@ describe('ClientsRepository', () => {
     });
     const [sql] = query.mock.calls[0] as [string];
     expect(sql).toMatch(/UPDATE clients SET .*updated_at = now\(\)/s);
+    expect(sql).not.toContain('storage_folder =');
 
     expect(await setup([]).repository.update('c1', input)).toEqual({
       status: 'not-found',

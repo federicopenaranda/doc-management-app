@@ -86,6 +86,13 @@ export function bootstrapStatements(iamUser) {
     'CREATE UNIQUE INDEX IF NOT EXISTS clients_email_lower_key ON clients (lower(email))',
     'CREATE UNIQUE INDEX IF NOT EXISTS clients_prefix_lower_key ON clients (lower(prefix))',
     `GRANT SELECT, INSERT, UPDATE ON clients TO ${quoteIdent(iamUser)}`,
+    // Folder of the client's files in the bucket: <name-slug>-<yyyymmdd>-<first 8 of the id>, set once when the client
+    // is created and never changed. Clients that exist already get it from the same pieces (SQL cannot strip accents,
+    // so an accented letter in an old name becomes a dash).
+    'ALTER TABLE clients ADD COLUMN IF NOT EXISTS storage_folder text',
+    `UPDATE clients SET storage_folder = coalesce(nullif(left(trim(both '-' from regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g')), 40), ''), 'client') || '-' || to_char(created_at AT TIME ZONE 'UTC', 'YYYYMMDD') || '-' || left(id::text, 8) WHERE storage_folder IS NULL`,
+    'ALTER TABLE clients ALTER COLUMN storage_folder SET NOT NULL',
+    'CREATE UNIQUE INDEX IF NOT EXISTS clients_storage_folder_key ON clients (storage_folder)',
     // Roles (the four basic ones). A user has one or more; a role taken away is revoked, never deleted (history), because the
     // backend identity has no DELETE right. Everyone who exists when this first runs becomes site_admin, as they could do
     // everything before roles existed.
