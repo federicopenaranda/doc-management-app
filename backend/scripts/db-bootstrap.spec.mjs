@@ -204,9 +204,7 @@ describe('bootstrapStatements', () => {
       expect(backfill).toBeDefined();
       expect(sql).toContain(required);
       expect(sql).toContain(unique);
-      expect(at(add)).toBeGreaterThan(
-        at('CREATE TABLE IF NOT EXISTS clients'),
-      );
+      expect(at(add)).toBeGreaterThan(at('CREATE TABLE IF NOT EXISTS clients'));
       expect(at(backfill)).toBeGreaterThan(at(add));
       expect(at(required)).toBeGreaterThan(at(backfill));
       expect(at(unique)).toBeGreaterThan(at(required));
