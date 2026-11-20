@@ -8,6 +8,8 @@ export interface Profile {
   firstName: string;
   lastName: string;
   language: Language;
+  /** True for an editor or admin of an active client: the only users who may upload. */
+  canUpload: boolean;
 }
 
 export interface LoginResult {
