@@ -1,3 +1,4 @@
+# One bucket: originals/<client>/<doc>/<file> for uploads and processed/<client>/<doc>/document.md for the worker output.
 resource "google_storage_bucket" "documents" {
   name                        = "${var.project_id}-documents"
   location                    = var.region
@@ -22,27 +23,6 @@ resource "google_storage_bucket" "documents" {
 
 resource "google_storage_bucket_iam_member" "backend_objects" {
   bucket = google_storage_bucket.documents.name
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.backend.email}"
-}
-
-# Output of the document worker: one folder per uploaded file with its OKF markdown.
-resource "google_storage_bucket" "processed" {
-  name                        = "${var.project_id}-documents-processed"
-  location                    = var.region
-  uniform_bucket_level_access = true
-  public_access_prevention    = "enforced"
-  force_destroy               = false
-
-  versioning {
-    enabled = true
-  }
-
-  depends_on = [google_project_service.apis]
-}
-
-resource "google_storage_bucket_iam_member" "backend_processed" {
-  bucket = google_storage_bucket.processed.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.backend.email}"
 }
