@@ -15,7 +15,8 @@ export type PutFile = (
 
 export type UploadStatus = 'queued' | 'uploading' | 'done' | 'exists' | 'failed' | 'rejected';
 
-export type UploadError = 'empty' | 'too-large' | 'too-many' | 'sign-failed' | 'upload-failed';
+export type UploadError =
+  'empty' | 'too-large' | 'too-many' | 'sign-failed' | 'upload-failed' | 'not-allowed';
 
 export interface UploadItem {
   id: number;

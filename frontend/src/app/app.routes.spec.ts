@@ -11,7 +11,7 @@ import { ClientsApi } from './clients/clients-api';
 import { UploadApi } from './uploads/upload-api';
 import { UsersApi } from './users/users-api';
 
-function setup() {
+function setup(canUpload = true) {
   TestBed.configureTestingModule({
     providers: [
       provideRouter(routes),
@@ -22,7 +22,7 @@ function setup() {
         provide: AuthService,
         useValue: {
           isAuthenticated: () => true,
-          currentUser: signal(null),
+          currentUser: signal({ canUpload }),
           loadCurrentUser: vi.fn(),
           logout: vi.fn(),
         },
@@ -42,6 +42,14 @@ describe('routes', () => {
     await harness.navigateByUrl('/upload');
 
     expect(harness.routeNativeElement?.querySelector('[data-testid="drop-zone"]')).not.toBeNull();
+  });
+
+  it('sends a user who cannot upload from /upload to the home page', async () => {
+    const harness = await setup(false);
+
+    await harness.navigateByUrl('/upload');
+
+    expect(TestBed.inject(Router).url).toBe('/');
   });
 
   it('lazy loads the home page at the root, the page after login', async () => {

@@ -28,6 +28,8 @@ resource "google_storage_notification" "documents" {
   payload_format = "JSON_API_V1"
   topic          = google_pubsub_topic.document_uploaded.id
   event_types    = ["OBJECT_FINALIZE"]
+  # Only uploads: what the worker writes under processed/ must not publish a message.
+  object_name_prefix = "originals/"
 
   depends_on = [google_pubsub_topic_iam_member.gcs_publisher]
 }

@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { PUT_FILE, UploadApi } from './upload-api';
 import type { SignedUpload } from './upload.model';
@@ -101,6 +102,16 @@ describe('UploadStore', () => {
 
     expect(statuses()).toEqual(['a.txt:failed', 'b.txt:done']);
     expect(store.items()[0]!.error).toBe('sign-failed');
+  });
+
+  it('says the user is not allowed when signing answers 403, and does not offer more tries', async () => {
+    const { store, sign } = setup();
+    sign.mockRejectedValueOnce(new HttpErrorResponse({ status: 403 }));
+
+    await store.add([new File(['x'], 'a.txt')]);
+
+    expect(store.items()[0]!.status).toBe('failed');
+    expect(store.items()[0]!.error).toBe('not-allowed');
   });
 
   it('rejects empty and oversized files without calling the API', async () => {

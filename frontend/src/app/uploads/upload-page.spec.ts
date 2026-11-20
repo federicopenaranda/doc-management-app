@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { render, screen, fireEvent, within } from '@testing-library/angular';
 import { PUT_FILE, UploadApi } from './upload-api';
 import type { SignedUpload } from './upload.model';
@@ -117,5 +118,15 @@ describe('UploadPage', () => {
     expect(sign).toHaveBeenCalledTimes(2);
     puts[1]!.resolve(200);
     expect(await screen.findByText(/uploaded/i, { selector: 'li *' })).toBeTruthy();
+  });
+
+  it('says the user is not allowed to upload, with no retry, when signing answers 403', async () => {
+    const { drop, sign } = await setup();
+    sign.mockRejectedValueOnce(new HttpErrorResponse({ status: 403 }));
+
+    drop(file('a.txt'));
+
+    expect(await screen.findByText(/not allowed to upload files/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /retry/i })).toBeNull();
   });
 });

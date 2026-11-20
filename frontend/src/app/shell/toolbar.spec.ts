@@ -236,6 +236,7 @@ describe('Toolbar current user', () => {
     firstName: 'Ana',
     lastName: 'García',
     language: 'en',
+    canUpload: false,
   };
 
   beforeEach(() => loadCurrentUser.mockClear());

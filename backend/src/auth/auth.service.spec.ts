@@ -59,6 +59,9 @@ async function setup(
   );
   const getLanguage = vi.fn(() => Promise.resolve('es'));
   const setLanguage = vi.fn(() => Promise.resolve(true));
+  const uploadFolderOf = vi.fn((): Promise<string | null> =>
+    Promise.resolve(null),
+  );
   const jwt = new JwtService({ secret: SECRET });
   const refreshTokens = {
     insert: vi.fn().mockResolvedValue(undefined),
@@ -72,6 +75,7 @@ async function setup(
     getSummary,
     getLanguage,
     setLanguage,
+    uploadFolderOf,
   };
   const service = new AuthService(
     users as unknown as UsersRepository,
@@ -307,7 +311,18 @@ describe('AuthService.profile', () => {
       firstName: 'Ana',
       lastName: 'García',
       language: 'es',
+      canUpload: false,
     });
+  });
+
+  it('says the user can upload when the upload rule gives a client folder', async () => {
+    const { service, user, users } = await setup();
+    users.uploadFolderOf.mockResolvedValueOnce('acme-20261103-3f9a1c2b');
+
+    await expect(service.profile(user.id)).resolves.toMatchObject({
+      canUpload: true,
+    });
+    expect(users.uploadFolderOf).toHaveBeenCalledWith(user.id);
   });
 
   it('rejects a token whose user no longer exists', async () => {

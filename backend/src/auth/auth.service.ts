@@ -59,9 +59,10 @@ export class AuthService {
 
   /** Read from the database, not the token, so an edited name or email shows at once. */
   async profile(userId: string): Promise<Profile> {
-    const [user, language] = await Promise.all([
+    const [user, language, uploadFolder] = await Promise.all([
       this.users.getSummary(userId),
       this.users.getLanguage(userId),
+      this.users.uploadFolderOf(userId),
     ]);
     if (!user?.isActive || !language) throw new UnauthorizedException();
     return {
@@ -70,6 +71,7 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       language,
+      canUpload: uploadFolder !== null,
     };
   }
 

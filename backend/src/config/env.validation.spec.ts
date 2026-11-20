@@ -2,7 +2,6 @@ import { validateEnv } from './env.validation.js';
 
 const worker = {
   TIKA_URL: 'https://tika.example.com',
-  PROCESSED_BUCKET: 'dms-documents-processed',
   BACKEND_URL: 'https://backend.example.com',
   PUBSUB_PUSH_SA_EMAIL: 'pubsub-push@project.iam.gserviceaccount.com',
 };

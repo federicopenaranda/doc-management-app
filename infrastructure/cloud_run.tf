@@ -93,10 +93,6 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "TIKA_URL"
         value = local.tika_url
       }
-      env {
-        name  = "PROCESSED_BUCKET"
-        value = google_storage_bucket.processed.name
-      }
       # The audience of the Pub/Sub push token; computed from names, so no dependency cycle.
       env {
         name  = "BACKEND_URL"

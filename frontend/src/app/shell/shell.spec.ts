@@ -20,6 +20,27 @@ async function setup() {
 }
 
 describe('Shell', () => {
+  it('shows the Upload entry in the menu for a user who can upload', async () => {
+    await render(Shell, {
+      providers: [
+        provideRouter([]),
+        { provide: AppConfigService, useValue: { preferencesEnabled: false } },
+        {
+          provide: AuthService,
+          useValue: {
+            currentUser: signal({ canUpload: true }),
+            loadCurrentUser: vi.fn(),
+            logout: vi.fn(),
+          },
+        },
+      ],
+    });
+
+    await fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
+
+    expect(screen.getByRole('link', { name: 'Upload' })).toBeTruthy();
+  });
+
   it('renders exactly one main landmark', async () => {
     await setup();
 

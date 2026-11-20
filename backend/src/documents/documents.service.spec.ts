@@ -1,16 +1,10 @@
-import type { ConfigService } from '@nestjs/config';
-import type { Env } from '../config/env.validation.js';
-import { documentFolder } from './document-key.js';
+import { processedKey } from './document-key.js';
 import { DocumentsService } from './documents.service.js';
 import type { TikaClient } from './tika.client.js';
 
-const config = {
-  get: () => 'dms-processed',
-} as unknown as ConfigService<Env, true>;
-
 const event = {
   bucket: 'dms-docs',
-  name: 'Mi Informe.pdf',
+  name: 'originals/acme-20261103-3f9a1c2b/mi-informe-1234abcd/Mi Informe.pdf',
   generation: '7',
   contentType: 'application/pdf',
 };
@@ -28,28 +22,29 @@ function setup(
     store,
     tika,
     extract,
-    service: new DocumentsService(store, tika, config),
+    service: new DocumentsService(store, tika),
   };
 }
 
 describe('DocumentsService.process', () => {
-  it('writes <folder>/document.md with OKF content to the processed bucket', async () => {
+  it('writes processed/<client>/<doc>/document.md with OKF content, in the same bucket as the original', async () => {
     const { service, store, extract } = setup();
 
     await service.process(event);
 
-    expect(store.download).toHaveBeenCalledWith('dms-docs', 'Mi Informe.pdf');
+    expect(store.download).toHaveBeenCalledWith('dms-docs', event.name);
     expect(extract).toHaveBeenCalledWith(
       Buffer.from('bytes'),
       'application/pdf',
     );
     const [bucket, path, text] = store.upload.mock.calls[0] as string[];
-    expect(bucket).toBe('dms-processed');
+    expect(bucket).toBe('dms-docs');
+    expect(path).toBe(processedKey(event.name));
     expect(path).toBe(
-      `${documentFolder('dms-docs', 'Mi Informe.pdf', '7')}/document.md`,
+      'processed/acme-20261103-3f9a1c2b/mi-informe-1234abcd/document.md',
     );
     expect(text).toContain('type: Document');
-    expect(text).toContain('resource: "gs://dms-docs/Mi Informe.pdf"');
+    expect(text).toContain(`resource: "gs://dms-docs/${event.name}"`);
     expect(text).toContain('title: "Informe"');
     expect(text.endsWith('---\nHola')).toBe(true);
   });

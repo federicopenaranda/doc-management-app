@@ -158,6 +158,19 @@ export class UsersRepository {
     return rows.length > 0;
   }
 
+  /**
+   * The rule for uploading, in one place: the storage folder of the client of an active user who has an active editor or
+   * admin role and whose client is not disabled. Null means the user cannot upload.
+   */
+  async uploadFolderOf(userId: string): Promise<string | null> {
+    if (!this.db) throw new Error('The database feature is not enabled');
+    const { rows } = await this.db.pool.query<{ storage_folder: string }>(
+      `SELECT clients.storage_folder FROM users JOIN clients ON clients.id = users.client_id WHERE users.id = $1 AND users.is_active AND users.archived_at IS NULL AND clients.disabled_at IS NULL AND EXISTS (SELECT 1 FROM user_roles WHERE user_roles.user_id = users.id AND user_roles.revoked_at IS NULL AND user_roles.role_key IN ('editor', 'admin'))`,
+      [userId],
+    );
+    return rows[0]?.storage_folder ?? null;
+  }
+
   async getSummary(id: string): Promise<UserSummary | null> {
     if (!this.db) throw new Error('The database feature is not enabled');
     const { rows } = await this.db.pool.query<SummaryRow>(

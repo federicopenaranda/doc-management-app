@@ -37,6 +37,15 @@
     >
       Shared
     </button>
+    @if (canUpload()) {
+      <a
+        routerLink="/upload"
+        (click)="closed.emit()"
+        class="rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
+        i18n
+        >Upload</a
+      >
+    }
     <a
       routerLink="/users"
       (click)="closed.emit()"

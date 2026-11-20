@@ -11,6 +11,7 @@ const client: ClientSummary = {
   phone: null,
   email: 'info@acme.com',
   prefix: 'ACM',
+  storageFolder: 'acme-20261113-c1',
   createdAt: new Date('2026-11-13T12:00:00Z'),
   updatedAt: new Date('2026-11-13T12:00:00Z'),
   isActive: true,

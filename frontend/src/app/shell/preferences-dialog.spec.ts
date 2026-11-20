@@ -13,6 +13,7 @@ const ana: CurrentUser = {
   firstName: 'Ana',
   lastName: 'García',
   language: 'en',
+  canUpload: false,
 };
 
 async function setup(

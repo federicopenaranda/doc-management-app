@@ -29,7 +29,6 @@ const envSchema = z.object({
     ),
   // Document worker settings.
   TIKA_URL: z.url({ protocol: /^https?$/ }),
-  PROCESSED_BUCKET: z.string().min(1),
   // Audience of the Pub/Sub push token (the backend's own URL).
   BACKEND_URL: z.url({ protocol: /^https?$/ }),
   PUBSUB_PUSH_SA_EMAIL: z.email(),

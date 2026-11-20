@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { computed, inject, Service, signal } from '@angular/core';
 import { PUT_FILE, UploadApi } from './upload-api';
 import type { UploadError, UploadItem } from './upload.model';
@@ -79,9 +80,11 @@ export class UploadStore {
       if (status >= 200 && status < 300) this.patch(id, { status: 'done', progress: 100 });
       else if (status === 412) this.patch(id, { status: 'exists' });
       else this.patch(id, { status: 'failed', error: 'upload-failed' });
-    } catch {
+    } catch (error) {
+      // 403: the user may not upload at all, so trying again cannot help.
+      const refused = error instanceof HttpErrorResponse && error.status === 403;
       const stage = this.find(id)?.status === 'uploading' ? 'upload-failed' : 'sign-failed';
-      this.patch(id, { status: 'failed', error: stage });
+      this.patch(id, { status: 'failed', error: refused ? 'not-allowed' : stage });
     }
   }
 

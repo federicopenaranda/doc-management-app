@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { UploadsController } from './uploads.controller.js';
+import type { AuthenticatedRequest } from '../auth/auth.model.js';
 import type { UploadsService } from './uploads.service.js';
 
 function setup() {
@@ -12,6 +13,8 @@ function setup() {
   };
 }
 
+const request = { user: { id: 'u1' } } as AuthenticatedRequest;
+
 const file = (over: Record<string, unknown> = {}) => ({
   name: 'a.pdf',
   size: 10,
@@ -23,18 +26,22 @@ describe('UploadsController.sign', () => {
   it('signs a valid request', async () => {
     const { controller, sign } = setup();
 
-    await expect(controller.sign({ files: [file()] })).resolves.toEqual({
+    await expect(
+      controller.sign(request, { files: [file()] }),
+    ).resolves.toEqual({
       uploads: [{ name: 'a.pdf' }],
     });
-    expect(sign).toHaveBeenCalledWith([file()]);
+    expect(sign).toHaveBeenCalledWith('u1', [file()]);
   });
 
   it('defaults a missing contentType to application/octet-stream', async () => {
     const { controller, sign } = setup();
 
-    await controller.sign({ files: [{ name: 'a.bin', size: 1 }] });
+    await controller.sign(request, {
+      files: [{ name: 'a.bin', size: 1 }],
+    });
 
-    expect(sign).toHaveBeenCalledWith([
+    expect(sign).toHaveBeenCalledWith('u1', [
       { name: 'a.bin', size: 1, contentType: 'application/octet-stream' },
     ]);
   });
@@ -68,7 +75,9 @@ describe('UploadsController.sign', () => {
   ])('rejects %s with 400 and signs nothing', async (_label, body) => {
     const { controller, sign } = setup();
 
-    await expect(controller.sign(body)).rejects.toThrow(BadRequestException);
+    await expect(controller.sign(request, body)).rejects.toThrow(
+      BadRequestException,
+    );
     expect(sign).not.toHaveBeenCalled();
   });
 
@@ -76,7 +85,7 @@ describe('UploadsController.sign', () => {
     const { controller } = setup();
 
     await expect(
-      controller.sign({
+      controller.sign(request, {
         files: Array.from({ length: 20 }, (_, i) =>
           file({ name: `f${i}.pdf`, size: 100 * 1024 * 1024 }),
         ),

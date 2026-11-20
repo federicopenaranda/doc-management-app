@@ -111,8 +111,8 @@ run "backend_env_has_worker_settings" {
   command = apply
 
   assert {
-    condition     = one([for env in google_cloud_run_v2_service.backend.template[0].containers[0].env : env.value if env.name == "PROCESSED_BUCKET"]) == "doc-management-sandbox-documents-processed"
-    error_message = "the backend must know the processed bucket"
+    condition     = length([for env in google_cloud_run_v2_service.backend.template[0].containers[0].env : env.name if env.name == "PROCESSED_BUCKET"]) == 0
+    error_message = "there is no separate processed bucket any more"
   }
 
   assert {

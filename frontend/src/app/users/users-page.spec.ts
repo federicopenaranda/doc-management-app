@@ -423,6 +423,7 @@ describe('UsersPage your own row', () => {
     firstName: 'Ana',
     lastName: 'García',
     language: 'en',
+    canUpload: false,
   };
 
   it('cannot be disabled or archived by yourself, while the others can', async () => {

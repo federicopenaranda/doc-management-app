@@ -5,7 +5,8 @@ import request from 'supertest';
 
 // ConfigModule.forRoot() validates the environment when AppModule is first imported,
 // so each case re-imports the app after setting the flags.
-async function createApp() {
+// `folder` is what the upload rule finds for the user: a client folder, or null for a user who cannot upload.
+async function createApp(folder: string | null = 'acme-20261103-3f9a1c2b') {
   process.env.DATABASE_ENABLED = 'true';
   vi.resetModules();
   const { AppModule } = await import('./../src/app.module.js');
@@ -18,18 +19,24 @@ async function createApp() {
     .useValue({
       pool: {
         // Every request checks that the token's user is still active: here that is always so.
-        query: vi.fn().mockResolvedValue({
-          rows: [
-            {
-              id: 'user-1',
-              email: 'ana@example.com',
-              first_name: 'Ana',
-              last_name: 'García',
-              is_active: true,
-              created_at: new Date('2026-11-09T12:00:00Z'),
-            },
-          ],
-        }),
+        query: vi.fn((sql: string) =>
+          Promise.resolve({
+            rows: sql.startsWith('SELECT clients.storage_folder')
+              ? folder
+                ? [{ storage_folder: folder }]
+                : []
+              : [
+                  {
+                    id: 'user-1',
+                    email: 'ana@example.com',
+                    first_name: 'Ana',
+                    last_name: 'García',
+                    is_active: true,
+                    created_at: new Date('2026-11-09T12:00:00Z'),
+                  },
+                ],
+          }),
+        ),
       },
     })
     .overrideProvider(URL_SIGNER)
@@ -77,6 +84,17 @@ describe('POST /uploads/sign (e2e)', () => {
     await app.close();
   });
 
+  it('answers 403 for a user who cannot upload (a viewer, or no client)', async () => {
+    const { app, token } = await createApp(null);
+
+    await request(app.getHttpServer())
+      .post('/uploads/sign')
+      .set('Authorization', `Bearer ${token}`)
+      .send(body)
+      .expect(403);
+    await app.close();
+  });
+
   it('returns a signed upload per file for a valid token', async () => {
     const { app, token } = await createApp();
 
@@ -90,7 +108,11 @@ describe('POST /uploads/sign (e2e)', () => {
       uploads: [
         {
           name: 'a.pdf',
-          url: 'https://signed.example/a.pdf',
+          url: expect.stringMatching(
+            new RegExp(
+              '^https://signed\\.example/originals/acme-20261103-3f9a1c2b/a-[0-9a-f]{8}/a\\.pdf$',
+            ),
+          ),
           headers: {
             'Content-Type': 'application/pdf',
             'x-goog-if-generation-match': '0',

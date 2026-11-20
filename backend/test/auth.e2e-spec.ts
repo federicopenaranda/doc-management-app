@@ -67,6 +67,9 @@ async function createApp() {
     if (sql.startsWith('SELECT language FROM users')) {
       return Promise.resolve({ rows: [{ language }] });
     }
+    if (sql.startsWith('SELECT clients.storage_folder FROM users')) {
+      return Promise.resolve({ rows: [] }); // no client, so no upload
+    }
     if (sql.startsWith('UPDATE users SET language')) {
       language = params[1];
       return Promise.resolve({ rows: [{ id: USER_ID }] });
@@ -333,6 +336,7 @@ describe('auth (e2e)', () => {
         firstName: 'Ana',
         lastName: 'García',
         language: 'en',
+        canUpload: false,
       });
       await app.close();
     });

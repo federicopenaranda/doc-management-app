@@ -7,6 +7,8 @@ export interface ClientSummary {
   phone: string | null;
   email: string;
   prefix: string;
+  /** Folder of the client's files in the bucket. Set once at creation and never changed, even if the name changes. */
+  storageFolder: string;
   createdAt: Date;
   updatedAt: Date;
   /** False once the client is disabled. Clients are disabled, never deleted. */

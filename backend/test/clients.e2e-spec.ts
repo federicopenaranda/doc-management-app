@@ -1,4 +1,5 @@
 import { JwtService } from '@nestjs/jwt';
+import { clientFolder } from '../src/clients/client-folder.js';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -61,18 +62,20 @@ async function createApp() {
   };
   const query = (sql: string, params: unknown[] = []) => {
     if (sql.startsWith('INSERT INTO clients')) {
-      const [name, address, code, phone, email, prefix] = params;
+      const [id, name, address, code, phone, email, prefix, createdAt, folder] =
+        params;
       const clash = taken({ code, email, prefix });
       if (clash) return clash;
       const row = {
-        id: `00000000-0000-4000-8000-${String(rows.length + 1).padStart(12, '0')}`,
+        id,
         name,
         address,
         code,
         phone,
         email,
         prefix,
-        created_at: new Date('2026-11-13T12:00:00Z'),
+        storage_folder: folder,
+        created_at: createdAt,
         updated_at: new Date('2026-11-13T12:00:00Z'),
         disabled_at: null,
       };
@@ -156,18 +159,27 @@ describe('clients (e2e)', () => {
       })
       .expect(201);
 
+    const { id, createdAt } = created.body.data as {
+      id: string;
+      createdAt: string;
+    };
     expect(created.body.data).toEqual({
-      id: '00000000-0000-4000-8000-000000000001',
+      id,
       name: 'Acme',
       address: null,
       code: 'ACME',
       phone: null,
       email: 'info@acme.com',
       prefix: 'ACM',
-      createdAt: '2026-11-13T12:00:00.000Z',
+      storageFolder: clientFolder('Acme', new Date(createdAt), id),
+      createdAt,
       updatedAt: '2026-11-13T12:00:00.000Z',
       isActive: true,
     });
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(created.body.data.storageFolder).toMatch(
+      /^acme-[0-9]{8}-[0-9a-f]{8}$/,
+    );
     const list = await request(server).get('/clients').set(authed(token));
     expect(list.body.data).toHaveLength(1);
     await app.close();

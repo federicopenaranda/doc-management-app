@@ -8,6 +8,8 @@ import { RouterLink } from '@angular/router';
 })
 export class SideMenu {
   readonly open = input.required<boolean>();
+  /** Only users who may upload see the Upload entry. */
+  readonly canUpload = input(false);
   readonly closed = output<void>();
 
   private readonly first = viewChild<ElementRef<HTMLElement>>('first');
