@@ -3,6 +3,19 @@ export interface DocumentEvent {
   name: string;
   generation: string;
   contentType?: string | undefined;
+  /** Bytes, as Cloud Storage reports them. */
+  size: number;
+  /** Custom metadata of the object, without the x-goog-meta- prefix (the upload puts `uploaded-by` here). */
+  metadata?: Record<string, string> | undefined;
+}
+
+/** A document to add to the list of its client. */
+export interface NewDocument {
+  clientFolder: string;
+  storagePath: string;
+  originalName: string;
+  sizeBytes: number;
+  uploadedBy: string;
 }
 
 export interface ObjectStore {

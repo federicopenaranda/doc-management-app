@@ -19,6 +19,9 @@ const gcsEvent = z.object({
   name: z.string().min(1),
   generation: z.coerce.string(),
   contentType: z.string().optional(),
+  // Cloud Storage sends numbers as strings.
+  size: z.coerce.number().int().nonnegative(),
+  metadata: z.record(z.string(), z.string()).optional(),
 });
 
 @ApiExcludeController()

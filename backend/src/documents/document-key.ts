@@ -35,9 +35,26 @@ export function originalKey(storageFolder: string, fileName: string): string {
  * Undefined for any object that is not `originals/<client>/<doc>/<file>`, so the worker ignores everything else.
  */
 export function processedKey(originalName: string): string | undefined {
-  const [root, client, doc, file, ...rest] = originalName.split('/');
-  if (root !== 'originals' || !client || !doc || !file || rest.length > 0) {
+  const original = parseOriginal(originalName);
+  return original
+    ? `processed/${original.clientFolder}/${original.docFolder}/document.md`
+    : undefined;
+}
+
+/** The parts of `originals/<client folder>/<doc folder>/<file name>`; undefined for any other object name. */
+export function parseOriginal(
+  objectName: string,
+): { clientFolder: string; docFolder: string; fileName: string } | undefined {
+  const [root, clientFolder, docFolder, fileName, ...rest] =
+    objectName.split('/');
+  if (
+    root !== 'originals' ||
+    !clientFolder ||
+    !docFolder ||
+    !fileName ||
+    rest.length > 0
+  ) {
     return undefined;
   }
-  return `processed/${client}/${doc}/document.md`;
+  return { clientFolder, docFolder, fileName };
 }

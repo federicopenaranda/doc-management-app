@@ -2,16 +2,20 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleAuth } from 'google-auth-library';
 import type { Env } from '../config/env.validation.js';
+import { DatabaseModule } from '../database/database.module.js';
 import { DocumentsController } from './documents.controller.js';
+import { DocumentsRepository } from './documents.repository.js';
 import { DocumentsService } from './documents.service.js';
 import { OBJECT_STORE, gcsObjectStore } from './object-store.js';
 import { PubsubOidcGuard } from './pubsub-oidc.guard.js';
 import { TikaClient } from './tika.client.js';
 
 @Module({
+  imports: [DatabaseModule],
   controllers: [DocumentsController],
   providers: [
     DocumentsService,
+    DocumentsRepository,
     PubsubOidcGuard,
     { provide: OBJECT_STORE, useFactory: () => gcsObjectStore() },
     {
