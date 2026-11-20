@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
-import type { NewDocument } from './document.model.js';
+import type { DocumentSummary, NewDocument } from './document.model.js';
 
 @Injectable()
 export class DocumentsRepository {
@@ -30,5 +30,34 @@ export class DocumentsRepository {
       ],
     );
     return rows.length > 0;
+  }
+
+  /** The documents of one client, newest first. */
+  async listForClient(clientId: string): Promise<DocumentSummary[]> {
+    const { rows } = await this.pool.query<{
+      id: string;
+      original_name: string;
+      size_bytes: string;
+      created_at: Date;
+    }>(
+      'SELECT id, original_name, size_bytes, created_at FROM documents WHERE client_id = $1 ORDER BY created_at DESC, id',
+      [clientId],
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.original_name,
+      // bigint arrives as text; a file is far below 2^53 bytes.
+      sizeBytes: Number(row.size_bytes),
+      createdAt: row.created_at,
+    }));
+  }
+
+  /** Where the file is in the bucket, only for a document of that client; null otherwise. */
+  async pathOf(id: string, clientId: string): Promise<string | null> {
+    const { rows } = await this.pool.query<{ storage_path: string }>(
+      'SELECT storage_path FROM documents WHERE id = $1 AND client_id = $2',
+      [id, clientId],
+    );
+    return rows[0]?.storage_path ?? null;
   }
 }

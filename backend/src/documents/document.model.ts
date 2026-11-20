@@ -9,6 +9,14 @@ export interface DocumentEvent {
   metadata?: Record<string, string> | undefined;
 }
 
+/** One row of the list of documents of a client. */
+export interface DocumentSummary {
+  id: string;
+  name: string;
+  sizeBytes: number;
+  createdAt: Date;
+}
+
 /** A document to add to the list of its client. */
 export interface NewDocument {
   clientFolder: string;

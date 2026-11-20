@@ -54,3 +54,46 @@ describe('DocumentsRepository.record', () => {
     expect(await repository.record(entry)).toBe(false);
   });
 });
+
+describe('DocumentsRepository.listForClient', () => {
+  it('lists the documents of one client, newest first, with the size as a number', async () => {
+    const created = new Date('2026-11-20T12:00:00Z');
+    const { repository, query } = setup([
+      {
+        id: 'd1',
+        original_name: 'Report.pdf',
+        size_bytes: '1234',
+        created_at: created,
+      },
+    ]);
+
+    expect(await repository.listForClient('c1')).toEqual([
+      { id: 'd1', name: 'Report.pdf', sizeBytes: 1234, createdAt: created },
+    ]);
+
+    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain('WHERE client_id = $1');
+    expect(sql).toContain('ORDER BY created_at DESC');
+    expect(params).toEqual(['c1']);
+  });
+});
+
+describe('DocumentsRepository.pathOf', () => {
+  it('gives the storage path of a document, only when it belongs to that client', async () => {
+    const { repository, query } = setup([
+      { storage_path: 'originals/a/b/c.pdf' },
+    ]);
+
+    expect(await repository.pathOf('d1', 'c1')).toBe('originals/a/b/c.pdf');
+
+    const [sql, params] = query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain('WHERE id = $1 AND client_id = $2');
+    expect(params).toEqual(['d1', 'c1']);
+  });
+
+  it('is null for a document of another client or one that does not exist', async () => {
+    const { repository } = setup([]);
+
+    expect(await repository.pathOf('d1', 'c1')).toBeNull();
+  });
+});
