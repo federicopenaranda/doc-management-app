@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './auth/auth.guard';
+import { authGuard, uploadGuard } from './auth/auth.guard';
 
 export const routes: Routes = [
   {
@@ -18,6 +18,7 @@ export const routes: Routes = [
       },
       {
         path: 'upload',
+        canMatch: [uploadGuard],
         loadComponent: () => import('./uploads/upload-page').then((m) => m.UploadPage),
       },
       {

@@ -74,16 +74,20 @@
             @case ('failed') {
               <span class="flex items-center gap-2 text-red-800">
                 <mat-icon aria-hidden="true" fontIcon="error" />
-                <ng-container i18n>The upload failed</ng-container>
-                <button
-                  matButton
-                  type="button"
-                  [attr.aria-label]="retryLabel(item.file.name)"
-                  (click)="retry(item.id)"
-                  i18n
-                >
-                  Retry
-                </button>
+                @if (item.error === 'not-allowed') {
+                  <ng-container i18n>You are not allowed to upload files</ng-container>
+                } @else {
+                  <ng-container i18n>The upload failed</ng-container>
+                  <button
+                    matButton
+                    type="button"
+                    [attr.aria-label]="retryLabel(item.file.name)"
+                    (click)="retry(item.id)"
+                    i18n
+                  >
+                    Retry
+                  </button>
+                }
               </span>
             }
           }

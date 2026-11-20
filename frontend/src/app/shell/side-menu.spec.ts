@@ -2,10 +2,10 @@ import { provideRouter } from '@angular/router';
 import { fireEvent, render, screen } from '@testing-library/angular';
 import { SideMenu } from './side-menu';
 
-async function setup(open: boolean) {
+async function setup(open: boolean, canUpload = false) {
   const closed = vi.fn();
   await render(SideMenu, {
-    inputs: { open },
+    inputs: { open, canUpload },
     on: { closed },
     // A catch-all route, so clicking a link has somewhere to go.
     providers: [provideRouter([{ path: '**', children: [] }])],
@@ -36,6 +36,18 @@ describe('SideMenu', () => {
 
     const link = screen.getByRole('link', { name: 'Users' });
     expect(link.getAttribute('href')).toBe('/users');
+  });
+
+  it('has an Upload entry linking to /upload only for a user who can upload', async () => {
+    await setup(true, true);
+
+    expect(screen.getByRole('link', { name: 'Upload' }).getAttribute('href')).toBe('/upload');
+  });
+
+  it('has no Upload entry for a user who cannot upload', async () => {
+    await setup(true, false);
+
+    expect(screen.queryByRole('link', { name: 'Upload' })).toBeNull();
   });
 
   it('has a Clients entry linking to /clients', async () => {

@@ -1,5 +1,6 @@
-import { Component, signal, viewChild } from '@angular/core';
+import { Component, inject, signal, viewChild } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { AuthService } from '../auth/auth.service';
 import { isTypingTarget } from './is-typing-target';
 import { SideMenu } from './side-menu';
 import { Toolbar } from './toolbar';
@@ -10,11 +11,16 @@ import { Toolbar } from './toolbar';
   host: { '(document:keydown)': 'onKeydown($event)' },
   template: `
     <dms-toolbar [menuOpen]="menuOpen()" (menuToggle)="menuOpen.update((open) => !open)" />
-    <dms-side-menu [open]="menuOpen()" (closed)="closeMenu()" />
+    <dms-side-menu
+      [open]="menuOpen()"
+      [canUpload]="auth.currentUser()?.canUpload ?? false"
+      (closed)="closeMenu()"
+    />
     <main><router-outlet /></main>
   `,
 })
 export class Shell {
+  protected readonly auth = inject(AuthService);
   protected readonly menuOpen = signal(false);
 
   private readonly toolbar = viewChild(Toolbar);

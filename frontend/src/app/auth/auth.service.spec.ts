@@ -257,6 +257,7 @@ describe('AuthService current user', () => {
     firstName: 'Ana',
     lastName: 'García',
     language: 'es',
+    canUpload: false,
   };
   beforeEach(() => sessionStorage.clear());
 
