@@ -1,5 +1,3 @@
-import type { ConfigService } from '@nestjs/config';
-import type { Env } from '../config/env.validation.js';
 import { DocumentsController } from './documents.controller.js';
 import type { DocumentsService } from './documents.service.js';
 
@@ -10,22 +8,16 @@ const push = (event: unknown) => ({
 
 const validEvent = {
   bucket: 'dms-docs',
-  name: 'a.pdf',
+  name: 'originals/acme-20261103-3f9a1c2b/a-1234abcd/a.pdf',
   generation: '3',
   contentType: 'application/pdf',
 };
 
 function setup() {
   const service = { process: vi.fn().mockResolvedValue(undefined) };
-  const config = {
-    get: () => 'dms-processed',
-  } as unknown as ConfigService<Env, true>;
   return {
     service,
-    controller: new DocumentsController(
-      config,
-      service as unknown as DocumentsService,
-    ),
+    controller: new DocumentsController(service as unknown as DocumentsService),
   };
 }
 
@@ -44,8 +36,16 @@ describe('DocumentsController.receive', () => {
     ['an event without a name', push({ bucket: 'b' })],
     ['a folder marker', push({ ...validEvent, name: 'folder/' })],
     [
-      'an event of the processed bucket',
-      push({ ...validEvent, bucket: 'dms-processed' }),
+      'a processed document (written by the worker itself)',
+      push({
+        ...validEvent,
+        name: 'processed/acme-20261103-3f9a1c2b/a-1234abcd/document.md',
+      }),
+    ],
+    ['a flat file, outside originals/', push({ ...validEvent, name: 'a.pdf' })],
+    [
+      'an original without a doc folder',
+      push({ ...validEvent, name: 'originals/acme-20261103-3f9a1c2b/a.pdf' }),
     ],
   ])('acknowledges and skips %s', async (_label, body) => {
     const { controller, service } = setup();

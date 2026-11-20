@@ -7,10 +7,9 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { z } from 'zod';
-import type { Env } from '../config/env.validation.js';
+import { processedKey } from './document-key.js';
 import { DocumentsService } from './documents.service.js';
 import { PubsubOidcGuard } from './pubsub-oidc.guard.js';
 
@@ -29,10 +28,7 @@ const gcsEvent = z.object({
 export class DocumentsController {
   private readonly logger = new Logger(DocumentsController.name);
 
-  constructor(
-    private readonly config: ConfigService<Env, true>,
-    private readonly documents: DocumentsService,
-  ) {}
+  constructor(private readonly documents: DocumentsService) {}
 
   /** Pub/Sub push endpoint. 200 acknowledges; an error makes Pub/Sub retry, then dead-letter. */
   @Post('documents')
@@ -41,12 +37,9 @@ export class DocumentsController {
   async receive(@Body() body: unknown): Promise<void> {
     const event = this.decode(body);
     if (!event) return;
-    if (
-      event.name.endsWith('/') ||
-      event.bucket === this.config.get('PROCESSED_BUCKET', { infer: true })
-    ) {
-      return;
-    }
+    // Only originals/<client>/<doc>/<file> is work for the worker; the notification already filters on originals/, this
+    // keeps anything else (and the worker's own output) from being processed.
+    if (processedKey(event.name) === undefined) return;
     await this.documents.process(event);
   }
 

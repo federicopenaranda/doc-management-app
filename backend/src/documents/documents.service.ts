@@ -1,7 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import type { Env } from '../config/env.validation.js';
-import { documentFolder } from './document-key.js';
+import { processedKey } from './document-key.js';
 import { buildOkf } from './okf.js';
 import { OBJECT_STORE } from './object-store.js';
 import type { ObjectStore } from './document.model.js';
@@ -13,10 +11,9 @@ export class DocumentsService {
   constructor(
     @Inject(OBJECT_STORE) private readonly store: ObjectStore,
     private readonly tika: TikaClient,
-    private readonly config: ConfigService<Env, true>,
   ) {}
 
-  /** Turns one uploaded file into `<folder>/document.md` in the processed bucket. Errors propagate so Pub/Sub retries. */
+  /** Turns one original into `processed/<client>/<doc>/document.md`, in the same bucket. Errors propagate so Pub/Sub retries. */
   async process(event: DocumentEvent): Promise<void> {
     const bytes = await this.store.download(event.bucket, event.name);
     const result = await this.tika.extract(bytes, event.contentType);
@@ -27,11 +24,8 @@ export class DocumentsService {
       metadata: result.metadata,
       content: result.content,
     });
-    const folder = documentFolder(event.bucket, event.name, event.generation);
-    await this.store.upload(
-      this.config.get('PROCESSED_BUCKET', { infer: true }) as string,
-      `${folder}/document.md`,
-      okf,
-    );
+    const key = processedKey(event.name);
+    if (key === undefined) throw new Error(`Not an original: ${event.name}`);
+    await this.store.upload(event.bucket, key, okf);
   }
 }

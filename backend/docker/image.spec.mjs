@@ -21,7 +21,6 @@ const config = {
   GCS_BUCKET: 'dms-documents',
   FRONTEND_URLS: 'http://localhost:4200',
   TIKA_URL: 'https://tika.example.com',
-  PROCESSED_BUCKET: 'dms-documents-processed',
   BACKEND_URL: 'https://backend.example.com',
   PUBSUB_PUSH_SA_EMAIL: 'pubsub-push@project.iam.gserviceaccount.com',
 };
