@@ -331,6 +331,34 @@ describe('UsersRepository.clientIsActive', () => {
   });
 });
 
+describe('UsersRepository.uploadFolderOf', () => {
+  it('asks for the folder of the active client of an active, not archived user with an active editor or admin role', async () => {
+    const { repository, query } = setup([
+      { storage_folder: 'acme-20261103-3f9a1c2b' },
+    ]);
+
+    expect(await repository.uploadFolderOf('u1')).toBe(
+      'acme-20261103-3f9a1c2b',
+    );
+
+    const [sql, params] = query.mock.calls[0] as [string, string[]];
+    expect(params).toEqual(['u1']);
+    expect(sql).toContain('JOIN clients');
+    expect(sql).toContain('clients.disabled_at IS NULL');
+    expect(sql).toContain('users.is_active');
+    expect(sql).toContain('users.archived_at IS NULL');
+    expect(sql).toContain('user_roles.revoked_at IS NULL');
+    expect(sql).toContain("role_key IN ('editor', 'admin')");
+    expect(sql).not.toContain('viewer');
+  });
+
+  it('is null when no row qualifies', async () => {
+    const { repository } = setup([]);
+
+    expect(await repository.uploadFolderOf('u1')).toBeNull();
+  });
+});
+
 describe('UsersRepository.archive', () => {
   it('marks the user archived (when and by whom), switches it off, and keeps the row', async () => {
     const { repository, query } = setup([{ id: 'u1' }]);
