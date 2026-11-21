@@ -93,6 +93,15 @@ run "tika_callable_only_by_backend" {
   }
 }
 
+run "tika_scales_to_four_instances" {
+  command = plan
+
+  assert {
+    condition     = google_cloud_run_v2_service.tika.template[0].scaling[0].max_instance_count == 4
+    error_message = "Tika answered 429 when several files arrived at once; it may use up to 4 instances"
+  }
+}
+
 run "tika_runs_from_dockerhub_remote_repo" {
   command = plan
 
