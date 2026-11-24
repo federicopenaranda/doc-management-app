@@ -2,7 +2,7 @@
 <mat-dialog-content>
   <mat-form-field class="w-full">
     <mat-label i18n>Language</mat-label>
-    <mat-select [value]="shown()" (selectionChange)="save($event.value)">
+    <mat-select [value]="shown()" (selectionChange)="pick($event.value)">
       <mat-option value="en">English</mat-option>
       <mat-option value="es">Español</mat-option>
     </mat-select>
@@ -13,4 +13,7 @@
 </mat-dialog-content>
 <mat-dialog-actions align="end">
   <button matButton type="button" (click)="ref.close()" i18n>Close</button>
+  <button matButton="filled" type="button" [disabled]="!changed()" (click)="accept()" i18n>
+    Accept
+  </button>
 </mat-dialog-actions>

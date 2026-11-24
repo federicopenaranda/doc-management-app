@@ -1,8 +1,9 @@
 import { afterRenderEffect, Component, ElementRef, input, output, viewChild } from '@angular/core';
+import { MatIcon } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
 @Component({
-  imports: [RouterLink],
+  imports: [MatIcon, RouterLink],
   selector: 'dms-side-menu',
   templateUrl: './side-menu.html',
 })

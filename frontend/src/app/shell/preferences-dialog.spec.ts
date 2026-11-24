@@ -65,7 +65,32 @@ describe('PreferencesDialog', () => {
     ).toEqual(['English', 'Español']);
     await fireEvent.click(within(listbox).getByRole('option', { name: 'Español' }));
 
+    // Picking only selects: nothing is saved until Accept.
+    expect(auth.setLanguage).not.toHaveBeenCalled();
+    await fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
     expect(auth.setLanguage).toHaveBeenCalledWith('es');
+  });
+
+  it('keeps Accept disabled until a language other than the saved one is picked', async () => {
+    await setup();
+    const acceptButton = screen.getByRole('button', { name: 'Accept' });
+    expect((acceptButton as HTMLButtonElement).disabled).toBe(true);
+
+    await fireEvent.click(screen.getByRole('combobox', { name: 'Language' }));
+    await fireEvent.click(await screen.findByRole('option', { name: 'Español' }));
+
+    expect((acceptButton as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('closes the dialog once the language is saved', async () => {
+    const { ref } = await setup();
+
+    await fireEvent.click(screen.getByRole('combobox', { name: 'Language' }));
+    await fireEvent.click(await screen.findByRole('option', { name: 'Español' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+    await waitFor(() => expect(ref.close).toHaveBeenCalled());
   });
 
   it('switches to that language copy once the server has accepted it', async () => {
@@ -73,6 +98,7 @@ describe('PreferencesDialog', () => {
 
     await fireEvent.click(screen.getByRole('combobox', { name: 'Language' }));
     await fireEvent.click(await screen.findByRole('option', { name: 'Español' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
 
     await waitFor(() => expect(locale.switchTo).toHaveBeenCalledExactlyOnceWith('es'));
   });
@@ -82,6 +108,7 @@ describe('PreferencesDialog', () => {
 
     await fireEvent.click(screen.getByRole('combobox', { name: 'Language' }));
     await fireEvent.click(await screen.findByRole('option', { name: 'Español' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
 
     expect((await screen.findByRole('alert')).textContent).toContain('Could not save');
     expect(locale.switchTo).not.toHaveBeenCalled();
@@ -99,6 +126,7 @@ describe('PreferencesDialog', () => {
     const pickSpanish = async () => {
       await fireEvent.click(screen.getByRole('combobox', { name: 'Language' }));
       await fireEvent.click(await screen.findByRole('option', { name: 'Español' }));
+      await fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
     };
 
     it('does not ask when no upload is in progress', async () => {
