@@ -92,7 +92,10 @@
       />
     </button>
     @if (preferencesEnabled) {
-      <button mat-menu-item type="button" (click)="openPreferences()" i18n>Preferences</button>
+      <button mat-menu-item type="button" (click)="openPreferences()">
+        <mat-icon fontIcon="tune" />
+        <span i18n>Preferences</span>
+      </button>
     }
     <button mat-menu-item type="button" (click)="logout()">
       <mat-icon fontIcon="logout" />

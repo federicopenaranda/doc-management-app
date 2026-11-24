@@ -17,39 +17,44 @@
       #first
       routerLink="/"
       (click)="closed.emit()"
-      class="rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
-      i18n
-      >Home</a
+      class="flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
     >
+      <mat-icon fontIcon="home" />
+      <span i18n>Home</span>
+    </a>
     <a
       routerLink="/documents"
       (click)="closed.emit()"
-      class="rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
-      i18n
-      >Documents</a
+      class="flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
     >
+      <mat-icon fontIcon="description" />
+      <span i18n>Documents</span>
+    </a>
     @if (canUpload()) {
       <a
         routerLink="/upload"
         (click)="closed.emit()"
-        class="rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
-        i18n
-        >Upload</a
+        class="flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
       >
+        <mat-icon fontIcon="upload_file" />
+        <span i18n>Upload</span>
+      </a>
     }
     <a
       routerLink="/users"
       (click)="closed.emit()"
-      class="rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
-      i18n
-      >Users</a
+      class="flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
     >
+      <mat-icon fontIcon="group" />
+      <span i18n>Users</span>
+    </a>
     <a
       routerLink="/clients"
       (click)="closed.emit()"
-      class="rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
-      i18n
-      >Clients</a
+      class="flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-(--mat-sys-surface-container-high)"
     >
+      <mat-icon fontIcon="business" />
+      <span i18n>Clients</span>
+    </a>
   </nav>
 }

@@ -88,3 +88,19 @@ describe('SideMenu', () => {
     expect(closed).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('SideMenu icons', () => {
+  it.each([
+    ['Home', 'home'],
+    ['Documents', 'description'],
+    ['Upload', 'upload_file'],
+    ['Users', 'group'],
+    ['Clients', 'business'],
+  ])('shows the %s entry with the %s icon', async (name, icon) => {
+    await setup(true, true);
+
+    const link = screen.getByRole('link', { name });
+
+    expect(link.querySelector('mat-icon')?.getAttribute('fonticon')).toBe(icon);
+  });
+});

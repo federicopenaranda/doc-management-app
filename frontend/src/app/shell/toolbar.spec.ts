@@ -231,6 +231,15 @@ describe('Toolbar preferences', () => {
     expect(await screen.findByRole('dialog')).toBeTruthy();
   });
 
+  it('shows Preferences with the tune icon', async () => {
+    await renderToolbar({ preferencesEnabled: true });
+    await fireEvent.click(screen.getByRole('button', { name: /user menu/i }));
+
+    const item = await screen.findByRole('menuitem', { name: 'Preferences' });
+
+    expect(item.querySelector('mat-icon')?.getAttribute('fonticon')).toBe('tune');
+  });
+
   it('is not in the menu while the preferences flag is off', async () => {
     await renderToolbar({ preferencesEnabled: false });
     await openUserMenu();
