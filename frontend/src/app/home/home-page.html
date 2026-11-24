@@ -1,0 +1,24 @@
+<h1 class="sr-only" i18n>Home</h1>
+<p class="m-4 mb-0 text-sm text-(--mat-sys-on-surface-variant)" i18n>
+  Sample data, to show how the dashboard will look.
+</p>
+<div class="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+  <section
+    class="rounded-lg border border-(--mat-sys-outline-variant) bg-(--mat-sys-surface-container) p-4"
+  >
+    <h2 class="mb-2 font-medium">{{ perMonthLabel }}</h2>
+    <dms-chart [config]="perMonth" [label]="perMonthLabel" />
+  </section>
+  <section
+    class="rounded-lg border border-(--mat-sys-outline-variant) bg-(--mat-sys-surface-container) p-4"
+  >
+    <h2 class="mb-2 font-medium">{{ perWeekLabel }}</h2>
+    <dms-chart [config]="perWeek" [label]="perWeekLabel" />
+  </section>
+  <section
+    class="rounded-lg border border-(--mat-sys-outline-variant) bg-(--mat-sys-surface-container) p-4"
+  >
+    <h2 class="mb-2 font-medium">{{ byTypeLabel }}</h2>
+    <dms-chart [config]="byType" [label]="byTypeLabel" />
+  </section>
+</div>
