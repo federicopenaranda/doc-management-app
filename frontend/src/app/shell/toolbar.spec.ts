@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { fireEvent, render, screen } from '@testing-library/angular';
+import { AppConfigService } from '../app-config.service';
 import { AuthService } from '../auth/auth.service';
 import type { CurrentUser } from '../auth/auth.model';
 import { Toolbar } from './toolbar';
@@ -23,6 +24,7 @@ function renderToolbar({
     on,
     providers: [
       provideRouter([]),
+      { provide: AppConfigService, useValue: { apiUrl: 'http://localhost:3000' } },
       {
         provide: AuthService,
         useValue: {
