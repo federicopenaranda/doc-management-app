@@ -4,7 +4,6 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { API_URL } from './api-url';
-import { AppConfigService } from './app-config.service';
 import { routes } from './app.routes';
 import { AuthService } from './auth/auth.service';
 import { ClientsApi } from './clients/clients-api';
@@ -18,7 +17,6 @@ function setup(canUpload = true) {
       provideRouter(routes),
       provideHttpClient(),
       { provide: API_URL, useValue: 'http://localhost:3000' },
-      { provide: AppConfigService, useValue: { preferencesEnabled: false } },
       {
         provide: AuthService,
         useValue: {

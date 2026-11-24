@@ -2,7 +2,6 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { fireEvent, render, screen } from '@testing-library/angular';
-import { AppConfigService } from '../app-config.service';
 import { AuthService } from '../auth/auth.service';
 import type { CurrentUser } from '../auth/auth.model';
 import { Toolbar } from './toolbar';
@@ -11,12 +10,10 @@ const logoutEverywhere = vi.fn();
 const loadCurrentUser = vi.fn();
 
 function renderToolbar({
-  preferencesEnabled = false,
   user = null,
   inputs,
   on,
 }: {
-  preferencesEnabled?: boolean;
   user?: CurrentUser | null;
   inputs?: { menuOpen: boolean };
   on?: { menuToggle: () => void };
@@ -26,7 +23,6 @@ function renderToolbar({
     on,
     providers: [
       provideRouter([]),
-      { provide: AppConfigService, useValue: { preferencesEnabled } },
       {
         provide: AuthService,
         useValue: {
@@ -223,7 +219,7 @@ describe('Toolbar preferences', () => {
   const openUserMenu = () => fireEvent.click(screen.getByRole('button', { name: /user menu/i }));
 
   it('opens the preferences dialog from the user menu', async () => {
-    await renderToolbar({ preferencesEnabled: true });
+    await renderToolbar();
     await openUserMenu();
 
     await fireEvent.click(await screen.findByRole('menuitem', { name: 'Preferences' }));
@@ -232,20 +228,12 @@ describe('Toolbar preferences', () => {
   });
 
   it('shows Preferences with the tune icon', async () => {
-    await renderToolbar({ preferencesEnabled: true });
+    await renderToolbar();
     await fireEvent.click(screen.getByRole('button', { name: /user menu/i }));
 
     const item = await screen.findByRole('menuitem', { name: 'Preferences' });
 
     expect(item.querySelector('mat-icon')?.getAttribute('fonticon')).toBe('tune');
-  });
-
-  it('is not in the menu while the preferences flag is off', async () => {
-    await renderToolbar({ preferencesEnabled: false });
-    await openUserMenu();
-
-    await screen.findAllByRole('menuitem');
-    expect(screen.queryByRole('menuitem', { name: 'Preferences' })).toBeNull();
   });
 });
 

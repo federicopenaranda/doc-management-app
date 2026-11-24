@@ -1,7 +1,6 @@
 import { NgOptimizedImage } from '@angular/common';
 import { Component, computed, ElementRef, inject, input, output, viewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { AppConfigService } from '../app-config.service';
 import { AuthService } from '../auth/auth.service';
 import { MatIconButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -27,7 +26,6 @@ import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 })
 export class Toolbar {
   protected readonly theme = inject(ThemeService);
-  protected readonly preferencesEnabled = inject(AppConfigService).preferencesEnabled;
   private readonly dialog = inject(MatDialog);
   private readonly auth = inject(AuthService);
 

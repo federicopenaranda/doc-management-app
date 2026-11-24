@@ -2,7 +2,6 @@ import { ApplicationRef, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { fireEvent, render, screen } from '@testing-library/angular';
-import { AppConfigService } from '../app-config.service';
 import { AuthService } from '../auth/auth.service';
 import { Shell } from './shell';
 
@@ -10,7 +9,6 @@ async function setup() {
   return render(Shell, {
     providers: [
       provideRouter([]),
-      { provide: AppConfigService, useValue: { preferencesEnabled: false } },
       {
         provide: AuthService,
         useValue: { currentUser: signal(null), loadCurrentUser: vi.fn(), logout: vi.fn() },
@@ -24,7 +22,6 @@ describe('Shell', () => {
     await render(Shell, {
       providers: [
         provideRouter([]),
-        { provide: AppConfigService, useValue: { preferencesEnabled: false } },
         {
           provide: AuthService,
           useValue: {
@@ -146,10 +143,6 @@ describe('Shell', () => {
         imports: [Shell],
         providers: [
           provideRouter([]),
-          {
-            provide: AppConfigService,
-            useValue: { preferencesEnabled: false },
-          },
           {
             provide: AuthService,
             useValue: { currentUser: signal(null), loadCurrentUser: vi.fn(), logout: vi.fn() },
