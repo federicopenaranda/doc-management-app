@@ -1,0 +1,26 @@
+<canvas #canvas role="img" [attr.aria-label]="label()"></canvas>
+<table class="sr-only">
+  <caption>
+    {{
+      label()
+    }}
+  </caption>
+  <thead>
+    <tr>
+      <th scope="col"></th>
+      @for (name of series(); track $index) {
+        <th scope="col">{{ name }}</th>
+      }
+    </tr>
+  </thead>
+  <tbody>
+    @for (row of rows(); track $index) {
+      <tr>
+        <th scope="row">{{ row.name }}</th>
+        @for (value of row.values; track $index) {
+          <td>{{ value }}</td>
+        }
+      </tr>
+    }
+  </tbody>
+</table>
