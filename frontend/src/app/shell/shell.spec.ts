@@ -92,7 +92,7 @@ describe('Shell', () => {
       await setup();
       await openMenu();
 
-      await fireEvent.click(screen.getByRole('button', { name: 'Shared' }));
+      await fireEvent.click(screen.getByRole('link', { name: 'Home' }));
 
       expect(document.activeElement).toBe(screen.getByRole('button', { name: /open menu/i }));
     });
@@ -126,7 +126,7 @@ describe('Shell', () => {
       await setup();
       await openMenu();
 
-      await fireEvent.click(screen.getByRole('button', { name: 'Shared' }));
+      await fireEvent.click(screen.getByRole('link', { name: 'Home' }));
 
       expect(screen.queryByRole('navigation', { name: /main menu/i })).toBeNull();
     });

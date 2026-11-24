@@ -91,9 +91,6 @@
         [checked]="theme.scheme() === 'dark'"
       />
     </button>
-    <button mat-menu-item type="button" i18n>Profile</button>
-    <button mat-menu-item type="button" i18n>Documents</button>
-    <button mat-menu-item type="button" i18n>Settings</button>
     @if (preferencesEnabled) {
       <button mat-menu-item type="button" (click)="openPreferences()" i18n>Preferences</button>
     }

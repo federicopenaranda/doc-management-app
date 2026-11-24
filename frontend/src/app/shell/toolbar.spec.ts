@@ -146,6 +146,17 @@ describe('Toolbar', () => {
     );
   });
 
+  it('has no placeholder entries in the user menu', async () => {
+    await renderToolbar();
+
+    await fireEvent.click(screen.getByRole('button', { name: /user menu/i }));
+
+    await screen.findAllByRole('menuitem');
+    for (const name of ['Profile', 'Documents', 'Settings']) {
+      expect(screen.queryByRole('menuitem', { name })).toBeNull();
+    }
+  });
+
   describe('theme switch in the user menu', () => {
     const openUserMenu = () => fireEvent.click(screen.getByRole('button', { name: /user menu/i }));
 

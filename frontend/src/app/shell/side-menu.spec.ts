@@ -21,14 +21,16 @@ describe('SideMenu', () => {
     expect(screen.queryByTestId('scrim')).toBeNull();
   });
 
-  it('shows the placeholder entries while open', async () => {
+  it('shows only the entries that lead somewhere while open', async () => {
     await setup(true);
 
     const nav = screen.getByRole('navigation', { name: /main menu/i });
 
-    for (const name of ['Home', 'Documents', 'Shared', 'Settings']) {
+    for (const name of ['Home', 'Documents', 'Users', 'Clients']) {
       expect(nav.textContent).toContain(name);
     }
+    expect(screen.queryByRole('button', { name: 'Shared' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull();
   });
 
   it('has a Users entry linking to /users', async () => {
@@ -81,7 +83,7 @@ describe('SideMenu', () => {
   it('emits closed when an entry is clicked', async () => {
     const { closed } = await setup(true);
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Shared' }));
+    await fireEvent.click(screen.getByRole('link', { name: 'Documents' }));
 
     expect(closed).toHaveBeenCalledTimes(1);
   });
