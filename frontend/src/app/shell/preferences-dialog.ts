@@ -16,7 +16,7 @@ import { LocaleService } from '../i18n/locale.service';
 import { UploadStore } from '../uploads/upload-store';
 import { LanguageSwitchDialog } from './language-switch-dialog';
 
-/** The user's preferences; for now only the language, saved as soon as it is picked. */
+/** The user's preferences; for now only the language, applied when the user presses Accept. */
 @Component({
   selector: 'dms-preferences-dialog',
   imports: [
@@ -41,14 +41,20 @@ export class PreferencesDialog {
   protected readonly language = computed(
     () => this.auth.currentUser()?.language ?? this.locale.current,
   );
-  // What the select shows: the pick while it is being confirmed, otherwise the saved language.
+  // What the select shows: the pick, otherwise the saved language.
   private readonly picked = signal<Language | null>(null);
   protected readonly shown = computed(() => this.picked() ?? this.language());
   protected readonly failed = signal(false);
+  protected readonly changed = computed(() => this.shown() !== this.language());
 
-  protected async save(language: Language): Promise<void> {
+  protected pick(language: Language): void {
     this.failed.set(false);
     this.picked.set(language);
+  }
+
+  protected async accept(): Promise<void> {
+    const language = this.shown();
+    this.failed.set(false);
     // The switch reloads the page, which cancels the uploads in progress: ask first.
     if (this.locale.wouldReload(language) && this.uploads.activeCount() > 0) {
       const confirmed = await firstValueFrom(
@@ -62,6 +68,7 @@ export class PreferencesDialog {
     try {
       await this.auth.setLanguage(language);
       this.locale.switchTo(language);
+      this.ref.close();
     } catch {
       this.picked.set(null);
       this.failed.set(true);
