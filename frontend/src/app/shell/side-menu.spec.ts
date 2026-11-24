@@ -89,6 +89,15 @@ describe('SideMenu', () => {
   });
 });
 
+describe('SideMenu position', () => {
+  it('starts right under the 3rem toolbar, scrim included', async () => {
+    await setup(true);
+
+    expect(screen.getByRole('navigation').className).toContain('top-12');
+    expect(screen.getByTestId('scrim').className).toContain('top-12');
+  });
+});
+
 describe('SideMenu icons', () => {
   it.each([
     ['Home', 'home'],

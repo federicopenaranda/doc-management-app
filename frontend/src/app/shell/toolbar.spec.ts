@@ -106,6 +106,15 @@ describe('Toolbar', () => {
     expect(create.textContent?.replace(/\s/g, '').replace('add', '')).toBe('');
   });
 
+  it('is 3rem tall with its items centered vertically', async () => {
+    await renderToolbar();
+
+    const header = screen.getByRole('banner');
+
+    expect(header.className).toContain('h-12');
+    expect(header.className).toContain('items-center');
+  });
+
   it('lets the user pick which type of entity to create', async () => {
     await renderToolbar();
 
